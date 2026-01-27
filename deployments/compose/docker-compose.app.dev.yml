@@ -1,0 +1,20 @@
+services:
+  demo-go-api:
+    build:
+      # Build from the Go module root so Dockerfile.dev can COPY go.mod/go.sum.
+      context: ../../demo-go
+      dockerfile: cmd/api/Dockerfile.dev
+    environment:
+      - HTTP_PORT=8080
+      - SERVICE_NAME=dag-observatory-demo-go
+      - ENV=dev
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../../demo-go:/app
+    depends_on:
+      - otel-collector
+      - loki
+    networks:
+      - default

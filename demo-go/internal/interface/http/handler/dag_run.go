@@ -3,7 +3,7 @@ package handler
 import (
 	"time"
 
-	"dag-observatory/demo-go/internal/infrastructure/observability/intentlog"
+	"dag-observatory/demo-go/internal/domain/observability/semantics"
 
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel/attribute"
@@ -34,9 +34,11 @@ func (h *Handlers) DagRun(c echo.Context) error {
 	)
 	defer span.End()
 
+	runID := "demo-" + time.Now().UTC().Format("20060102T150405Z")
+
 	// 意図ログ：DAG開始
-	h.intentLog.DAGRunStarted(ctx, intentlog.DAGRunEvent{
-		DAGRunID: "demo-" + time.Now().UTC().Format("20060102T150405Z"),
+	h.intentLog.DAGRunStarted(ctx, semantics.DAGRunStarted{
+		DAGRunID: runID,
 		Symbol:   req.Symbol,
 	})
 
@@ -48,9 +50,10 @@ func (h *Handlers) DagRun(c echo.Context) error {
 	h.metrics.DAGRunLatency.Record(ctx, float64(time.Since(start).Milliseconds()))
 
 	// 意図ログ：DAG終了
-	h.intentLog.DAGRunFinished(ctx, intentlog.DAGRunEvent{
-		DAGRunID: "demo-" + time.Now().UTC().Format("20060102T150405Z"),
-		Symbol:   req.Symbol,
+	h.intentLog.DAGRunFinished(ctx, semantics.DAGRunFinished{
+		DAGRunID:   runID,
+		Status:     "ok",
+		DurationMS: time.Since(start).Milliseconds(),
 	})
 
 	return c.JSON(200, map[string]any{

@@ -1,6 +1,7 @@
 package di
 
 import (
+	"dag-observatory/demo-go/internal/infrastructure/observability/applog"
 	"dag-observatory/demo-go/internal/infrastructure/observability/otelecho"
 	httpif "dag-observatory/demo-go/internal/interface/http"
 
@@ -13,8 +14,11 @@ func NewEchoContainer(cfg Config, otelc *OTelContainer) (*echo.Echo, error) {
 	// OTel middleware (trace context)
 	e.Use(otelecho.Middleware(otelc.Tracer))
 
+	appLog := applog.New()
+
 	httpif.RegisterRoutes(e, httpif.Dependencies{
 		IntentLog: otelc.IntentLog,
+		AppLog:    appLog,
 		Tracer:    otelc.Tracer,
 		Metrics:   otelc.Metrics,
 	})

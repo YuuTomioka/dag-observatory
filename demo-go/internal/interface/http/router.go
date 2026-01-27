@@ -2,8 +2,9 @@ package http
 
 import (
 	"dag-observatory/demo-go/internal/application/port"
-	"dag-observatory/demo-go/internal/interface/http/handler"
+	"dag-observatory/demo-go/internal/infrastructure/observability/applog"
 	"dag-observatory/demo-go/internal/infrastructure/observability/metrics"
+	"dag-observatory/demo-go/internal/interface/http/handler"
 
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel/trace"
@@ -11,6 +12,7 @@ import (
 
 type Dependencies struct {
 	IntentLog port.IntentLog
+	AppLog    *applog.Logger
 	Tracer    trace.Tracer
 	Metrics   *metrics.Instruments
 }
@@ -18,6 +20,7 @@ type Dependencies struct {
 func RegisterRoutes(e *echo.Echo, d Dependencies) {
 	h := handler.New(handler.Dependencies{
 		IntentLog: d.IntentLog,
+		AppLog:    d.AppLog,
 		Tracer:    d.Tracer,
 		Metrics:   d.Metrics,
 	})

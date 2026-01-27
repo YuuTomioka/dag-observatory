@@ -16,6 +16,16 @@ scrape_configs:
           job: docker
           env: dev
           __path__: /var/lib/docker/containers/*/*-json.log
+    pipeline_stages:
+      - docker: {}
+      - json:
+          expressions:
+            trace_id:
+            span_id:
+            dag_run_id: dag.run_id
+            event:
+            level:
+            msg:
     relabel_configs:
       - source_labels: [job]
         target_label: service

@@ -14,4 +14,14 @@ scrape_configs:
       - targets: [localhost]
         labels:
           job: docker
+          env: dev
           __path__: /var/lib/docker/containers/*/*-json.log
+    relabel_configs:
+      - source_labels: [job]
+        target_label: service
+      - source_labels: [job]
+        target_label: app
+      - source_labels: [__path__]
+        target_label: instance
+        regex: ".*/([0-9a-f]{12})[0-9a-f]*-json\\.log"
+        replacement: "$1"

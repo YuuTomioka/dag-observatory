@@ -6,10 +6,34 @@ receivers:
 
 processors:
   batch:
+  resource/loki_labels:
+    attributes:
+      - action: upsert
+        key: service
+        from_attribute: service.name
+      - action: upsert
+        key: env
+        from_attribute: deployment.environment
+      - action: upsert
+        key: instance
+        from_attribute: service.instance.id
+      - action: upsert
+        key: job
+        from_attribute: service.name
+      - action: upsert
+        key: app
+        from_attribute: service.name
 
 exporters:
   loki:
     endpoint: http://loki:3100/loki/api/v1/push
+    labels:
+      resource:
+        - service
+        - env
+        - app
+        - instance
+        - job
 
   # 初期コミットでは traces/metrics は “捨てない”ために logging exporter を暫定で入れておく
   # 後で Tempo/Prometheus に差し替える
@@ -20,7 +44,7 @@ service:
   pipelines:
     logs:
       receivers: [otlp]
-      processors: [batch]
+      processors: [resource/loki_labels, batch]
       exporters: [loki]
     traces:
       receivers: [otlp]

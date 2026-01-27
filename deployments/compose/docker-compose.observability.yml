@@ -18,7 +18,7 @@ services:
       - loki
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.103.0
+    image: otel/opentelemetry-collector-contrib:0.110.0
     command: ["--config=/etc/otelcol/otel-collector.yaml"]
     ports:
       - "4317:4317"   # OTLP gRPC
@@ -37,7 +37,7 @@ services:
       - "3200:3200"  # Tempo HTTP
     volumes:
       - ../tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
-      - ../tempo/data:/var/tempo
+      - tempo-data:/var/tempo
 
   grafana:
     image: grafana/grafana:10.4.5
@@ -52,3 +52,6 @@ services:
     depends_on:
       - loki
       - tempo
+
+volumes:
+  tempo-data:

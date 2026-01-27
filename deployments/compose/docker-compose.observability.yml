@@ -28,6 +28,16 @@ services:
       - ../otel-collector/otel-collector.yaml:/etc/otelcol/otel-collector.yaml:ro
     depends_on:
       - loki
+      - tempo
+
+  tempo:
+    image: grafana/tempo:2.5.0
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    ports:
+      - "3200:3200"  # Tempo HTTP
+    volumes:
+      - ../tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - ../tempo/data:/var/tempo
 
   grafana:
     image: grafana/grafana:10.4.5
@@ -41,3 +51,4 @@ services:
       - ../grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
     depends_on:
       - loki
+      - tempo

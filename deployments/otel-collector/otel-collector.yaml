@@ -34,9 +34,13 @@ exporters:
         - app
         - instance
         - job
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
 
-  # 初期コミットでは traces/metrics は “捨てない”ために logging exporter を暫定で入れておく
-  # 後で Tempo/Prometheus に差し替える
+  # metrics は “捨てない”ために logging exporter を暫定で入れておく
+  # 後で Prometheus に差し替える
   logging:
     verbosity: basic
 
@@ -49,7 +53,7 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [logging]
+      exporters: [otlp/tempo]
     metrics:
       receivers: [otlp]
       processors: [batch]

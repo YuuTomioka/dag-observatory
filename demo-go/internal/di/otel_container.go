@@ -9,6 +9,7 @@ import (
 	"dag-observatory/demo-go/internal/infrastructure/observability/otelcore"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/log"
 	otellog "go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
@@ -20,6 +21,7 @@ type OTelContainer struct {
 	IntentLog port.IntentLog
 	Tracer    trace.Tracer
 	Meter     metric.Meter
+	AppLogger log.Logger
 
 	Metrics *metrics.Instruments
 }
@@ -51,6 +53,7 @@ func NewOTelContainer(cfg Config) (*OTelContainer, error) {
 
 	tr := otel.Tracer(cfg.ServiceName)
 	m := otel.Meter(cfg.ServiceName)
+	appLogger := otellog.Logger(cfg.ServiceName)
 
 	inst, err := metrics.NewInstruments(m)
 	if err != nil {
@@ -64,6 +67,7 @@ func NewOTelContainer(cfg Config) (*OTelContainer, error) {
 		IntentLog: il,
 		Tracer:    tr,
 		Meter:     m,
+		AppLogger: appLogger,
 		Metrics:   inst,
 	}, nil
 }

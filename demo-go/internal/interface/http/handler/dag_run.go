@@ -46,6 +46,10 @@ func (h *Handlers) DagRun(c echo.Context) error {
 
 	start := time.Now()
 	inputSize := int64(len(req.Symbol))
+	baseAttrs := []attribute.KeyValue{
+		attribute.String("symbol", req.Symbol),
+		attribute.String("mode", mode),
+	}
 
 	h.appLog.Info(ctx, "dag run accepted",
 		slog.String("symbol", req.Symbol),
@@ -69,8 +73,13 @@ func (h *Handlers) DagRun(c echo.Context) error {
 	nodeStart := time.Now()
 
 	queueWaitMS := int64(15)
+	nodeBaseAttrs := []attribute.KeyValue{
+		attribute.String("dag.node_id", nodeID),
+		attribute.String("mode", mode),
+	}
 
 	if mode == "skip" {
+		nodeAttrs := append(nodeBaseAttrs, attribute.String("status", "skipped"))
 		h.intentLog.DAGNodeStateChanged(ctx, semantics.DAGNodeStateChanged{
 			DAGRunID:    runID,
 			DAGNodeID:   nodeID,
@@ -83,6 +92,8 @@ func (h *Handlers) DagRun(c echo.Context) error {
 			DAGNodeID: nodeID,
 			Reason:    "filtered",
 		})
+		h.metrics.DAGNodeCounter.Add(ctx, 1, nodeAttrs...)
+		h.metrics.DAGNodeQueueWait.Record(ctx, queueWaitMS, nodeAttrs...)
 	} else {
 		h.intentLog.DAGNodeStateChanged(ctx, semantics.DAGNodeStateChanged{
 			DAGRunID:    runID,
@@ -100,8 +111,10 @@ func (h *Handlers) DagRun(c echo.Context) error {
 		time.Sleep(120 * time.Millisecond)
 
 		nodeDuration := time.Since(nodeStart).Milliseconds()
+		h.metrics.DAGNodeQueueWait.Record(ctx, queueWaitMS, nodeBaseAttrs...)
 		switch mode {
 		case "timeout":
+			nodeAttrs := append(nodeBaseAttrs, attribute.String("status", "timeout"))
 			h.intentLog.DAGNodeStateChanged(ctx, semantics.DAGNodeStateChanged{
 				DAGRunID:   runID,
 				DAGNodeID:  nodeID,
@@ -114,7 +127,10 @@ func (h *Handlers) DagRun(c echo.Context) error {
 				DAGNodeID:  nodeID,
 				DurationMS: nodeDuration,
 			})
+			h.metrics.DAGNodeCounter.Add(ctx, 1, nodeAttrs...)
+			h.metrics.DAGNodeLatency.Record(ctx, float64(nodeDuration), nodeAttrs...)
 		case "fail":
+			nodeAttrs := append(nodeBaseAttrs, attribute.String("status", "failed"))
 			h.intentLog.DAGNodeStateChanged(ctx, semantics.DAGNodeStateChanged{
 				DAGRunID:   runID,
 				DAGNodeID:  nodeID,
@@ -129,7 +145,10 @@ func (h *Handlers) DagRun(c echo.Context) error {
 				ErrorMsg:   "node execution failed",
 				DurationMS: nodeDuration,
 			})
+			h.metrics.DAGNodeCounter.Add(ctx, 1, nodeAttrs...)
+			h.metrics.DAGNodeLatency.Record(ctx, float64(nodeDuration), nodeAttrs...)
 		default:
+			nodeAttrs := append(nodeBaseAttrs, attribute.String("status", "succeeded"))
 			h.intentLog.DAGNodeStateChanged(ctx, semantics.DAGNodeStateChanged{
 				DAGRunID:   runID,
 				DAGNodeID:  nodeID,
@@ -143,16 +162,17 @@ func (h *Handlers) DagRun(c echo.Context) error {
 				Status:     "succeeded",
 				DurationMS: nodeDuration,
 			})
+			h.metrics.DAGNodeCounter.Add(ctx, 1, nodeAttrs...)
+			h.metrics.DAGNodeLatency.Record(ctx, float64(nodeDuration), nodeAttrs...)
 		}
 	}
 
 	// metrics
-	h.metrics.DAGRunCounter.Add(ctx, 1)
-	h.metrics.DAGRunLatency.Record(ctx, float64(time.Since(start).Milliseconds()))
-
 	runDuration := time.Since(start).Milliseconds()
+
 	switch mode {
 	case "timeout":
+		runAttrs := append(baseAttrs, attribute.String("status", "failed"))
 		h.intentLog.DAGRunStateChanged(ctx, semantics.DAGRunStateChanged{
 			DAGRunID:   runID,
 			FromState:  "running",
@@ -168,7 +188,10 @@ func (h *Handlers) DagRun(c echo.Context) error {
 		h.appLog.Error(ctx, "dag run failed",
 			slog.String("reason", "timeout"),
 		)
+		h.metrics.DAGRunCounter.Add(ctx, 1, runAttrs...)
+		h.metrics.DAGRunLatency.Record(ctx, float64(runDuration), runAttrs...)
 	case "fail":
+		runAttrs := append(baseAttrs, attribute.String("status", "failed"))
 		h.intentLog.DAGRunStateChanged(ctx, semantics.DAGRunStateChanged{
 			DAGRunID:   runID,
 			FromState:  "running",
@@ -184,7 +207,10 @@ func (h *Handlers) DagRun(c echo.Context) error {
 		h.appLog.Error(ctx, "dag run failed",
 			slog.String("reason", "failed"),
 		)
+		h.metrics.DAGRunCounter.Add(ctx, 1, runAttrs...)
+		h.metrics.DAGRunLatency.Record(ctx, float64(runDuration), runAttrs...)
 	default:
+		runAttrs := append(baseAttrs, attribute.String("status", "succeeded"))
 		h.intentLog.DAGRunStateChanged(ctx, semantics.DAGRunStateChanged{
 			DAGRunID:   runID,
 			FromState:  "running",
@@ -199,6 +225,8 @@ func (h *Handlers) DagRun(c echo.Context) error {
 		h.appLog.Info(ctx, "dag run finished",
 			slog.String("status", "succeeded"),
 		)
+		h.metrics.DAGRunCounter.Add(ctx, 1, runAttrs...)
+		h.metrics.DAGRunLatency.Record(ctx, float64(runDuration), runAttrs...)
 	}
 
 	return c.JSON(200, map[string]any{

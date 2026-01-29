@@ -12,9 +12,9 @@ func NewEchoContainer(cfg Config, otelc *OTelContainer) (*echo.Echo, error) {
 	e := echo.New()
 
 	// OTel middleware (trace context)
-	e.Use(otelecho.Middleware(otelc.Tracer))
+	e.Use(otelecho.Middleware(otelc.Tracer, otelc.Metrics))
 
-	appLog := applog.New()
+	appLog := applog.New(cfg.AppLogLevel, cfg.AppLogOutput, otelc.AppLogger)
 
 	httpif.RegisterRoutes(e, httpif.Dependencies{
 		IntentLog: otelc.IntentLog,

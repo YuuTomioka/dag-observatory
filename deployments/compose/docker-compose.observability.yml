@@ -24,6 +24,7 @@ services:
       - "4317:4317"   # OTLP gRPC
       - "4318:4318"   # OTLP HTTP
       - "8889:8889"   # Prometheus metrics scrape (collector自身のメトリクスなど)
+      - "9464:9464"   # Prometheus metrics scrape (アプリのOTelメトリクス)
     volumes:
       - ../otel-collector/otel-collector.yaml:/etc/otelcol/otel-collector.yaml:ro
     depends_on:
@@ -52,6 +53,16 @@ services:
     depends_on:
       - loki
       - tempo
+
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    command: ["--config.file=/etc/prometheus/prometheus.yaml"]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../prometheus/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+    depends_on:
+      - otel-collector
 
 volumes:
   tempo-data:

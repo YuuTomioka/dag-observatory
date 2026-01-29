@@ -40,10 +40,8 @@ exporters:
     tls:
       insecure: true
 
-  # metrics は “捨てない”ために logging exporter を暫定で入れておく
-  # 後で Prometheus に差し替える
-  logging:
-    verbosity: basic
+  prometheus:
+    endpoint: 0.0.0.0:9464
 
 service:
   pipelines:
@@ -58,4 +56,4 @@ service:
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [logging]
+      exporters: [prometheus]

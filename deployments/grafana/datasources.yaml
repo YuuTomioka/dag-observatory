@@ -19,3 +19,9 @@ datasources:
     access: proxy
     url: http://tempo:3200
     uid: tempo
+
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    uid: prometheus

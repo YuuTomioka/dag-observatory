@@ -2,6 +2,7 @@ package handler
 
 import (
 	"log/slog"
+	"net/http"
 	"time"
 
 	"dag-observatory/demo-go/internal/domain/observability/ctxprop"
@@ -10,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -22,7 +24,17 @@ func (h *Handlers) DagRun(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	var req dagRunReq
-	_ = c.Bind(&req)
+	if err := c.Bind(&req); err != nil {
+		h.appLog.Warn(ctx, "dag run request bind failed",
+			slog.String("error", err.Error()),
+		)
+		span := trace.SpanFromContext(ctx)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "invalid request")
+		return c.JSON(http.StatusBadRequest, map[string]any{
+			"error": "invalid request",
+		})
+	}
 	if req.Symbol == "" {
 		req.Symbol = "USDJPY"
 	}
@@ -172,6 +184,8 @@ func (h *Handlers) DagRun(c echo.Context) error {
 
 	switch mode {
 	case "timeout":
+		span := trace.SpanFromContext(ctx)
+		span.SetStatus(codes.Error, "timeout")
 		runAttrs := append(baseAttrs, attribute.String("status", "failed"))
 		h.intentLog.DAGRunStateChanged(ctx, semantics.DAGRunStateChanged{
 			DAGRunID:   runID,
@@ -191,6 +205,8 @@ func (h *Handlers) DagRun(c echo.Context) error {
 		h.metrics.DAGRunCounter.Add(ctx, 1, runAttrs...)
 		h.metrics.DAGRunLatency.Record(ctx, float64(runDuration), runAttrs...)
 	case "fail":
+		span := trace.SpanFromContext(ctx)
+		span.SetStatus(codes.Error, "failed")
 		runAttrs := append(baseAttrs, attribute.String("status", "failed"))
 		h.intentLog.DAGRunStateChanged(ctx, semantics.DAGRunStateChanged{
 			DAGRunID:   runID,
@@ -210,6 +226,8 @@ func (h *Handlers) DagRun(c echo.Context) error {
 		h.metrics.DAGRunCounter.Add(ctx, 1, runAttrs...)
 		h.metrics.DAGRunLatency.Record(ctx, float64(runDuration), runAttrs...)
 	default:
+		span := trace.SpanFromContext(ctx)
+		span.SetStatus(codes.Ok, "succeeded")
 		runAttrs := append(baseAttrs, attribute.String("status", "succeeded"))
 		h.intentLog.DAGRunStateChanged(ctx, semantics.DAGRunStateChanged{
 			DAGRunID:   runID,

@@ -2,27 +2,44 @@ package intentlog
 
 import (
 	"context"
-	"fmt"
+	"log/slog"
+	"os"
+	"strings"
 	"time"
 
+	"dag-observatory/demo-go/internal/domain/observability/ctxprop"
 	"dag-observatory/demo-go/internal/domain/observability/semantics"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/log"
+	"go.opentelemetry.io/otel/metric"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/trace"
 )
 
 type Logger struct {
-	lp          *sdklog.LoggerProvider
-	serviceName string
+	lp             *sdklog.LoggerProvider
+	serviceName    string
+	invalidCounter metric.Int64Counter
+	summaryLog     *slog.Logger
 }
 
-func New(lp *sdklog.LoggerProvider, serviceName string) *Logger {
-	return &Logger{lp: lp, serviceName: serviceName}
+func New(lp *sdklog.LoggerProvider, serviceName string, invalidCounter metric.Int64Counter) *Logger {
+	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	})
+	return &Logger{
+		lp:             lp,
+		serviceName:    serviceName,
+		invalidCounter: invalidCounter,
+		summaryLog:     slog.New(handler),
+	}
 }
 
 func (l *Logger) ClockTickReceived(ctx context.Context, e semantics.ClockTickReceived) {
-	requireValid(semantics.EventClockTickReceived, e.Validate())
+	if !l.valid(ctx, semantics.EventClockTickReceived, e.Validate()) {
+		return
+	}
 	l.emit(ctx, semantics.EventClockTickReceived, log.SeverityInfo,
 		log.String(semantics.KeyClockUTC, e.ClockUTC.UTC().Format(time.RFC3339Nano)),
 		log.String(semantics.KeySymbol, e.Symbol),
@@ -30,7 +47,9 @@ func (l *Logger) ClockTickReceived(ctx context.Context, e semantics.ClockTickRec
 }
 
 func (l *Logger) DAGRunStarted(ctx context.Context, e semantics.DAGRunStarted) {
-	requireValid(semantics.EventDAGRunStarted, e.Validate())
+	if !l.valid(ctx, semantics.EventDAGRunStarted, e.Validate()) {
+		return
+	}
 	attrs := []log.KeyValue{
 		log.String(semantics.KeyDAGRunID, e.DAGRunID),
 		log.String(semantics.KeySymbol, e.Symbol),
@@ -42,7 +61,9 @@ func (l *Logger) DAGRunStarted(ctx context.Context, e semantics.DAGRunStarted) {
 }
 
 func (l *Logger) DAGRunFinished(ctx context.Context, e semantics.DAGRunFinished) {
-	requireValid(semantics.EventDAGRunFinished, e.Validate())
+	if !l.valid(ctx, semantics.EventDAGRunFinished, e.Validate()) {
+		return
+	}
 	attrs := []log.KeyValue{
 		log.String(semantics.KeyDAGRunID, e.DAGRunID),
 		log.String(semantics.KeyStatus, e.Status),
@@ -55,7 +76,9 @@ func (l *Logger) DAGRunFinished(ctx context.Context, e semantics.DAGRunFinished)
 }
 
 func (l *Logger) DAGRunFailed(ctx context.Context, e semantics.DAGRunFailed) {
-	requireValid(semantics.EventDAGRunFailed, e.Validate())
+	if !l.valid(ctx, semantics.EventDAGRunFailed, e.Validate()) {
+		return
+	}
 	attrs := []log.KeyValue{
 		log.String(semantics.KeyDAGRunID, e.DAGRunID),
 		log.String(semantics.KeyErrorType, e.ErrorType),
@@ -69,7 +92,9 @@ func (l *Logger) DAGRunFailed(ctx context.Context, e semantics.DAGRunFailed) {
 }
 
 func (l *Logger) DAGRunStateChanged(ctx context.Context, e semantics.DAGRunStateChanged) {
-	requireValid(semantics.EventDAGRunStateChanged, e.Validate())
+	if !l.valid(ctx, semantics.EventDAGRunStateChanged, e.Validate()) {
+		return
+	}
 	attrs := []log.KeyValue{
 		log.String(semantics.KeyDAGRunID, e.DAGRunID),
 		log.String(semantics.KeyFromState, e.FromState),
@@ -82,7 +107,9 @@ func (l *Logger) DAGRunStateChanged(ctx context.Context, e semantics.DAGRunState
 }
 
 func (l *Logger) DAGNodeStarted(ctx context.Context, e semantics.DAGNodeStarted) {
-	requireValid(semantics.EventDAGNodeStarted, e.Validate())
+	if !l.valid(ctx, semantics.EventDAGNodeStarted, e.Validate()) {
+		return
+	}
 	attrs := []log.KeyValue{
 		log.String(semantics.KeyDAGRunID, e.DAGRunID),
 		log.String(semantics.KeyDAGNodeID, e.DAGNodeID),
@@ -92,7 +119,9 @@ func (l *Logger) DAGNodeStarted(ctx context.Context, e semantics.DAGNodeStarted)
 }
 
 func (l *Logger) DAGNodeFinished(ctx context.Context, e semantics.DAGNodeFinished) {
-	requireValid(semantics.EventDAGNodeFinished, e.Validate())
+	if !l.valid(ctx, semantics.EventDAGNodeFinished, e.Validate()) {
+		return
+	}
 	attrs := []log.KeyValue{
 		log.String(semantics.KeyDAGRunID, e.DAGRunID),
 		log.String(semantics.KeyDAGNodeID, e.DAGNodeID),
@@ -107,7 +136,9 @@ func (l *Logger) DAGNodeFinished(ctx context.Context, e semantics.DAGNodeFinishe
 }
 
 func (l *Logger) DAGNodeFailed(ctx context.Context, e semantics.DAGNodeFailed) {
-	requireValid(semantics.EventDAGNodeFailed, e.Validate())
+	if !l.valid(ctx, semantics.EventDAGNodeFailed, e.Validate()) {
+		return
+	}
 	attrs := []log.KeyValue{
 		log.String(semantics.KeyDAGRunID, e.DAGRunID),
 		log.String(semantics.KeyDAGNodeID, e.DAGNodeID),
@@ -123,7 +154,9 @@ func (l *Logger) DAGNodeFailed(ctx context.Context, e semantics.DAGNodeFailed) {
 }
 
 func (l *Logger) DAGNodeTimeout(ctx context.Context, e semantics.DAGNodeTimeout) {
-	requireValid(semantics.EventDAGNodeTimeout, e.Validate())
+	if !l.valid(ctx, semantics.EventDAGNodeTimeout, e.Validate()) {
+		return
+	}
 	attrs := []log.KeyValue{
 		log.String(semantics.KeyDAGRunID, e.DAGRunID),
 		log.String(semantics.KeyDAGNodeID, e.DAGNodeID),
@@ -137,7 +170,9 @@ func (l *Logger) DAGNodeTimeout(ctx context.Context, e semantics.DAGNodeTimeout)
 }
 
 func (l *Logger) DAGNodeSkipped(ctx context.Context, e semantics.DAGNodeSkipped) {
-	requireValid(semantics.EventDAGNodeSkipped, e.Validate())
+	if !l.valid(ctx, semantics.EventDAGNodeSkipped, e.Validate()) {
+		return
+	}
 	attrs := []log.KeyValue{
 		log.String(semantics.KeyDAGRunID, e.DAGRunID),
 		log.String(semantics.KeyDAGNodeID, e.DAGNodeID),
@@ -148,7 +183,9 @@ func (l *Logger) DAGNodeSkipped(ctx context.Context, e semantics.DAGNodeSkipped)
 }
 
 func (l *Logger) DAGNodeStateChanged(ctx context.Context, e semantics.DAGNodeStateChanged) {
-	requireValid(semantics.EventDAGNodeStateChanged, e.Validate())
+	if !l.valid(ctx, semantics.EventDAGNodeStateChanged, e.Validate()) {
+		return
+	}
 	attrs := []log.KeyValue{
 		log.String(semantics.KeyDAGRunID, e.DAGRunID),
 		log.String(semantics.KeyDAGNodeID, e.DAGNodeID),
@@ -189,11 +226,44 @@ func addTraceCorrelation(record *log.Record, ctx context.Context) {
 	)
 }
 
-func requireValid(eventName string, err error) {
+func (l *Logger) valid(ctx context.Context, eventName string, err error) bool {
 	if err == nil {
-		return
+		return true
 	}
-	panic(fmt.Sprintf("intentlog: invalid %s: %v", eventName, err))
+	l.emitInvalid(ctx, eventName, err)
+	return false
+}
+
+func (l *Logger) emitInvalid(ctx context.Context, eventName string, err error) {
+	logger := l.lp.Logger(l.serviceName)
+	var record log.Record
+	record.SetEventName("intentlog.invalid")
+	record.SetBody(log.StringValue("intentlog.invalid"))
+	record.SetSeverity(log.SeverityWarn)
+	record.SetSeverityText(log.SeverityWarn.String())
+	errorMessage, errorDetail := summarizeError(err.Error(), 200)
+	record.AddAttributes(
+		log.String("event.name", "intentlog.invalid"),
+		log.String(semantics.KeyEvent, eventName),
+		log.String("invalid.reason", "schema_mismatch"),
+		log.String(semantics.KeyErrorType, "intent/schema_mismatch"),
+		log.String("error.message", errorMessage),
+	)
+	if errorDetail != "" {
+		record.AddAttributes(log.String("error.detail", errorDetail))
+	}
+	if runID, ok := ctxprop.RunID(ctx); ok {
+		record.AddAttributes(log.String(semantics.KeyDAGRunID, runID))
+	}
+	addTraceCorrelation(&record, ctx)
+	logger.Emit(ctx, record)
+	if l.invalidCounter != nil {
+		l.invalidCounter.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("invalid.reason", "schema_mismatch"),
+			attribute.String(semantics.KeyEvent, eventName),
+		))
+	}
+	l.emitInvalidSummary(ctx, eventName, errorMessage)
 }
 
 func appendParentAttrs(attrs []log.KeyValue, parentID string, parentIDs []string) []log.KeyValue {
@@ -213,4 +283,40 @@ func appendParentAttrs(attrs []log.KeyValue, parentID string, parentIDs []string
 		}
 	}
 	return attrs
+}
+
+func (l *Logger) emitInvalidSummary(ctx context.Context, eventName, errorMessage string) {
+	if l.summaryLog == nil {
+		return
+	}
+	attrs := []slog.Attr{
+		slog.String("event.name", "intentlog.invalid"),
+		slog.String(semantics.KeyEvent, eventName),
+		slog.String("invalid.reason", "schema_mismatch"),
+		slog.String("error.message", errorMessage),
+	}
+	if runID, ok := ctxprop.RunID(ctx); ok {
+		attrs = append(attrs, slog.String(semantics.KeyDAGRunID, runID))
+	}
+	attrs = append(attrs, traceAttrs(ctx)...)
+	l.summaryLog.LogAttrs(ctx, slog.LevelWarn, "intentlog.invalid", attrs...)
+}
+
+func summarizeError(message string, max int) (string, string) {
+	trimmed := strings.TrimSpace(message)
+	if max <= 0 || len(trimmed) <= max {
+		return trimmed, ""
+	}
+	return trimmed[:max], trimmed
+}
+
+func traceAttrs(ctx context.Context) []slog.Attr {
+	spanCtx := trace.SpanContextFromContext(ctx)
+	if !spanCtx.IsValid() {
+		return nil
+	}
+	return []slog.Attr{
+		slog.String("trace_id", spanCtx.TraceID().String()),
+		slog.String("span_id", spanCtx.SpanID().String()),
+	}
 }

@@ -60,7 +60,7 @@ func NewOTelContainer(cfg Config) (*OTelContainer, error) {
 		return nil, err
 	}
 
-	il := intentlog.New(core.LoggerProvider, cfg.ServiceName)
+	il := intentlog.New(core.LoggerProvider, cfg.ServiceName, inst.IntentLogInvalidCounter)
 
 	return &OTelContainer{
 		Shutdown:  core.Shutdown,

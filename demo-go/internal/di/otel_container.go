@@ -9,7 +9,9 @@ import (
 	"dag-observatory/demo-go/internal/infrastructure/observability/otelcore"
 
 	"go.opentelemetry.io/otel"
+	otellog "go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -25,6 +27,8 @@ type OTelContainer struct {
 func NewOTelContainer(cfg Config) (*OTelContainer, error) {
 	coreCfg := otelcore.Config{
 		ServiceName:         cfg.ServiceName,
+		ServiceNamespace:    cfg.ServiceNamespace,
+		ServiceVersion:      cfg.ServiceVersion,
 		Environment:         cfg.Env,
 		OTLPEndpoint:        cfg.OTLPEndpoint,
 		OTLPLogsEndpoint:    cfg.OTLPLogsEndpoint,
@@ -39,6 +43,11 @@ func NewOTelContainer(cfg Config) (*OTelContainer, error) {
 
 	otel.SetTracerProvider(core.TracerProvider)
 	otel.SetMeterProvider(core.MeterProvider)
+	otellog.SetLoggerProvider(core.LoggerProvider)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
 
 	tr := otel.Tracer(cfg.ServiceName)
 	m := otel.Meter(cfg.ServiceName)

@@ -11,7 +11,13 @@ import (
 func newResource(cfg Config) (*resource.Resource, error) {
 	attrs := []attribute.KeyValue{
 		semconv.ServiceName(cfg.ServiceName),
-		attribute.String("deployment.environment", cfg.Environment),
+		semconv.DeploymentEnvironmentName(cfg.Environment),
+	}
+	if cfg.ServiceNamespace != "" {
+		attrs = append(attrs, semconv.ServiceNamespace(cfg.ServiceNamespace))
+	}
+	if cfg.ServiceVersion != "" {
+		attrs = append(attrs, semconv.ServiceVersion(cfg.ServiceVersion))
 	}
 	if hostname, err := os.Hostname(); err == nil && hostname != "" {
 		attrs = append(attrs, attribute.String("service.instance.id", hostname))

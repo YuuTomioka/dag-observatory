@@ -7,8 +7,6 @@ import (
 type Instruments struct {
 	DAGRunCounter           metric.Int64Counter
 	DAGRunLatency           metric.Float64Histogram
-	HTTPRequestCounter      metric.Int64Counter
-	HTTPRequestDuration     metric.Float64Histogram
 	DAGNodeCounter          metric.Int64Counter
 	DAGNodeLatency          metric.Float64Histogram
 	DAGNodeQueueWait        metric.Int64Histogram
@@ -21,14 +19,6 @@ func NewInstruments(m metric.Meter) (*Instruments, error) {
 		return nil, err
 	}
 	lat, err := m.Float64Histogram("dag.run.latency_ms")
-	if err != nil {
-		return nil, err
-	}
-	httpCnt, err := m.Int64Counter("http.server.request.count")
-	if err != nil {
-		return nil, err
-	}
-	httpDur, err := m.Float64Histogram("http.server.duration_ms")
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +41,6 @@ func NewInstruments(m metric.Meter) (*Instruments, error) {
 	return &Instruments{
 		DAGRunCounter:           cnt,
 		DAGRunLatency:           lat,
-		HTTPRequestCounter:      httpCnt,
-		HTTPRequestDuration:     httpDur,
 		DAGNodeCounter:          nodeCnt,
 		DAGNodeLatency:          nodeLat,
 		DAGNodeQueueWait:        nodeQueue,

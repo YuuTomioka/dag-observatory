@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
@@ -185,6 +186,11 @@ func (h *Handlers) DagRun(c echo.Context) error {
 	switch mode {
 	case "timeout":
 		span := trace.SpanFromContext(ctx)
+		span.RecordError(errors.New("dag run timeout"))
+		span.SetAttributes(
+			attribute.String("error.type", "demo.timeout"),
+			attribute.String("error.message", "run timed out"),
+		)
 		span.SetStatus(codes.Error, "timeout")
 		runAttrs := append(baseAttrs, attribute.String("status", "failed"))
 		h.intentLog.DAGRunStateChanged(ctx, semantics.DAGRunStateChanged{
@@ -206,6 +212,11 @@ func (h *Handlers) DagRun(c echo.Context) error {
 		h.metrics.DAGRunLatency.Record(ctx, float64(runDuration), runAttrs...)
 	case "fail":
 		span := trace.SpanFromContext(ctx)
+		span.RecordError(errors.New("dag run failed"))
+		span.SetAttributes(
+			attribute.String("error.type", "demo.failed"),
+			attribute.String("error.message", "run failed"),
+		)
 		span.SetStatus(codes.Error, "failed")
 		runAttrs := append(baseAttrs, attribute.String("status", "failed"))
 		h.intentLog.DAGRunStateChanged(ctx, semantics.DAGRunStateChanged{

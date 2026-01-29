@@ -9,6 +9,7 @@ import (
 
 	"dag-observatory/demo-go/internal/domain/observability/ctxprop"
 	"dag-observatory/demo-go/internal/domain/observability/semantics"
+	"dag-observatory/demo-go/internal/infrastructure/observability/applog"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/log"
@@ -23,6 +24,13 @@ type Logger struct {
 	invalidCounter metric.Int64Counter
 	summaryLog     *slog.Logger
 }
+
+const (
+	invalidReasonMissingRequired = "missing_required"
+	invalidReasonTypeMismatch    = "type_mismatch"
+	invalidReasonRangeViolation  = "range_violation"
+	invalidReasonSchemaMismatch  = "schema_mismatch"
+)
 
 func New(lp *sdklog.LoggerProvider, serviceName string, invalidCounter metric.Int64Counter) *Logger {
 	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -235,6 +243,7 @@ func (l *Logger) valid(ctx context.Context, eventName string, err error) bool {
 }
 
 func (l *Logger) emitInvalid(ctx context.Context, eventName string, err error) {
+	reason := classifyInvalidReason(err)
 	logger := l.lp.Logger(l.serviceName)
 	var record log.Record
 	record.SetEventName("intentlog.invalid")
@@ -245,8 +254,8 @@ func (l *Logger) emitInvalid(ctx context.Context, eventName string, err error) {
 	record.AddAttributes(
 		log.String("event.name", "intentlog.invalid"),
 		log.String(semantics.KeyEvent, eventName),
-		log.String("invalid.reason", "schema_mismatch"),
-		log.String(semantics.KeyErrorType, "intent/schema_mismatch"),
+		log.String("invalid.reason", reason),
+		log.String(semantics.KeyErrorType, "intent/"+reason),
 		log.String("error.message", errorMessage),
 	)
 	if errorDetail != "" {
@@ -259,11 +268,11 @@ func (l *Logger) emitInvalid(ctx context.Context, eventName string, err error) {
 	logger.Emit(ctx, record)
 	if l.invalidCounter != nil {
 		l.invalidCounter.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("invalid.reason", "schema_mismatch"),
+			attribute.String("invalid.reason", reason),
 			attribute.String(semantics.KeyEvent, eventName),
 		))
 	}
-	l.emitInvalidSummary(ctx, eventName, errorMessage)
+	l.emitInvalidSummary(ctx, eventName, reason, errorMessage)
 }
 
 func appendParentAttrs(attrs []log.KeyValue, parentID string, parentIDs []string) []log.KeyValue {
@@ -285,14 +294,14 @@ func appendParentAttrs(attrs []log.KeyValue, parentID string, parentIDs []string
 	return attrs
 }
 
-func (l *Logger) emitInvalidSummary(ctx context.Context, eventName, errorMessage string) {
+func (l *Logger) emitInvalidSummary(ctx context.Context, eventName, reason, errorMessage string) {
 	if l.summaryLog == nil {
 		return
 	}
 	attrs := []slog.Attr{
 		slog.String("event.name", "intentlog.invalid"),
 		slog.String(semantics.KeyEvent, eventName),
-		slog.String("invalid.reason", "schema_mismatch"),
+		slog.String("invalid.reason", reason),
 		slog.String("error.message", errorMessage),
 	}
 	if runID, ok := ctxprop.RunID(ctx); ok {
@@ -305,9 +314,9 @@ func (l *Logger) emitInvalidSummary(ctx context.Context, eventName, errorMessage
 func summarizeError(message string, max int) (string, string) {
 	trimmed := strings.TrimSpace(message)
 	if max <= 0 || len(trimmed) <= max {
-		return trimmed, ""
+		return applog.MaskSensitive(trimmed), ""
 	}
-	return trimmed[:max], trimmed
+	return applog.MaskSensitive(trimmed[:max]), applog.MaskSensitive(trimmed)
 }
 
 func traceAttrs(ctx context.Context) []slog.Attr {
@@ -318,5 +327,27 @@ func traceAttrs(ctx context.Context) []slog.Attr {
 	return []slog.Attr{
 		slog.String("trace_id", spanCtx.TraceID().String()),
 		slog.String("span_id", spanCtx.SpanID().String()),
+	}
+}
+
+func classifyInvalidReason(err error) string {
+	if err == nil {
+		return invalidReasonSchemaMismatch
+	}
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "is required"):
+		return invalidReasonMissingRequired
+	case strings.Contains(msg, "must be >="),
+		strings.Contains(msg, "must be <="),
+		strings.Contains(msg, "must be >"),
+		strings.Contains(msg, "must be <"):
+		return invalidReasonRangeViolation
+	case strings.Contains(msg, "invalid"),
+		strings.Contains(msg, "unsupported"),
+		strings.Contains(msg, "type"):
+		return invalidReasonTypeMismatch
+	default:
+		return invalidReasonSchemaMismatch
 	}
 }

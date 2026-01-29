@@ -13,6 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -105,8 +106,8 @@ func (h *Handlers) DagRun(c echo.Context) error {
 			DAGNodeID: nodeID,
 			Reason:    "filtered",
 		})
-		h.metrics.DAGNodeCounter.Add(ctx, 1, nodeAttrs...)
-		h.metrics.DAGNodeQueueWait.Record(ctx, queueWaitMS, nodeAttrs...)
+		h.metrics.DAGNodeCounter.Add(ctx, 1, metric.WithAttributes(nodeAttrs...))
+		h.metrics.DAGNodeQueueWait.Record(ctx, queueWaitMS, metric.WithAttributes(nodeAttrs...))
 	} else {
 		h.intentLog.DAGNodeStateChanged(ctx, semantics.DAGNodeStateChanged{
 			DAGRunID:    runID,
@@ -124,7 +125,7 @@ func (h *Handlers) DagRun(c echo.Context) error {
 		time.Sleep(120 * time.Millisecond)
 
 		nodeDuration := time.Since(nodeStart).Milliseconds()
-		h.metrics.DAGNodeQueueWait.Record(ctx, queueWaitMS, nodeBaseAttrs...)
+		h.metrics.DAGNodeQueueWait.Record(ctx, queueWaitMS, metric.WithAttributes(nodeBaseAttrs...))
 		switch mode {
 		case "timeout":
 			nodeAttrs := append(nodeBaseAttrs, attribute.String("status", "timeout"))
@@ -140,8 +141,8 @@ func (h *Handlers) DagRun(c echo.Context) error {
 				DAGNodeID:  nodeID,
 				DurationMS: nodeDuration,
 			})
-			h.metrics.DAGNodeCounter.Add(ctx, 1, nodeAttrs...)
-			h.metrics.DAGNodeLatency.Record(ctx, float64(nodeDuration), nodeAttrs...)
+			h.metrics.DAGNodeCounter.Add(ctx, 1, metric.WithAttributes(nodeAttrs...))
+			h.metrics.DAGNodeLatency.Record(ctx, float64(nodeDuration), metric.WithAttributes(nodeAttrs...))
 		case "fail":
 			nodeAttrs := append(nodeBaseAttrs, attribute.String("status", "failed"))
 			h.intentLog.DAGNodeStateChanged(ctx, semantics.DAGNodeStateChanged{
@@ -158,8 +159,8 @@ func (h *Handlers) DagRun(c echo.Context) error {
 				ErrorMsg:   "node execution failed",
 				DurationMS: nodeDuration,
 			})
-			h.metrics.DAGNodeCounter.Add(ctx, 1, nodeAttrs...)
-			h.metrics.DAGNodeLatency.Record(ctx, float64(nodeDuration), nodeAttrs...)
+			h.metrics.DAGNodeCounter.Add(ctx, 1, metric.WithAttributes(nodeAttrs...))
+			h.metrics.DAGNodeLatency.Record(ctx, float64(nodeDuration), metric.WithAttributes(nodeAttrs...))
 		default:
 			nodeAttrs := append(nodeBaseAttrs, attribute.String("status", "succeeded"))
 			h.intentLog.DAGNodeStateChanged(ctx, semantics.DAGNodeStateChanged{
@@ -175,8 +176,8 @@ func (h *Handlers) DagRun(c echo.Context) error {
 				Status:     "succeeded",
 				DurationMS: nodeDuration,
 			})
-			h.metrics.DAGNodeCounter.Add(ctx, 1, nodeAttrs...)
-			h.metrics.DAGNodeLatency.Record(ctx, float64(nodeDuration), nodeAttrs...)
+			h.metrics.DAGNodeCounter.Add(ctx, 1, metric.WithAttributes(nodeAttrs...))
+			h.metrics.DAGNodeLatency.Record(ctx, float64(nodeDuration), metric.WithAttributes(nodeAttrs...))
 		}
 	}
 
@@ -208,8 +209,8 @@ func (h *Handlers) DagRun(c echo.Context) error {
 		h.appLog.Error(ctx, "dag run failed",
 			slog.String("reason", "timeout"),
 		)
-		h.metrics.DAGRunCounter.Add(ctx, 1, runAttrs...)
-		h.metrics.DAGRunLatency.Record(ctx, float64(runDuration), runAttrs...)
+		h.metrics.DAGRunCounter.Add(ctx, 1, metric.WithAttributes(runAttrs...))
+		h.metrics.DAGRunLatency.Record(ctx, float64(runDuration), metric.WithAttributes(runAttrs...))
 	case "fail":
 		span := trace.SpanFromContext(ctx)
 		span.RecordError(errors.New("dag run failed"))
@@ -234,8 +235,8 @@ func (h *Handlers) DagRun(c echo.Context) error {
 		h.appLog.Error(ctx, "dag run failed",
 			slog.String("reason", "failed"),
 		)
-		h.metrics.DAGRunCounter.Add(ctx, 1, runAttrs...)
-		h.metrics.DAGRunLatency.Record(ctx, float64(runDuration), runAttrs...)
+		h.metrics.DAGRunCounter.Add(ctx, 1, metric.WithAttributes(runAttrs...))
+		h.metrics.DAGRunLatency.Record(ctx, float64(runDuration), metric.WithAttributes(runAttrs...))
 	default:
 		span := trace.SpanFromContext(ctx)
 		span.SetStatus(codes.Ok, "succeeded")
@@ -254,8 +255,8 @@ func (h *Handlers) DagRun(c echo.Context) error {
 		h.appLog.Info(ctx, "dag run finished",
 			slog.String("status", "succeeded"),
 		)
-		h.metrics.DAGRunCounter.Add(ctx, 1, runAttrs...)
-		h.metrics.DAGRunLatency.Record(ctx, float64(runDuration), runAttrs...)
+		h.metrics.DAGRunCounter.Add(ctx, 1, metric.WithAttributes(runAttrs...))
+		h.metrics.DAGRunLatency.Record(ctx, float64(runDuration), metric.WithAttributes(runAttrs...))
 	}
 
 	return c.JSON(200, map[string]any{

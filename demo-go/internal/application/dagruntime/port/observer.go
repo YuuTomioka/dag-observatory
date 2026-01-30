@@ -25,6 +25,7 @@ type CycleResult struct {
 	Event        events.Event
 	Duration     time.Duration
 	Err          error
+	StateHash    string
 }
 
 type NodeInfo struct {

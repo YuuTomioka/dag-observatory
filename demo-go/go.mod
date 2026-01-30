@@ -7,6 +7,7 @@ toolchain go1.24.12
 require (
 	github.com/google/uuid v1.6.0
 	github.com/labstack/echo/v4 v4.13.4
+	go.etcd.io/bbolt v1.4.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho v0.64.0
 	go.opentelemetry.io/otel v1.39.0
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.15.0

@@ -26,6 +26,7 @@ type Runner struct {
 type InputMap map[artifact.AnyKey]any
 
 func (r *Runner) RunCycle(ctx context.Context, compiled pipeline.Compiled, inputs InputMap, partition state.Partition, event events.Event) error {
+	ctx = events.WithEvent(ctx, event)
 	if r.Observer != nil {
 		r.Observer.OnCycleStart(ctx, port.CycleInfo{
 			WorkflowName: compiled.Name,
@@ -80,6 +81,10 @@ func (r *Runner) RunCycle(ctx context.Context, compiled pipeline.Compiled, input
 	}
 
 	duration := time.Since(start)
+	stateHash := ""
+	if hasher, ok := r.StateStore.(state.HashableStore); ok {
+		stateHash = hasher.Hash(partition)
+	}
 	if r.Observer != nil {
 		r.Observer.OnCycleEnd(ctx, port.CycleResult{
 			WorkflowName: compiled.Name,
@@ -87,6 +92,7 @@ func (r *Runner) RunCycle(ctx context.Context, compiled pipeline.Compiled, input
 			Event:        event,
 			Duration:     duration,
 			Err:          lastErr,
+			StateHash:    stateHash,
 		})
 	}
 	if r.Recorder != nil {
@@ -96,6 +102,7 @@ func (r *Runner) RunCycle(ctx context.Context, compiled pipeline.Compiled, input
 			Event:        event,
 			Duration:     duration,
 			Err:          lastErr,
+			StateHash:    stateHash,
 		})
 	}
 

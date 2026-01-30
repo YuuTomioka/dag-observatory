@@ -1,6 +1,11 @@
 package state
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"sort"
 	"sync"
 
 	domain "dag-observatory/demo-go/internal/domain/dagruntime/state"
@@ -23,6 +28,41 @@ func (s *MemoryStore) BeginTxn(part domain.Partition) domain.Txn {
 		partition: part,
 		staged:    map[domain.RawKey]any{},
 	}
+}
+
+func (s *MemoryStore) Hash(part domain.Partition) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	partData := s.data[part]
+	if len(partData) == 0 {
+		return ""
+	}
+
+	keys := make([]domain.RawKey, 0, len(partData))
+	for key := range partData {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].StableID == keys[j].StableID {
+			return keys[i].Name < keys[j].Name
+		}
+		return keys[i].StableID < keys[j].StableID
+	})
+
+	hasher := sha256.New()
+	for _, key := range keys {
+		value := partData[key]
+		_, _ = fmt.Fprintf(hasher, "%s|%s|", key.StableID, key.Name)
+		payload, err := json.Marshal(value)
+		if err != nil {
+			payload = []byte(fmt.Sprintf("%T:%v", value, value))
+		}
+		hasher.Write(payload)
+		hasher.Write([]byte{'\n'})
+	}
+
+	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 type MemoryTxn struct {
@@ -76,4 +116,3 @@ func (t *MemoryTxn) Rollback() {
 	t.staged = map[domain.RawKey]any{}
 	t.closed = true
 }
-

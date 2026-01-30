@@ -1,6 +1,7 @@
 package di
 
 import (
+	"dag-observatory/demo-go/internal/application/dagruntime/usecase"
 	"dag-observatory/demo-go/internal/domain/dagruntime/driver"
 	"dag-observatory/demo-go/internal/domain/dagruntime/engine"
 	"dag-observatory/demo-go/internal/domain/dagruntime/pipeline"
@@ -18,12 +19,18 @@ type DAGRuntimeContainer struct {
 	Recorder      *recorderinfra.NoopRecorder
 	Runner        *engine.Runner
 	Driver        *driver.Driver
+	Usecase       *usecase.RunWorkflow
 }
 
-func NewDAGRuntimeContainer(compiled pipeline.Compiled) *DAGRuntimeContainer {
+func NewDAGRuntimeContainer(otelc *OTelContainer, compiled pipeline.Compiled) *DAGRuntimeContainer {
 	artifactStore := artifactinfra.NewMemoryStore()
 	stateStore := stateinfra.NewMemoryStore()
-	observer := observerinfra.NewOTelObserver()
+	var observer *observerinfra.OTelObserver
+	if otelc != nil {
+		observer = observerinfra.NewOTelObserver(otelc.IntentLog, otelc.Metrics)
+	} else {
+		observer = observerinfra.NewOTelObserver(nil, nil)
+	}
 	recorder := recorderinfra.NewNoopRecorder()
 
 	runner := &engine.Runner{
@@ -41,6 +48,10 @@ func NewDAGRuntimeContainer(compiled pipeline.Compiled) *DAGRuntimeContainer {
 		Compiled: compiled,
 	}
 
+	uc := &usecase.RunWorkflow{
+		Driver: driver,
+	}
+
 	return &DAGRuntimeContainer{
 		ArtifactStore: artifactStore,
 		StateStore:    stateStore,
@@ -48,6 +59,6 @@ func NewDAGRuntimeContainer(compiled pipeline.Compiled) *DAGRuntimeContainer {
 		Recorder:      recorder,
 		Runner:        runner,
 		Driver:        driver,
+		Usecase:       uc,
 	}
 }
-

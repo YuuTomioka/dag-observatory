@@ -3,12 +3,13 @@ package di
 import (
 	"dag-observatory/demo-go/internal/infrastructure/observability/applog"
 	httpif "dag-observatory/demo-go/internal/interface/http"
+	"dag-observatory/demo-go/internal/domain/dagruntime/pipeline"
 
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 )
 
-func NewEchoContainer(cfg Config, otelc *OTelContainer) (*echo.Echo, error) {
+func NewEchoContainer(cfg Config, otelc *OTelContainer, dagRuntime *DAGRuntimeContainer) (*echo.Echo, error) {
 	e := echo.New()
 
 	// OTel middleware (official instrumentation)
@@ -16,11 +17,16 @@ func NewEchoContainer(cfg Config, otelc *OTelContainer) (*echo.Echo, error) {
 
 	appLog := applog.New(cfg.AppLogLevel, cfg.AppLogOutput, otelc.AppLogger)
 
+	if dagRuntime == nil {
+		dagRuntime = NewDAGRuntimeContainer(otelc, pipeline.Compiled{})
+	}
+
 	httpif.RegisterRoutes(e, httpif.Dependencies{
-		IntentLog: otelc.IntentLog,
-		AppLog:    appLog,
-		Tracer:    otelc.Tracer,
-		Metrics:   otelc.Metrics,
+		IntentLog:  otelc.IntentLog,
+		AppLog:     appLog,
+		Tracer:     otelc.Tracer,
+		Metrics:    otelc.Metrics,
+		RunWorkflow: dagRuntime.Usecase,
 	})
 
 	return e, nil

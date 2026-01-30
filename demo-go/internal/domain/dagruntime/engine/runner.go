@@ -49,7 +49,7 @@ func (r *Runner) RunCycle(ctx context.Context, compiled pipeline.Compiled, input
 		}
 
 		txn := r.StateStore.BeginTxn(partition)
-		nodeErr := r.runPipeline(ctx, compiled, txn)
+		nodeErr := r.runPipeline(ctx, compiled, txn, event.EventID)
 		if nodeErr == nil {
 			if err := txn.Commit(); err != nil {
 				lastErr = dagerrors.RuntimeError{
@@ -118,10 +118,13 @@ type nodeFailure struct {
 	duration time.Duration
 }
 
-func (r *Runner) runPipeline(ctx context.Context, compiled pipeline.Compiled, txn state.Txn) *nodeFailure {
+func (r *Runner) runPipeline(ctx context.Context, compiled pipeline.Compiled, txn state.Txn, runID string) *nodeFailure {
 	for _, n := range compiled.Order {
 		if r.Observer != nil {
-			r.Observer.OnNodeStart(ctx, port.NodeInfo{NodeName: nodeName(n)})
+			r.Observer.OnNodeStart(ctx, port.NodeInfo{
+				RunID:    runID,
+				NodeName: nodeName(n),
+			})
 		}
 
 		start := time.Now()
@@ -138,6 +141,7 @@ func (r *Runner) runPipeline(ctx context.Context, compiled pipeline.Compiled, tx
 
 		if r.Observer != nil {
 			r.Observer.OnNodeEnd(ctx, port.NodeResult{
+				RunID:    runID,
 				NodeName: nodeName(n),
 				Duration: duration,
 				Err:      err,
@@ -145,6 +149,7 @@ func (r *Runner) runPipeline(ctx context.Context, compiled pipeline.Compiled, tx
 		}
 		if r.Recorder != nil {
 			r.Recorder.RecordNodeResult(ctx, port.NodeResult{
+				RunID:    runID,
 				NodeName: nodeName(n),
 				Duration: duration,
 				Err:      err,
@@ -190,4 +195,3 @@ func canRetry(spec node.ExecutionSpec) bool {
 func nodeName(n node.Node) string {
 	return fmt.Sprintf("%T", n)
 }
-

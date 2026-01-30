@@ -28,10 +28,12 @@ type CycleResult struct {
 }
 
 type NodeInfo struct {
+	RunID    string
 	NodeName string
 }
 
 type NodeResult struct {
+	RunID    string
 	NodeName string
 	Duration time.Duration
 	Err      error
@@ -52,4 +54,3 @@ type Observer interface {
 	OnNodeEnd(ctx context.Context, info NodeResult)
 	OnError(ctx context.Context, info ErrorInfo)
 }
-

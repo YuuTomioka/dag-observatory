@@ -1,1 +1,38 @@
 package di
+
+import (
+	"dag-observatory/demo-go/internal/domain/dagruntime/pipeline"
+
+	"github.com/labstack/echo/v4"
+)
+
+type AppContainer struct {
+	Config     Config
+	OTel       *OTelContainer
+	Echo       *echo.Echo
+	DAGRuntime *DAGRuntimeContainer
+}
+
+func NewAppContainer() (*AppContainer, error) {
+	cfg := NewConfig()
+
+	otelc, err := NewOTelContainer(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	compiled := pipeline.Compiled{}
+	dagRuntime := NewDAGRuntimeContainer(otelc, compiled)
+
+	e, err := NewEchoContainer(cfg, otelc, dagRuntime)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AppContainer{
+		Config:     cfg,
+		OTel:       otelc,
+		Echo:       e,
+		DAGRuntime: dagRuntime,
+	}, nil
+}

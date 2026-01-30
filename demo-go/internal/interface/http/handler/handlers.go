@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"dag-observatory/demo-go/internal/application/dagruntime/usecase"
 	"dag-observatory/demo-go/internal/application/port"
 	"dag-observatory/demo-go/internal/infrastructure/observability/applog"
 	"dag-observatory/demo-go/internal/infrastructure/observability/metrics"
@@ -13,13 +14,15 @@ type Handlers struct {
 	appLog    *applog.Logger
 	tracer    trace.Tracer
 	metrics   *metrics.Instruments
+	runWF     *usecase.RunWorkflow
 }
 
 type Dependencies struct {
-	IntentLog port.IntentLog
-	AppLog    *applog.Logger
-	Tracer    trace.Tracer
-	Metrics   *metrics.Instruments
+	IntentLog  port.IntentLog
+	AppLog     *applog.Logger
+	Tracer     trace.Tracer
+	Metrics    *metrics.Instruments
+	RunWorkflow *usecase.RunWorkflow
 }
 
 func New(d Dependencies) *Handlers {
@@ -28,5 +31,6 @@ func New(d Dependencies) *Handlers {
 		appLog:    d.AppLog,
 		tracer:    d.Tracer,
 		metrics:   d.Metrics,
+		runWF:     d.RunWorkflow,
 	}
 }

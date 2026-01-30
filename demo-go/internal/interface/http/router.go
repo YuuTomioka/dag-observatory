@@ -1,6 +1,7 @@
 package http
 
 import (
+	"dag-observatory/demo-go/internal/application/dagruntime/usecase"
 	"dag-observatory/demo-go/internal/application/port"
 	"dag-observatory/demo-go/internal/infrastructure/observability/applog"
 	"dag-observatory/demo-go/internal/infrastructure/observability/metrics"
@@ -11,18 +12,20 @@ import (
 )
 
 type Dependencies struct {
-	IntentLog port.IntentLog
-	AppLog    *applog.Logger
-	Tracer    trace.Tracer
-	Metrics   *metrics.Instruments
+	IntentLog   port.IntentLog
+	AppLog      *applog.Logger
+	Tracer      trace.Tracer
+	Metrics     *metrics.Instruments
+	RunWorkflow *usecase.RunWorkflow
 }
 
 func RegisterRoutes(e *echo.Echo, d Dependencies) {
 	h := handler.New(handler.Dependencies{
-		IntentLog: d.IntentLog,
-		AppLog:    d.AppLog,
-		Tracer:    d.Tracer,
-		Metrics:   d.Metrics,
+		IntentLog:  d.IntentLog,
+		AppLog:     d.AppLog,
+		Tracer:     d.Tracer,
+		Metrics:    d.Metrics,
+		RunWorkflow: d.RunWorkflow,
 	})
 
 	e.GET("/healthz", h.Healthz)

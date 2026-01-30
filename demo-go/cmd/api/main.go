@@ -12,26 +12,19 @@ import (
 )
 
 func main() {
-	cfg := di.NewConfig()
-
-	otelc, err := di.NewOTelContainer(cfg)
+	app, err := di.NewAppContainer()
 	if err != nil {
-		log.Fatalf("otel init failed: %v", err)
+		log.Fatalf("app init failed: %v", err)
 	}
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = otelc.Shutdown(ctx)
+		_ = app.OTel.Shutdown(ctx)
 	}()
-
-	e, err := di.NewEchoContainer(cfg, otelc)
-	if err != nil {
-		log.Fatalf("echo init failed: %v", err)
-	}
 
 	// start server
 	go func() {
-		if err := e.Start(":" + cfg.HTTPPort); err != nil {
+		if err := app.Echo.Start(":" + app.Config.HTTPPort); err != nil {
 			log.Printf("server stopped: %v", err)
 		}
 	}()
@@ -43,5 +36,5 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_ = e.Shutdown(ctx)
+	_ = app.Echo.Shutdown(ctx)
 }

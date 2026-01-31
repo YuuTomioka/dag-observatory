@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	appport "dag-observatory/dag-core/internal/application/port"
+	appport "dag-observatory/dag-core/internal/application/observability/port"
 	"dag-observatory/dag-core/internal/application/dagruntime/port"
 	"dag-observatory/dag-core/internal/domain/observability/semantics"
 	"dag-observatory/dag-core/internal/infrastructure/observability/metrics"

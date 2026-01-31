@@ -2,7 +2,7 @@ package http
 
 import (
 	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
-	"dag-observatory/dag-core/internal/application/port"
+	"dag-observatory/dag-core/internal/application/observability/port"
 	"dag-observatory/dag-core/internal/infrastructure/observability/applog"
 	"dag-observatory/dag-core/internal/infrastructure/observability/metrics"
 	"dag-observatory/dag-core/internal/interface/http/handler"

@@ -3,7 +3,7 @@ package di
 import (
 	"context"
 
-	"dag-observatory/dag-core/internal/application/port"
+	"dag-observatory/dag-core/internal/application/observability/port"
 	"dag-observatory/dag-core/internal/infrastructure/observability/intentlog"
 	"dag-observatory/dag-core/internal/infrastructure/observability/metrics"
 	"dag-observatory/dag-core/internal/infrastructure/observability/otelcore"

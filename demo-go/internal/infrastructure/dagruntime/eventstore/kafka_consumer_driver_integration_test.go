@@ -3,7 +3,6 @@ package eventstore
 import (
 	"context"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -93,18 +92,4 @@ func TestKafkaConsumerToDriver(t *testing.T) {
 	if err := driver.Run(context.Background(), stream); err != nil {
 		t.Fatalf("driver run failed: %v", err)
 	}
-}
-
-func splitCSV(raw string) []string {
-	parts := strings.FieldsFunc(raw, func(r rune) bool {
-		return r == ',' || r == ' ' || r == '\t' || r == '\n'
-	})
-	out := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if part == "" {
-			continue
-		}
-		out = append(out, part)
-	}
-	return out
 }

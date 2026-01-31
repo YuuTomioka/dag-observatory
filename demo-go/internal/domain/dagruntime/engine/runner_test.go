@@ -178,6 +178,38 @@ func TestRunnerRetryWhenIdempotent(t *testing.T) {
 	}
 }
 
+func TestRunnerRetryRespectsMaxAttemptsOne(t *testing.T) {
+	nodeRetry := &counterNode{
+		spec: node.ExecutionSpec{SideEffect: true, Idempotent: true},
+		err:  errors.New("fail"),
+	}
+
+	compiled := pipeline.Compiled{
+		Name:  "retry",
+		Order: []node.Node{nodeRetry},
+		Nodes: []node.Node{nodeRetry},
+	}
+
+	runner := &Runner{
+		ArtifactStore: artifactinfra.NewMemoryStore(),
+		StateStore:    stateinfra.NewMemoryStore(),
+		Policy:        policy.Policy{DefaultRetry: policy.RetryPolicy{MaxAttempts: 1}},
+	}
+
+	event := events.Event{
+		EventID:   "retry",
+		EventTime: time.Now(),
+		Partition: state.Partition("default"),
+		Type:      "test",
+	}
+
+	_ = runner.RunCycle(context.Background(), compiled, InputMap{}, event.Partition, event)
+
+	if nodeRetry.Count() != 1 {
+		t.Fatalf("expected 1 attempt, got %d runs", nodeRetry.Count())
+	}
+}
+
 func TestRunnerTimeout(t *testing.T) {
 	timeout := &timeoutNode{
 		spec: node.ExecutionSpec{Timeout: 5 * time.Millisecond},
@@ -193,6 +225,39 @@ func TestRunnerTimeout(t *testing.T) {
 		ArtifactStore: artifactinfra.NewMemoryStore(),
 		StateStore:    stateinfra.NewMemoryStore(),
 		Policy:        policy.Policy{},
+	}
+
+	event := events.Event{
+		EventID:   "timeout",
+		EventTime: time.Now(),
+		Partition: state.Partition("default"),
+		Type:      "test",
+	}
+
+	err := runner.RunCycle(context.Background(), compiled, InputMap{}, event.Partition, event)
+	if err == nil {
+		t.Fatalf("expected timeout error")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) && !strings.Contains(err.Error(), "deadline exceeded") {
+		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+}
+
+func TestRunnerDefaultTimeout(t *testing.T) {
+	timeout := &timeoutNode{
+		spec: node.ExecutionSpec{},
+	}
+
+	compiled := pipeline.Compiled{
+		Name:  "timeout",
+		Order: []node.Node{timeout},
+		Nodes: []node.Node{timeout},
+	}
+
+	runner := &Runner{
+		ArtifactStore: artifactinfra.NewMemoryStore(),
+		StateStore:    stateinfra.NewMemoryStore(),
+		Policy:        policy.Policy{DefaultTimeout: 5 * time.Millisecond},
 	}
 
 	event := events.Event{

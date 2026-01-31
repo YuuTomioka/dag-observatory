@@ -21,6 +21,7 @@ type DAGRuntimeContainer struct {
 	ArtifactStore *artifactinfra.MemoryStore
 	StateStore    *StateStoreBundle
 	EventProducer *eventstoreinfra.KafkaProducer
+	EventConsumer *eventstoreinfra.KafkaConsumer
 	Observer      *observerinfra.OTelObserver
 	Recorder      *recorderinfra.NoopRecorder
 	Runner        *engine.Runner
@@ -40,6 +41,10 @@ func NewDAGRuntimeContainer(cfg Config, otelc *OTelContainer, compiled pipeline.
 		return nil, err
 	}
 	producer, err := newKafkaProducer(cfg)
+	if err != nil {
+		return nil, err
+	}
+	consumer, err := newKafkaConsumer(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +80,7 @@ func NewDAGRuntimeContainer(cfg Config, otelc *OTelContainer, compiled pipeline.
 		ArtifactStore: artifactStore,
 		StateStore:    stateStore,
 		EventProducer: producer,
+		EventConsumer: consumer,
 		Observer:      observer,
 		Recorder:      recorder,
 		Runner:        runner,
@@ -113,13 +119,27 @@ func newKafkaProducer(cfg Config) (*eventstoreinfra.KafkaProducer, error) {
 		return nil, nil
 	}
 	if cfg.KafkaBrokers == "" || cfg.KafkaTopic == "" {
-		return nil, nil
+		return nil, fmt.Errorf("dagruntime: kafka brokers/topic are required when EVENT_STORE_TYPE=kafka")
 	}
 	brokers := splitCSV(cfg.KafkaBrokers)
 	if len(brokers) == 0 {
 		return nil, fmt.Errorf("dagruntime: kafka brokers are required")
 	}
 	return eventstoreinfra.NewKafkaProducer(brokers, cfg.KafkaTopic)
+}
+
+func newKafkaConsumer(cfg Config) (*eventstoreinfra.KafkaConsumer, error) {
+	if cfg.EventStoreType != "kafka" {
+		return nil, nil
+	}
+	if cfg.KafkaBrokers == "" || cfg.KafkaTopic == "" {
+		return nil, fmt.Errorf("dagruntime: kafka brokers/topic are required when EVENT_STORE_TYPE=kafka")
+	}
+	brokers := splitCSV(cfg.KafkaBrokers)
+	if len(brokers) == 0 {
+		return nil, fmt.Errorf("dagruntime: kafka brokers are required")
+	}
+	return eventstoreinfra.NewKafkaConsumer(brokers, cfg.KafkaTopic, cfg.KafkaGroupID)
 }
 
 func splitCSV(raw string) []string {

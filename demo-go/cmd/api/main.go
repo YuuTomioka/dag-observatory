@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"dag-observatory/demo-go/internal/di"
+	"dag-observatory/demo-go/internal/domain/dagruntime/events"
 )
 
 func main() {
@@ -16,6 +17,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("app init failed: %v", err)
 	}
+	consumerCtx, consumerCancel := context.WithCancel(context.Background())
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -26,7 +28,25 @@ func main() {
 		if app.DAGRuntime != nil && app.DAGRuntime.EventProducer != nil {
 			_ = app.DAGRuntime.EventProducer.Close()
 		}
+		if app.DAGRuntime != nil && app.DAGRuntime.EventConsumer != nil {
+			_ = app.DAGRuntime.EventConsumer.Close()
+		}
+		consumerCancel()
 	}()
+
+	if app.DAGRuntime != nil && app.DAGRuntime.EventConsumer != nil {
+		stream := make(chan events.Event, 32)
+		go func() {
+			if err := app.DAGRuntime.EventConsumer.Run(consumerCtx, stream); err != nil && consumerCtx.Err() == nil {
+				log.Printf("kafka consumer stopped: %v", err)
+			}
+		}()
+		go func() {
+			if err := app.DAGRuntime.Driver.Run(consumerCtx, stream); err != nil && consumerCtx.Err() == nil {
+				log.Printf("dag driver stopped: %v", err)
+			}
+		}()
+	}
 
 	// start server
 	go func() {

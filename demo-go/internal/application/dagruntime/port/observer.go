@@ -26,11 +26,13 @@ type CycleResult struct {
 	Duration     time.Duration
 	Err          error
 	StateHash    string
+	RetryCount   int64
 }
 
 type NodeInfo struct {
 	RunID    string
 	NodeName string
+	QueueWaitMS int64
 }
 
 type NodeResult struct {
@@ -38,6 +40,8 @@ type NodeResult struct {
 	NodeName string
 	Duration time.Duration
 	Err      error
+	RetryCount int64
+	QueueWaitMS int64
 }
 
 type ErrorInfo struct {

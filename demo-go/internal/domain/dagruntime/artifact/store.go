@@ -8,6 +8,10 @@ type View interface {
 	Has(key AnyKey) bool
 }
 
+type Writer interface {
+	Set(key AnyKey, value any)
+}
+
 type Store interface {
 	Clear()
 	Get(key AnyKey) (any, bool)
@@ -43,7 +47,6 @@ func MustGet[T any](view View, key Key[T]) T {
 	return typed
 }
 
-func Set[T any](store Store, key Key[T], value T) {
-	store.Set(key, value)
+func Set[T any](writer Writer, key Key[T], value T) {
+	writer.Set(key, value)
 }
-

@@ -13,6 +13,9 @@ type Node interface {
 	Reads() []state.AnyKey
 	Writes() []state.AnyKey
 	Spec() ExecutionSpec
-	Run(ctx context.Context, av artifact.View, txn state.Txn) error
+	Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error
 }
 
+type Named interface {
+	Name() string
+}

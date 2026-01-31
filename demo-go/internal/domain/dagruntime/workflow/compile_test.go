@@ -16,12 +16,14 @@ type compileNode struct {
 	wr  []state.AnyKey
 }
 
+func (n *compileNode) Name() string { return "compile.node" }
 func (n *compileNode) Requires() []artifact.AnyKey { return n.req }
 func (n *compileNode) Provides() []artifact.AnyKey { return n.pro }
 func (n *compileNode) Reads() []state.AnyKey       { return n.rd }
 func (n *compileNode) Writes() []state.AnyKey      { return n.wr }
 func (n *compileNode) Spec() node.ExecutionSpec    { return node.ExecutionSpec{} }
-func (n *compileNode) Run(ctx context.Context, av artifact.View, txn state.Txn) error {
+func (n *compileNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = aw
 	return nil
 }
 

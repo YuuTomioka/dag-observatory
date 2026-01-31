@@ -110,7 +110,9 @@ func (t *BoltTxn) Get(key domain.AnyKey) (any, bool) {
 		if b == nil {
 			return nil
 		}
-		data = b.Get([]byte(raw))
+		if value := b.Get([]byte(raw)); value != nil {
+			data = append([]byte(nil), value...)
+		}
 		return nil
 	})
 	if data == nil {
@@ -179,7 +181,7 @@ func encodeKey(key domain.RawKey) string {
 func encodeValue(value any) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(value); err != nil {
+	if err := enc.Encode(storedValue{Value: value}); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -189,11 +191,14 @@ func decodeValue(data []byte) (any, bool) {
 	if len(data) == 0 {
 		return nil, false
 	}
-	var out any
+	var wrapper storedValue
 	dec := gob.NewDecoder(bytes.NewReader(data))
-	if err := dec.Decode(&out); err != nil {
+	if err := dec.Decode(&wrapper); err != nil {
 		return nil, false
 	}
-	return out, true
+	return wrapper.Value, true
 }
 
+type storedValue struct {
+	Value any
+}

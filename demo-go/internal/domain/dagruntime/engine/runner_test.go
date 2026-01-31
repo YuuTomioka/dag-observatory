@@ -26,14 +26,16 @@ type counterNode struct {
 	err   error
 }
 
+func (n *counterNode) Name() string { return "counter.node" }
 func (n *counterNode) Requires() []artifact.AnyKey { return nil }
 func (n *counterNode) Provides() []artifact.AnyKey { return nil }
 func (n *counterNode) Reads() []state.AnyKey       { return nil }
 func (n *counterNode) Writes() []state.AnyKey      { return nil }
 func (n *counterNode) Spec() node.ExecutionSpec    { return n.spec }
-func (n *counterNode) Run(ctx context.Context, av artifact.View, txn state.Txn) error {
+func (n *counterNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
 	_ = ctx
 	_ = av
+	_ = aw
 	_ = txn
 	n.mu.Lock()
 	n.count++
@@ -51,13 +53,15 @@ type timeoutNode struct {
 	spec node.ExecutionSpec
 }
 
+func (n *timeoutNode) Name() string { return "timeout.node" }
 func (n *timeoutNode) Requires() []artifact.AnyKey { return nil }
 func (n *timeoutNode) Provides() []artifact.AnyKey { return nil }
 func (n *timeoutNode) Reads() []state.AnyKey       { return nil }
 func (n *timeoutNode) Writes() []state.AnyKey      { return nil }
 func (n *timeoutNode) Spec() node.ExecutionSpec    { return n.spec }
-func (n *timeoutNode) Run(ctx context.Context, av artifact.View, txn state.Txn) error {
+func (n *timeoutNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
 	_ = av
+	_ = aw
 	_ = txn
 	<-ctx.Done()
 	return ctx.Err()
@@ -231,10 +235,10 @@ func TestObserverSequence(t *testing.T) {
 	if events[0] != "cycle_start" || events[5] != "cycle_end" {
 		t.Fatalf("unexpected cycle boundaries: %v", events)
 	}
-	if events[1] != "node_start:*engine.counterNode" || events[2] != "node_end:*engine.counterNode" {
+	if events[1] != "node_start:counter.node" || events[2] != "node_end:counter.node" {
 		t.Fatalf("unexpected node 1 events: %v", events[1:3])
 	}
-	if events[3] != "node_start:*engine.counterNode" || events[4] != "node_end:*engine.counterNode" {
+	if events[3] != "node_start:counter.node" || events[4] != "node_end:counter.node" {
 		t.Fatalf("unexpected node 2 events: %v", events[3:5])
 	}
 }

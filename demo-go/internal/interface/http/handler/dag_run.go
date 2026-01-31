@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"dag-observatory/demo-go/internal/domain/dagruntime/artifact"
-	"dag-observatory/demo-go/internal/domain/dagruntime/engine"
 	"dag-observatory/demo-go/internal/domain/dagruntime/events"
 	"dag-observatory/demo-go/internal/domain/dagruntime/state"
 	"dag-observatory/demo-go/internal/domain/observability/ctxprop"
@@ -19,11 +17,6 @@ type dagRunReq struct {
 	Symbol string `json:"symbol"`
 	Mode   string `json:"mode"`
 }
-
-var (
-	keyDagRunMode   = artifact.Key[string]{Name: "mode", StableID: "artifact:dagrun.mode.v1"}
-	keyDagRunSymbol = artifact.Key[string]{Name: "symbol", StableID: "artifact:dagrun.symbol.v1"}
-)
 
 func (h *Handlers) DagRun(c echo.Context) error {
 	ctx := c.Request().Context()
@@ -58,9 +51,9 @@ func (h *Handlers) DagRun(c echo.Context) error {
 	ctx = ctxprop.WithRunID(ctx, runID)
 
 	partition := state.Partition(req.Symbol)
-	inputs := engine.InputMap{
-		keyDagRunMode:   req.Mode,
-		keyDagRunSymbol: req.Symbol,
+	payload := map[string]any{
+		"mode":   req.Mode,
+		"symbol": req.Symbol,
 	}
 
 	event := events.Event{
@@ -68,7 +61,7 @@ func (h *Handlers) DagRun(c echo.Context) error {
 		EventTime: time.Now(),
 		Partition: partition,
 		Type:      "http.dag.run",
-		Payload:   inputs,
+		Payload:   payload,
 	}
 
 	if err := h.runWF.Handle(ctx, partition, event); err != nil {

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -18,9 +19,11 @@ import (
 type Runner struct {
 	ArtifactStore artifact.Store
 	StateStore    state.Store
+	StateHasher   state.Hasher
 	Observer      port.Observer
 	Policy        policy.Policy
 	Recorder      port.Recorder
+	ContinueOnError bool
 }
 
 type InputMap map[artifact.AnyKey]any
@@ -42,20 +45,23 @@ func (r *Runner) RunCycle(ctx context.Context, compiled pipeline.Compiled, input
 	var lastErr error
 	var failedNode node.Node
 	var failedDuration time.Duration
+	lastAttempt := 1
 
 	for attempt := 1; ; attempt++ {
+		lastAttempt = attempt
 		r.ArtifactStore.Clear()
 		for key, value := range inputs {
 			r.ArtifactStore.Set(key, value)
 		}
 
 		txn := r.StateStore.BeginTxn(partition)
-		nodeErr := r.runPipeline(ctx, compiled, txn, event.EventID)
+		nodeErr := r.runPipeline(ctx, compiled, txn, event.EventID, int64(attempt-1))
 		if nodeErr == nil {
 			if err := txn.Commit(); err != nil {
 				lastErr = dagerrors.RuntimeError{
 					Kind:    dagerrors.RuntimeErrTxnCommitFailure,
 					Message: err.Error(),
+					Err:     err,
 				}
 				break
 			}
@@ -75,6 +81,7 @@ func (r *Runner) RunCycle(ctx context.Context, compiled pipeline.Compiled, input
 			lastErr = dagerrors.RuntimeError{
 				Kind:    dagerrors.RuntimeErrRetryExhausted,
 				Message: lastErr.Error(),
+				Err:     lastErr,
 			}
 			break
 		}
@@ -82,7 +89,9 @@ func (r *Runner) RunCycle(ctx context.Context, compiled pipeline.Compiled, input
 
 	duration := time.Since(start)
 	stateHash := ""
-	if hasher, ok := r.StateStore.(state.HashableStore); ok {
+	if r.StateHasher != nil {
+		stateHash = r.StateHasher.Hash(partition)
+	} else if hasher, ok := r.StateStore.(state.HashableStore); ok {
 		stateHash = hasher.Hash(partition)
 	}
 	if r.Observer != nil {
@@ -93,6 +102,7 @@ func (r *Runner) RunCycle(ctx context.Context, compiled pipeline.Compiled, input
 			Duration:     duration,
 			Err:          lastErr,
 			StateHash:    stateHash,
+			RetryCount:   int64(maxInt(0, lastAttempt-1)),
 		})
 	}
 	if r.Recorder != nil {
@@ -103,6 +113,7 @@ func (r *Runner) RunCycle(ctx context.Context, compiled pipeline.Compiled, input
 			Duration:     duration,
 			Err:          lastErr,
 			StateHash:    stateHash,
+			RetryCount:   int64(maxInt(0, lastAttempt-1)),
 		})
 	}
 
@@ -118,6 +129,10 @@ func (r *Runner) RunCycle(ctx context.Context, compiled pipeline.Compiled, input
 	return lastErr
 }
 
+type DriverOptions struct {
+	ContinueOnError bool
+}
+
 type nodeFailure struct {
 	node     node.Node
 	spec     node.ExecutionSpec
@@ -125,12 +140,13 @@ type nodeFailure struct {
 	duration time.Duration
 }
 
-func (r *Runner) runPipeline(ctx context.Context, compiled pipeline.Compiled, txn state.Txn, runID string) *nodeFailure {
+func (r *Runner) runPipeline(ctx context.Context, compiled pipeline.Compiled, txn state.Txn, runID string, retryCount int64) *nodeFailure {
 	for _, n := range compiled.Order {
 		if r.Observer != nil {
 			r.Observer.OnNodeStart(ctx, port.NodeInfo{
 				RunID:    runID,
 				NodeName: nodeName(n),
+				QueueWaitMS: 0,
 			})
 		}
 
@@ -142,9 +158,16 @@ func (r *Runner) runPipeline(ctx context.Context, compiled pipeline.Compiled, tx
 			runCtx, cancel = context.WithTimeout(ctx, timeout)
 		}
 
-		err := n.Run(runCtx, r.ArtifactStore.View(), txn)
+		err := n.Run(runCtx, r.ArtifactStore.View(), r.ArtifactStore, txn)
 		cancel()
 		duration := time.Since(start)
+
+		if err != nil && errors.Is(err, context.DeadlineExceeded) {
+			err = dagerrors.TimeoutError{
+				Node: nodeName(n),
+				Err:  err,
+			}
+		}
 
 		if r.Observer != nil {
 			r.Observer.OnNodeEnd(ctx, port.NodeResult{
@@ -152,6 +175,7 @@ func (r *Runner) runPipeline(ctx context.Context, compiled pipeline.Compiled, tx
 				NodeName: nodeName(n),
 				Duration: duration,
 				Err:      err,
+				RetryCount: retryCount,
 			})
 		}
 		if r.Recorder != nil {
@@ -160,6 +184,7 @@ func (r *Runner) runPipeline(ctx context.Context, compiled pipeline.Compiled, tx
 				NodeName: nodeName(n),
 				Duration: duration,
 				Err:      err,
+				RetryCount: retryCount,
 			})
 		}
 
@@ -200,5 +225,17 @@ func canRetry(spec node.ExecutionSpec) bool {
 }
 
 func nodeName(n node.Node) string {
+	if named, ok := n.(node.Named); ok {
+		if name := named.Name(); name != "" {
+			return name
+		}
+	}
 	return fmt.Sprintf("%T", n)
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

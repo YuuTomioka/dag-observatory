@@ -58,19 +58,20 @@ func (o *OTelObserver) OnCycleEnd(ctx context.Context, info port.CycleResult) {
 	attrs := cycleAttrs(info.WorkflowName, symbol, runID)
 
 	if info.Err == nil {
-		if o.intentLog != nil {
-			o.intentLog.DAGRunStateChanged(ctx, semantics.DAGRunStateChanged{
-				DAGRunID:   runID,
-				FromState:  "running",
-				ToState:    "succeeded",
-				DurationMS: durationMS,
-			})
-			o.intentLog.DAGRunFinished(ctx, semantics.DAGRunFinished{
-				DAGRunID:   runID,
-				Status:     "succeeded",
-				DurationMS: durationMS,
-			})
-		}
+	if o.intentLog != nil {
+		o.intentLog.DAGRunStateChanged(ctx, semantics.DAGRunStateChanged{
+			DAGRunID:   runID,
+			FromState:  "running",
+			ToState:    "succeeded",
+			DurationMS: durationMS,
+		})
+		o.intentLog.DAGRunFinished(ctx, semantics.DAGRunFinished{
+			DAGRunID:   runID,
+			Status:     "succeeded",
+			DurationMS: durationMS,
+			RetryCount: info.RetryCount,
+		})
+	}
 		o.recordRunMetrics(ctx, attrs, "succeeded", info.Duration)
 		return
 	}
@@ -87,6 +88,7 @@ func (o *OTelObserver) OnCycleEnd(ctx context.Context, info port.CycleResult) {
 			ErrorType:  "dagruntime.error",
 			ErrorMsg:   info.Err.Error(),
 			DurationMS: durationMS,
+			RetryCount: info.RetryCount,
 		})
 	}
 	o.recordRunMetrics(ctx, attrs, "failed", info.Duration)
@@ -101,6 +103,7 @@ func (o *OTelObserver) OnNodeStart(ctx context.Context, info port.NodeInfo) {
 		DAGNodeID: info.NodeName,
 		FromState: "queued",
 		ToState:   "running",
+		QueueWaitMS: info.QueueWaitMS,
 	})
 	o.intentLog.DAGNodeStarted(ctx, semantics.DAGNodeStarted{
 		DAGRunID:  info.RunID,
@@ -123,12 +126,14 @@ func (o *OTelObserver) OnNodeEnd(ctx context.Context, info port.NodeResult) {
 				FromState:  "running",
 				ToState:    "succeeded",
 				DurationMS: durationMS,
+				QueueWaitMS: info.QueueWaitMS,
 			})
 			o.intentLog.DAGNodeFinished(ctx, semantics.DAGNodeFinished{
 				DAGRunID:   info.RunID,
 				DAGNodeID:  info.NodeName,
 				Status:     "succeeded",
 				DurationMS: durationMS,
+				RetryCount: info.RetryCount,
 			})
 		}
 		o.recordNodeMetrics(ctx, attrs, "succeeded", info.Duration)
@@ -143,11 +148,13 @@ func (o *OTelObserver) OnNodeEnd(ctx context.Context, info port.NodeResult) {
 				FromState:  "running",
 				ToState:    "timeout",
 				DurationMS: durationMS,
+				QueueWaitMS: info.QueueWaitMS,
 			})
 			o.intentLog.DAGNodeTimeout(ctx, semantics.DAGNodeTimeout{
 				DAGRunID:   info.RunID,
 				DAGNodeID:  info.NodeName,
 				DurationMS: durationMS,
+				RetryCount: info.RetryCount,
 			})
 		}
 		o.recordNodeMetrics(ctx, attrs, "timeout", info.Duration)
@@ -161,6 +168,7 @@ func (o *OTelObserver) OnNodeEnd(ctx context.Context, info port.NodeResult) {
 			FromState:  "running",
 			ToState:    "failed",
 			DurationMS: durationMS,
+			QueueWaitMS: info.QueueWaitMS,
 		})
 		o.intentLog.DAGNodeFailed(ctx, semantics.DAGNodeFailed{
 			DAGRunID:   info.RunID,
@@ -168,6 +176,7 @@ func (o *OTelObserver) OnNodeEnd(ctx context.Context, info port.NodeResult) {
 			ErrorType:  classifyNodeErrorType(info.Err),
 			ErrorMsg:   info.Err.Error(),
 			DurationMS: durationMS,
+			RetryCount: info.RetryCount,
 		})
 	}
 	o.recordNodeMetrics(ctx, attrs, "failed", info.Duration)

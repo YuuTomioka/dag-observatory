@@ -21,18 +21,18 @@ var (
 
 type NodeUpper struct{}
 
+func (n *NodeUpper) Name() string { return "example.upper" }
 func (n *NodeUpper) Requires() []artifact.AnyKey { return []artifact.AnyKey{KeyInput} }
 func (n *NodeUpper) Provides() []artifact.AnyKey { return []artifact.AnyKey{KeyUpper} }
 func (n *NodeUpper) Reads() []state.AnyKey       { return nil }
 func (n *NodeUpper) Writes() []state.AnyKey      { return nil }
 func (n *NodeUpper) Spec() node.ExecutionSpec    { return node.ExecutionSpec{Deterministic: true} }
 
-func (n *NodeUpper) Run(ctx context.Context, av artifact.View, txn state.Txn) error {
+func (n *NodeUpper) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
 	_ = ctx
+	_ = txn
 	input := artifact.MustGet(av, KeyInput)
-	if store, ok := av.(artifact.Store); ok {
-		artifact.Set(store, KeyUpper, fmt.Sprintf("%s", toUpperASCII(input)))
-	}
+	artifact.Set(aw, KeyUpper, fmt.Sprintf("%s", toUpperASCII(input)))
 	return nil
 }
 
@@ -40,13 +40,14 @@ type NodeCount struct {
 	Fail bool
 }
 
+func (n *NodeCount) Name() string { return "example.count" }
 func (n *NodeCount) Requires() []artifact.AnyKey { return []artifact.AnyKey{KeyUpper} }
 func (n *NodeCount) Provides() []artifact.AnyKey { return []artifact.AnyKey{KeyCount} }
 func (n *NodeCount) Reads() []state.AnyKey       { return []state.AnyKey{StateCount} }
 func (n *NodeCount) Writes() []state.AnyKey      { return []state.AnyKey{StateCount} }
 func (n *NodeCount) Spec() node.ExecutionSpec    { return node.ExecutionSpec{Deterministic: true} }
 
-func (n *NodeCount) Run(ctx context.Context, av artifact.View, txn state.Txn) error {
+func (n *NodeCount) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
 	_ = ctx
 	current, ok := state.Get(txn, StateCount)
 	if !ok {
@@ -54,9 +55,7 @@ func (n *NodeCount) Run(ctx context.Context, av artifact.View, txn state.Txn) er
 	}
 	next := current + 1
 	state.StageWrite(txn, StateCount, next)
-	if store, ok := av.(artifact.Store); ok {
-		artifact.Set(store, KeyCount, next)
-	}
+	artifact.Set(aw, KeyCount, next)
 	if n.Fail {
 		return fmt.Errorf("node count failed")
 	}
@@ -65,20 +64,19 @@ func (n *NodeCount) Run(ctx context.Context, av artifact.View, txn state.Txn) er
 
 type NodeResult struct{}
 
+func (n *NodeResult) Name() string { return "example.result" }
 func (n *NodeResult) Requires() []artifact.AnyKey { return []artifact.AnyKey{KeyUpper, KeyCount} }
 func (n *NodeResult) Provides() []artifact.AnyKey { return []artifact.AnyKey{KeyResult} }
 func (n *NodeResult) Reads() []state.AnyKey       { return nil }
 func (n *NodeResult) Writes() []state.AnyKey      { return nil }
 func (n *NodeResult) Spec() node.ExecutionSpec    { return node.ExecutionSpec{Deterministic: true} }
 
-func (n *NodeResult) Run(ctx context.Context, av artifact.View, txn state.Txn) error {
+func (n *NodeResult) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
 	_ = ctx
 	_ = txn
 	upper := artifact.MustGet(av, KeyUpper)
 	count := artifact.MustGet(av, KeyCount)
-	if store, ok := av.(artifact.Store); ok {
-		artifact.Set(store, KeyResult, fmt.Sprintf("%s:%d", upper, count))
-	}
+	artifact.Set(aw, KeyResult, fmt.Sprintf("%s:%d", upper, count))
 	return nil
 }
 
@@ -103,4 +101,3 @@ func toUpperASCII(value string) string {
 	}
 	return string(buf)
 }
-

@@ -12,6 +12,7 @@ import (
 type Driver struct {
 	Runner   *engine.Runner
 	Compiled pipeline.Compiled
+	Options  engine.DriverOptions
 }
 
 func (d *Driver) Run(ctx context.Context, stream <-chan events.Event) error {
@@ -29,6 +30,9 @@ func (d *Driver) Run(ctx context.Context, stream <-chan events.Event) error {
 			}
 			err := d.Runner.RunCycle(ctx, d.Compiled, inputs, event.Partition, event)
 			if err != nil {
+				if d.Options.ContinueOnError {
+					continue
+				}
 				return err
 			}
 		}
@@ -38,4 +42,3 @@ func (d *Driver) Run(ctx context.Context, stream <-chan events.Event) error {
 func DefaultPartition() state.Partition {
 	return state.Partition("default")
 }
-

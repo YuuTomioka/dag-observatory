@@ -1,12 +1,12 @@
 services:
-  demo-go-api:
+  dag-core-api:
     build:
       # Build from the Go module root so Dockerfile.dev can COPY go.mod/go.sum.
-      context: ../../demo-go
+      context: ../../dag-core
       dockerfile: cmd/api/Dockerfile.dev
     environment:
       - HTTP_PORT=8080
-      - SERVICE_NAME=dag-observatory-demo-go
+      - SERVICE_NAME=dag-observatory-dag-core
       - ENV=dev
       - STATE_STORE_TYPE=bolt
       - BOLT_PATH=/data/dagruntime.bolt
@@ -18,8 +18,8 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ../../demo-go:/app
-      - demo-go-data:/data
+      - ../../dag-core:/app
+      - dag-core-data:/data
     depends_on:
       - redpanda
       - otel-collector
@@ -43,5 +43,5 @@ services:
       - redpanda-data:/var/lib/redpanda/data
 
 volumes:
-  demo-go-data:
+  dag-core-data:
   redpanda-data:

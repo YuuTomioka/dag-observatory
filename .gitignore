@@ -1,4 +1,3 @@
 .docs/
 
-demo-go/tmp/
-demo-go/tmp/main.exe
+dag-core/tmp/

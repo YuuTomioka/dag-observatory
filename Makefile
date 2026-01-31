@@ -1,7 +1,7 @@
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
-GO_DIR := demo-go
+GO_DIR := dag-core
 SCRIPTS_DIR := scripts
 
 .PHONY: help dev-up dev-down go-mod-tidy go-mod-download go-fmt go-vet go-test go-build

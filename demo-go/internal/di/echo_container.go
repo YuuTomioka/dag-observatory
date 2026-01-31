@@ -18,7 +18,11 @@ func NewEchoContainer(cfg Config, otelc *OTelContainer, dagRuntime *DAGRuntimeCo
 	appLog := applog.New(cfg.AppLogLevel, cfg.AppLogOutput, otelc.AppLogger)
 
 	if dagRuntime == nil {
-		dagRuntime = NewDAGRuntimeContainer(otelc, pipeline.Compiled{})
+		var err error
+		dagRuntime, err = NewDAGRuntimeContainer(cfg, otelc, pipeline.Compiled{})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	httpif.RegisterRoutes(e, httpif.Dependencies{

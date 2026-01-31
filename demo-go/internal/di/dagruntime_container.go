@@ -1,12 +1,17 @@
 package di
 
 import (
+	"fmt"
+	"strings"
+
 	"dag-observatory/demo-go/internal/application/dagruntime/usecase"
 	"dag-observatory/demo-go/internal/domain/dagruntime/driver"
 	"dag-observatory/demo-go/internal/domain/dagruntime/engine"
 	"dag-observatory/demo-go/internal/domain/dagruntime/pipeline"
 	"dag-observatory/demo-go/internal/domain/dagruntime/policy"
+	"dag-observatory/demo-go/internal/domain/dagruntime/state"
 	artifactinfra "dag-observatory/demo-go/internal/infrastructure/dagruntime/artifact"
+	eventstoreinfra "dag-observatory/demo-go/internal/infrastructure/dagruntime/eventstore"
 	observerinfra "dag-observatory/demo-go/internal/infrastructure/dagruntime/observer"
 	recorderinfra "dag-observatory/demo-go/internal/infrastructure/dagruntime/recorder"
 	stateinfra "dag-observatory/demo-go/internal/infrastructure/dagruntime/state"
@@ -14,7 +19,8 @@ import (
 
 type DAGRuntimeContainer struct {
 	ArtifactStore *artifactinfra.MemoryStore
-	StateStore    *stateinfra.MemoryStore
+	StateStore    *StateStoreBundle
+	EventProducer *eventstoreinfra.KafkaProducer
 	Observer      *observerinfra.OTelObserver
 	Recorder      *recorderinfra.NoopRecorder
 	Runner        *engine.Runner
@@ -22,9 +28,21 @@ type DAGRuntimeContainer struct {
 	Usecase       *usecase.RunWorkflow
 }
 
-func NewDAGRuntimeContainer(otelc *OTelContainer, compiled pipeline.Compiled) *DAGRuntimeContainer {
+type StateStoreBundle struct {
+	Store state.Store
+	Close func() error
+}
+
+func NewDAGRuntimeContainer(cfg Config, otelc *OTelContainer, compiled pipeline.Compiled) (*DAGRuntimeContainer, error) {
 	artifactStore := artifactinfra.NewMemoryStore()
-	stateStore := stateinfra.NewMemoryStore()
+	stateStore, err := newStateStore(cfg)
+	if err != nil {
+		return nil, err
+	}
+	producer, err := newKafkaProducer(cfg)
+	if err != nil {
+		return nil, err
+	}
 	var observer *observerinfra.OTelObserver
 	if otelc != nil {
 		observer = observerinfra.NewOTelObserver(otelc.IntentLog, otelc.Metrics)
@@ -35,7 +53,7 @@ func NewDAGRuntimeContainer(otelc *OTelContainer, compiled pipeline.Compiled) *D
 
 	runner := &engine.Runner{
 		ArtifactStore: artifactStore,
-		StateStore:    stateStore,
+		StateStore:    stateStore.Store,
 		Observer:      observer,
 		Recorder:      recorder,
 		Policy: policy.Policy{
@@ -49,16 +67,71 @@ func NewDAGRuntimeContainer(otelc *OTelContainer, compiled pipeline.Compiled) *D
 	}
 
 	uc := &usecase.RunWorkflow{
-		Driver: driver,
+		Driver:   driver,
+		Enqueuer: producer,
 	}
 
 	return &DAGRuntimeContainer{
 		ArtifactStore: artifactStore,
 		StateStore:    stateStore,
+		EventProducer: producer,
 		Observer:      observer,
 		Recorder:      recorder,
 		Runner:        runner,
 		Driver:        driver,
 		Usecase:       uc,
+	}, nil
+}
+
+func newStateStore(cfg Config) (*StateStoreBundle, error) {
+	switch cfg.StateStoreType {
+	case "memory", "":
+		store := stateinfra.NewMemoryStore()
+		return &StateStoreBundle{
+			Store: store,
+			Close: func() error { return nil },
+		}, nil
+	case "bolt":
+		if cfg.BoltPath == "" {
+			return nil, fmt.Errorf("dagruntime: bolt path is required")
+		}
+		store, err := stateinfra.NewBoltStore(cfg.BoltPath, nil)
+		if err != nil {
+			return nil, err
+		}
+		return &StateStoreBundle{
+			Store: store,
+			Close: store.Close,
+		}, nil
+	default:
+		return nil, fmt.Errorf("dagruntime: unsupported state store type: %s", cfg.StateStoreType)
 	}
+}
+
+func newKafkaProducer(cfg Config) (*eventstoreinfra.KafkaProducer, error) {
+	if cfg.EventStoreType != "kafka" {
+		return nil, nil
+	}
+	if cfg.KafkaBrokers == "" || cfg.KafkaTopic == "" {
+		return nil, nil
+	}
+	brokers := splitCSV(cfg.KafkaBrokers)
+	if len(brokers) == 0 {
+		return nil, fmt.Errorf("dagruntime: kafka brokers are required")
+	}
+	return eventstoreinfra.NewKafkaProducer(brokers, cfg.KafkaTopic)
+}
+
+func splitCSV(raw string) []string {
+	parts := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ',' || r == ' ' || r == '\t' || r == '\n'
+	})
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		out = append(out, part)
+	}
+	return out
 }

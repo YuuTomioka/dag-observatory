@@ -22,7 +22,10 @@ func NewAppContainer() (*AppContainer, error) {
 	}
 
 	compiled := pipeline.Compiled{}
-	dagRuntime := NewDAGRuntimeContainer(otelc, compiled)
+	dagRuntime, err := NewDAGRuntimeContainer(cfg, otelc, compiled)
+	if err != nil {
+		return nil, err
+	}
 
 	e, err := NewEchoContainer(cfg, otelc, dagRuntime)
 	if err != nil {

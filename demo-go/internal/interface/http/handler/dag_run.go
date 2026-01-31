@@ -75,6 +75,14 @@ func (h *Handlers) DagRun(c echo.Context) error {
 		})
 	}
 
+	if h.runWF.IsEnqueueMode() {
+		return c.JSON(http.StatusAccepted, map[string]any{
+			"status": "enqueued",
+			"symbol": req.Symbol,
+			"run_id": runID,
+		})
+	}
+
 	return c.JSON(http.StatusOK, map[string]any{
 		"status": "completed",
 		"symbol": req.Symbol,

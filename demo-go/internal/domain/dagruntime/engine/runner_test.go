@@ -10,6 +10,7 @@ import (
 
 	"dag-observatory/demo-go/internal/application/dagruntime/port"
 	"dag-observatory/demo-go/internal/domain/dagruntime/artifact"
+	dagerrors "dag-observatory/demo-go/internal/domain/dagruntime/errors"
 	"dag-observatory/demo-go/internal/domain/dagruntime/events"
 	"dag-observatory/demo-go/internal/domain/dagruntime/node"
 	"dag-observatory/demo-go/internal/domain/dagruntime/pipeline"
@@ -70,6 +71,7 @@ func (n *timeoutNode) Run(ctx context.Context, av artifact.View, aw artifact.Wri
 type sequenceObserver struct {
 	mu     sync.Mutex
 	events []string
+	results []port.NodeResult
 }
 
 func (o *sequenceObserver) OnCompile(ctx context.Context, info port.CompileInfo) {}
@@ -84,6 +86,9 @@ func (o *sequenceObserver) OnNodeStart(ctx context.Context, info port.NodeInfo) 
 }
 func (o *sequenceObserver) OnNodeEnd(ctx context.Context, info port.NodeResult) {
 	o.append("node_end:" + info.NodeName)
+	o.mu.Lock()
+	o.results = append(o.results, info)
+	o.mu.Unlock()
 }
 func (o *sequenceObserver) OnError(ctx context.Context, info port.ErrorInfo) {}
 
@@ -98,6 +103,14 @@ func (o *sequenceObserver) Events() []string {
 	defer o.mu.Unlock()
 	out := make([]string, len(o.events))
 	copy(out, o.events)
+	return out
+}
+
+func (o *sequenceObserver) Results() []port.NodeResult {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	out := make([]port.NodeResult, len(o.results))
+	copy(out, o.results)
 	return out
 }
 
@@ -198,6 +211,43 @@ func TestRunnerTimeout(t *testing.T) {
 	}
 }
 
+func TestRunnerTimeoutWrapsTimeoutError(t *testing.T) {
+	timeout := &timeoutNode{
+		spec: node.ExecutionSpec{Timeout: 5 * time.Millisecond},
+	}
+
+	compiled := pipeline.Compiled{
+		Name:  "timeout",
+		Order: []node.Node{timeout},
+		Nodes: []node.Node{timeout},
+	}
+
+	runner := &Runner{
+		ArtifactStore: artifactinfra.NewMemoryStore(),
+		StateStore:    stateinfra.NewMemoryStore(),
+		Policy:        policy.Policy{DefaultRetry: policy.RetryPolicy{MaxAttempts: 1}},
+	}
+
+	event := events.Event{
+		EventID:   "timeout",
+		EventTime: time.Now(),
+		Partition: state.Partition("default"),
+		Type:      "test",
+	}
+
+	err := runner.RunCycle(context.Background(), compiled, InputMap{}, event.Partition, event)
+	if err == nil {
+		t.Fatalf("expected timeout error")
+	}
+	var timeoutErr dagerrors.TimeoutError
+	if !errors.As(err, &timeoutErr) {
+		t.Fatalf("expected TimeoutError, got %T", err)
+	}
+	if timeoutErr.Node != "timeout.node" {
+		t.Fatalf("expected node name, got %q", timeoutErr.Node)
+	}
+}
+
 func TestObserverSequence(t *testing.T) {
 	n1 := &counterNode{}
 	n2 := &counterNode{}
@@ -240,5 +290,15 @@ func TestObserverSequence(t *testing.T) {
 	}
 	if events[3] != "node_start:counter.node" || events[4] != "node_end:counter.node" {
 		t.Fatalf("unexpected node 2 events: %v", events[3:5])
+	}
+
+	results := observer.Results()
+	for _, res := range results {
+		if res.RetryCount != 0 {
+			t.Fatalf("expected retry count 0, got %d", res.RetryCount)
+		}
+		if res.QueueWaitMS != 0 {
+			t.Fatalf("expected queue wait 0, got %d", res.QueueWaitMS)
+		}
 	}
 }

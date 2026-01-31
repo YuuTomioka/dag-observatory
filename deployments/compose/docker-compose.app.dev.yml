@@ -8,13 +8,40 @@ services:
       - HTTP_PORT=8080
       - SERVICE_NAME=dag-observatory-demo-go
       - ENV=dev
+      - STATE_STORE_TYPE=bolt
+      - BOLT_PATH=/data/dagruntime.bolt
+      - EVENT_STORE_TYPE=kafka
+      - KAFKA_BROKERS=redpanda:9092
+      - KAFKA_TOPIC=dagruntime-events
+      - KAFKA_GROUP_ID=dagruntime-worker
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
     ports:
       - "8080:8080"
     volumes:
       - ../../demo-go:/app
+      - demo-go-data:/data
     depends_on:
+      - redpanda
       - otel-collector
       - loki
     networks:
       - default
+
+  redpanda:
+    image: redpandadata/redpanda:v24.3.3
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --overprovisioned
+      - --node-id=0
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092
+    ports:
+      - "9092:9092"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+
+volumes:
+  demo-go-data:
+  redpanda-data:

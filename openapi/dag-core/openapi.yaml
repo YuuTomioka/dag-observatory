@@ -1,0 +1,69 @@
+openapi: 3.0.3
+info:
+  title: dag-observatory dag-core API
+  version: 0.1.0
+  description: |
+    OpenAPI is the single source of truth for the dag-core HTTP contract.
+servers:
+  - url: http://localhost:8080
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      operationId: getHealthz
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthzResponse"
+  /dag/run:
+    post:
+      summary: Start a DAG run
+      operationId: postDagRun
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DagRunRequest"
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DagRunResponse"
+components:
+  schemas:
+    HealthzResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          example: ok
+    DagRunRequest:
+      type: object
+      required:
+        - symbol
+      properties:
+        symbol:
+          type: string
+          description: DAG symbol
+          example: sample_dag
+        input:
+          type: object
+          description: Input payload for the DAG run
+          additionalProperties: true
+    DagRunResponse:
+      type: object
+      required:
+        - run_id
+      properties:
+        run_id:
+          type: string
+          description: DAG run ID
+          example: run_12345

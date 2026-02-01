@@ -1,0 +1,41 @@
+name: openapi-check
+
+on:
+  pull_request:
+    paths:
+      - "api/dag-core/**"
+      - "Makefile"
+  push:
+    paths:
+      - "api/dag-core/**"
+      - "Makefile"
+
+jobs:
+  openapi-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: dag-core/go.mod
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: OpenAPI generate check
+        run: make openapi-check
+
+      - name: OpenAPI lint
+        run: make openapi-lint
+
+      - name: OpenAPI breaking change check
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: make openapi-breaking

@@ -1,3 +1,4 @@
 .docs/
 
 dag-core/tmp/
+openapi/dag-core/gen

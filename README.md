@@ -93,7 +93,20 @@ Clock＋DAG実行基盤を持つ Golang + Python SaaS テンプレート。
 
 ---
 
-## 7. リポジトリ構成
+## 7. OpenAPI 生成手順
+### 7.1 仕様ファイルと生成物
+- OpenAPI 仕様: `openapi/dag-core/openapi.yaml`
+- 生成物: `openapi/dag-core/gen/go`, `openapi/dag-core/gen/ts`
+
+### 7.2 生成コマンド
+- `make openapi-go`: Go DTO / Handler IF 生成
+- `make openapi-ts`: TS 型 / React Query hooks 生成
+- `make openapi-gen`: 全生成
+- `make openapi-check`: 生成物差分チェック
+
+---
+
+## 8. リポジトリ構成
 - `dag-core`: Go API / DAG Runtime
 - `worker-py`: Python Worker
 - `deployments`: Grafana / Loki / Tempo / OTel Collector / Promtail など
@@ -103,26 +116,26 @@ Clock＋DAG実行基盤を持つ Golang + Python SaaS テンプレート。
 
 ---
 
-## 8. ドキュメントガイド
-### 8.1 観測可能性
+## 9. ドキュメントガイド
+### 9.1 観測可能性
 - `.docs/report/p1_観測可能性/OTelの構成について.md`
 - `.docs/report/p1_観測可能性/OTelの運用手順.md`
 - `.docs/report/p1_観測可能性/スモークテスト手順.md`
 - `.docs/report/p1_観測可能性/環境変数一覧.md`
 
-### 8.2 DAG Runtime（抽象 Clock + DAG）
+### 9.2 DAG Runtime（抽象 Clock + DAG）
 - `.docs/report/p2_抽象Clock+DAG/00_概要.md`
 - `.docs/report/p2_抽象Clock+DAG/10_アーキテクチャ.md`
 - `.docs/report/p2_抽象Clock+DAG/20_Workflow_Compile.md`
 - `.docs/report/p2_抽象Clock+DAG/40_Node_ExecutionSpec_Txn.md`
 
-### 8.3 Python Worker
+### 9.3 Python Worker
 - `.docs/report/p3_Worker(Python)/1_ワーカー追加案.md`
 - `.docs/report/p3_Worker(Python)/5_実装状況まとめ.md`
 
 ---
 
-## 9. 今後の拡張予定
+## 10. 今後の拡張予定
 - Python 側の OTLP exporter 追加
 - task_name 拡張時の registry 分割
 - error payload の code 規約の厳密化

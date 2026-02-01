@@ -1,0 +1,7 @@
+package: openapi
+output: openapi/dag-core/gen/go/openapi.gen.go
+generate:
+  models: true
+  chi-server: false
+  echo-server: true
+  client: false

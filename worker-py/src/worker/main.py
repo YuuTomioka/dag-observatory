@@ -46,6 +46,9 @@ def _build_common_payload(event: Event) -> list[PayloadEnvelope]:
         value = _payload_lookup(event, key)
         if value is not None:
             payload.append(_encode_payload(key, value))
+    input_value = _payload_lookup(event, "input")
+    if input_value is not None:
+        payload.append(_encode_payload("input", input_value))
     return payload
 
 
@@ -88,6 +91,8 @@ def main() -> None:
 
     try:
         for event in consumer.iter_events():
+            if event.type != "task.requested":
+                continue
             try:
                 output = dispatcher.dispatch(event)
                 producer.send(_build_completed(event, output))

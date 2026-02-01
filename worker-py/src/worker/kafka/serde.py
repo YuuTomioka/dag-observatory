@@ -8,24 +8,21 @@ from typing import Any
 from worker.contracts.events import Event, PayloadEnvelope, PayloadKey
 
 
-_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f%z"
-
-
 def _encode_time(value: datetime | None) -> str:
     if value is None:
         return ""
     if value.tzinfo is None:
         value = value.replace(tzinfo=timezone.utc)
-    return value.strftime(_TIME_FORMAT)
+    value = value.astimezone(timezone.utc)
+    return value.isoformat(timespec="microseconds")
 
 
 def _decode_time(raw: str) -> datetime | None:
     if not raw:
         return None
-    try:
-        return datetime.strptime(raw, _TIME_FORMAT)
-    except ValueError:
-        return datetime.fromisoformat(raw)
+    if raw.endswith("Z"):
+        raw = raw[:-1] + "+00:00"
+    return datetime.fromisoformat(raw)
 
 
 def encode_event(event: Event) -> bytes:

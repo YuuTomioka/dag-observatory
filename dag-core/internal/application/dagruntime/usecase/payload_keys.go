@@ -6,6 +6,35 @@ import (
 )
 
 var (
+	PayloadKeyRunID = events.PayloadKey[string]{
+		Name:     "run_id",
+		StableID: "event:run_id.v1",
+	}
+	PayloadKeyTaskID = events.PayloadKey[string]{
+		Name:     "task_id",
+		StableID: "event:task_id.v1",
+	}
+	PayloadKeyAttempt = events.PayloadKey[int]{
+		Name:     "attempt",
+		StableID: "event:attempt.v1",
+	}
+	PayloadKeyTaskName = events.PayloadKey[string]{
+		Name:     "task_name",
+		StableID: "event:task_name.v1",
+	}
+	PayloadKeyInput = events.PayloadKey[map[string]any]{
+		Name:     "input",
+		StableID: "event:input.v1",
+	}
+	PayloadKeyOutput = events.PayloadKey[map[string]any]{
+		Name:     "output",
+		StableID: "event:output.v1",
+	}
+	PayloadKeyError = events.PayloadKey[map[string]any]{
+		Name:     "error",
+		StableID: "event:error.v1",
+	}
+
 	PayloadKeySymbol = events.PayloadKey[string]{
 		Name:     "symbol",
 		StableID: "event:input.symbol.v1",

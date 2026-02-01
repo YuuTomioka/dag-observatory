@@ -50,8 +50,17 @@ func (h *Handlers) DagRun(c echo.Context) error {
 	runID := uuid.NewString()
 	ctx = ctxprop.WithRunID(ctx, runID)
 
-	partition := state.Partition(req.Symbol)
+	partition := state.Partition(runID)
 	payload := map[string]any{
+		"run_id":    runID,
+		"task_id":   "heavy_calc",
+		"attempt":   1,
+		"task_name": "heavy_calc",
+		"input": map[string]any{
+			"mode":   req.Mode,
+			"symbol": req.Symbol,
+		},
+		// Keep top-level keys for direct execution compatibility.
 		"mode":   req.Mode,
 		"symbol": req.Symbol,
 	}
@@ -60,7 +69,7 @@ func (h *Handlers) DagRun(c echo.Context) error {
 		EventID:   runID,
 		EventTime: time.Now(),
 		Partition: partition,
-		Type:      "http.dag.run",
+		Type:      "task.requested",
 		Payload:   payload,
 	}
 

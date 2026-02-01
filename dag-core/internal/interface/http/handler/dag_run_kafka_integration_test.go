@@ -67,6 +67,11 @@ func TestHTTPToKafkaEnqueue(t *testing.T) {
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("unexpected status: %d", rec.Code)
 	}
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("response decode failed: %v", err)
+	}
+	runID, _ := resp["run_id"].(string)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -82,10 +87,13 @@ func TestHTTPToKafkaEnqueue(t *testing.T) {
 		t.Fatal("timeout waiting for event")
 	}
 
-	if got.Type != "http.dag.run" {
+	if got.Type != "task.requested" {
 		t.Fatalf("unexpected event type: %s", got.Type)
 	}
-	if string(got.Partition) != "EURUSD" {
+	if runID == "" {
+		t.Fatal("run_id not found in response")
+	}
+	if string(got.Partition) != runID {
 		t.Fatalf("unexpected partition: %s", got.Partition)
 	}
 	envelopes, ok := got.Payload.([]events.PayloadEnvelope)

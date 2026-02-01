@@ -80,6 +80,25 @@ func toPayloadEnvelopes(payload any) ([]events.PayloadEnvelope, error) {
 
 func fromStringMap(values map[string]any) (engine.InputMap, error) {
 	inputs := engine.InputMap{}
+	if raw, ok := values["input"]; ok {
+		inputMap, ok := raw.(map[string]any)
+		if ok {
+			if rawSymbol, ok := inputMap["symbol"]; ok {
+				symbol, ok := rawSymbol.(string)
+				if !ok {
+					return nil, fmt.Errorf("dagruntime: symbol must be string")
+				}
+				inputs[InputKeySymbol] = symbol
+			}
+			if rawMode, ok := inputMap["mode"]; ok {
+				mode, ok := rawMode.(string)
+				if !ok {
+					return nil, fmt.Errorf("dagruntime: mode must be string")
+				}
+				inputs[InputKeyMode] = mode
+			}
+		}
+	}
 	if raw, ok := values["symbol"]; ok {
 		symbol, ok := raw.(string)
 		if !ok {
@@ -129,7 +148,52 @@ func fromInputMap(inputs engine.InputMap) ([]events.PayloadEnvelope, error) {
 }
 
 func encodeEnvelopes(values map[string]any) ([]events.PayloadEnvelope, error) {
-	envelopes := make([]events.PayloadEnvelope, 0, 2)
+	envelopes := make([]events.PayloadEnvelope, 0, 8)
+	if raw, ok := values["run_id"]; ok {
+		if runID, ok := raw.(string); ok {
+			env, err := events.EncodePayload(PayloadKeyRunID, runID)
+			if err != nil {
+				return nil, err
+			}
+			envelopes = append(envelopes, env)
+		}
+	}
+	if raw, ok := values["task_id"]; ok {
+		if taskID, ok := raw.(string); ok {
+			env, err := events.EncodePayload(PayloadKeyTaskID, taskID)
+			if err != nil {
+				return nil, err
+			}
+			envelopes = append(envelopes, env)
+		}
+	}
+	if raw, ok := values["attempt"]; ok {
+		if attempt, ok := raw.(int); ok {
+			env, err := events.EncodePayload(PayloadKeyAttempt, attempt)
+			if err != nil {
+				return nil, err
+			}
+			envelopes = append(envelopes, env)
+		}
+	}
+	if raw, ok := values["task_name"]; ok {
+		if taskName, ok := raw.(string); ok {
+			env, err := events.EncodePayload(PayloadKeyTaskName, taskName)
+			if err != nil {
+				return nil, err
+			}
+			envelopes = append(envelopes, env)
+		}
+	}
+	if raw, ok := values["input"]; ok {
+		if input, ok := raw.(map[string]any); ok {
+			env, err := events.EncodePayload(PayloadKeyInput, input)
+			if err != nil {
+				return nil, err
+			}
+			envelopes = append(envelopes, env)
+		}
+	}
 	if raw, ok := values["symbol"]; ok {
 		symbol, ok := raw.(string)
 		if !ok {
@@ -158,6 +222,27 @@ func encodeEnvelopes(values map[string]any) ([]events.PayloadEnvelope, error) {
 func decodeEnvelopes(envelopes []events.PayloadEnvelope) (engine.InputMap, error) {
 	inputs := engine.InputMap{}
 	for _, env := range envelopes {
+		if env.Key == PayloadKeyInput.Raw() {
+			value, err := events.DecodePayload(PayloadKeyInput, env)
+			if err != nil {
+				return nil, err
+			}
+			if raw, ok := value["symbol"]; ok {
+				if symbol, ok := raw.(string); ok {
+					inputs[InputKeySymbol] = symbol
+				} else {
+					return nil, fmt.Errorf("dagruntime: symbol must be string")
+				}
+			}
+			if raw, ok := value["mode"]; ok {
+				if mode, ok := raw.(string); ok {
+					inputs[InputKeyMode] = mode
+				} else {
+					return nil, fmt.Errorf("dagruntime: mode must be string")
+				}
+			}
+			continue
+		}
 		if env.Key == PayloadKeySymbol.Raw() {
 			value, err := events.DecodePayload(PayloadKeySymbol, env)
 			if err != nil {

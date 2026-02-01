@@ -72,5 +72,9 @@ func parseEventTime(raw string) (time.Time, error) {
 	if err == nil {
 		return t, nil
 	}
+	t, err = time.Parse("2006-01-02T15:04:05.999999999-0700", raw)
+	if err == nil {
+		return t, nil
+	}
 	return time.Parse(time.RFC3339Nano, raw)
 }

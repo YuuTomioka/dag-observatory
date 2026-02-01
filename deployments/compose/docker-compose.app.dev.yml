@@ -27,6 +27,23 @@ services:
     networks:
       - default
 
+  worker-py:
+    build:
+      context: ../../worker-py
+      dockerfile: docker/Dockerfile
+    environment:
+      - KAFKA_BROKERS=redpanda:9092
+      - KAFKA_TOPIC=dagruntime-events
+      - KAFKA_GROUP_ID=dagruntime-worker-py
+      - SERVICE_NAME=dag-observatory-worker-py
+      - ENV=dev
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+    depends_on:
+      - redpanda
+      - otel-collector
+    networks:
+      - default
+
   redpanda:
     image: redpandadata/redpanda:v24.3.3
     command:

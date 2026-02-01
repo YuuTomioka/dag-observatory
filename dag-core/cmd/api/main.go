@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"dag-observatory/dag-core/internal/di"
-	"dag-observatory/dag-core/internal/domain/dagruntime/events"
+	"dag-observatory/dag-core/internal/domain/dagruntime/driver"
 )
 
 func main() {
@@ -35,14 +35,14 @@ func main() {
 	}()
 
 	if app.DAGRuntime != nil && app.DAGRuntime.EventConsumer != nil {
-		stream := make(chan events.Event, 32)
+		stream := make(chan driver.StreamEvent, 32)
 		go func() {
-			if err := app.DAGRuntime.EventConsumer.Run(consumerCtx, stream); err != nil && consumerCtx.Err() == nil {
+			if err := app.DAGRuntime.EventConsumer.RunWithContext(consumerCtx, stream); err != nil && consumerCtx.Err() == nil {
 				log.Printf("kafka consumer stopped: %v", err)
 			}
 		}()
 		go func() {
-			if err := app.DAGRuntime.Driver.Run(consumerCtx, stream); err != nil && consumerCtx.Err() == nil {
+			if err := app.DAGRuntime.Driver.RunWithContext(consumerCtx, stream); err != nil && consumerCtx.Err() == nil {
 				log.Printf("dag driver stopped: %v", err)
 			}
 		}()

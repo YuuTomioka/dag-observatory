@@ -17,16 +17,24 @@ class KafkaConsumer:
             raise ValueError("KAFKA_BROKERS is required")
 
         self._consumer = _KafkaConsumer(
-            cfg.kafka_topic,
+            cfg.kafka_in_topic,
             bootstrap_servers=cfg.kafka_brokers.split(","),
             group_id=cfg.kafka_group_id,
             enable_auto_commit=True,
             auto_offset_reset="earliest",
         )
 
-    def iter_events(self) -> Iterable:
+    def iter_events(self) -> Iterable[tuple]:
         for msg in self._consumer:
-            yield decode_event(msg.value)
+            headers: dict[str, str] = {}
+            for key, value in msg.headers or []:
+                if value is None:
+                    continue
+                if isinstance(value, bytes):
+                    headers[key] = value.decode("utf-8")
+                else:
+                    headers[key] = str(value)
+            yield decode_event(msg.value), headers
 
     def close(self) -> None:
         self._consumer.close()

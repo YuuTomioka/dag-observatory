@@ -15,20 +15,41 @@ type Driver struct {
 	Options  engine.DriverOptions
 }
 
+type StreamEvent struct {
+	Ctx   context.Context
+	Event events.Event
+}
+
 func (d *Driver) Run(ctx context.Context, stream <-chan events.Event) error {
+	wrapped := make(chan StreamEvent, 1)
+	go func() {
+		for ev := range stream {
+			wrapped <- StreamEvent{Ctx: ctx, Event: ev}
+		}
+		close(wrapped)
+	}()
+	return d.RunWithContext(ctx, wrapped)
+}
+
+func (d *Driver) RunWithContext(ctx context.Context, stream <-chan StreamEvent) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case event, ok := <-stream:
+		case item, ok := <-stream:
 			if !ok {
 				return nil
+			}
+			event := item.Event
+			runCtx := item.Ctx
+			if runCtx == nil {
+				runCtx = ctx
 			}
 			inputs, _ := event.Payload.(engine.InputMap)
 			if inputs == nil {
 				inputs = engine.InputMap{}
 			}
-			err := d.Runner.RunCycle(ctx, d.Compiled, inputs, event.Partition, event)
+			err := d.Runner.RunCycle(runCtx, d.Compiled, inputs, event.Partition, event)
 			if err != nil {
 				if d.Options.ContinueOnError {
 					continue

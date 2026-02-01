@@ -12,6 +12,8 @@ services:
       - BOLT_PATH=/data/dagruntime.bolt
       - EVENT_STORE_TYPE=kafka
       - KAFKA_BROKERS=redpanda:9092
+      - KAFKA_TASK_TOPIC=dagruntime-tasks
+      - KAFKA_EVENT_TOPIC=dagruntime-events
       - KAFKA_TOPIC=dagruntime-events
       - KAFKA_GROUP_ID=dagruntime-worker
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
@@ -33,6 +35,8 @@ services:
       dockerfile: docker/Dockerfile
     environment:
       - KAFKA_BROKERS=redpanda:9092
+      - KAFKA_IN_TOPIC=dagruntime-tasks
+      - KAFKA_OUT_TOPIC=dagruntime-events
       - KAFKA_TOPIC=dagruntime-events
       - KAFKA_GROUP_ID=dagruntime-worker-py
       - SERVICE_NAME=dag-observatory-worker-py

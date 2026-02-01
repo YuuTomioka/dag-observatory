@@ -11,6 +11,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type dagRunReq struct {
@@ -49,6 +51,17 @@ func (h *Handlers) DagRun(c echo.Context) error {
 
 	runID := uuid.NewString()
 	ctx = ctxprop.WithRunID(ctx, runID)
+	span := trace.SpanFromContext(ctx)
+	span.SetAttributes(
+		attribute.String("dag.run_id", runID),
+		attribute.String("dag.task_id", "heavy_calc"),
+		attribute.String("dag.task_name", "heavy_calc"),
+		attribute.Int("dag.attempt", 1),
+		attribute.String("messaging.system", "kafka"),
+		attribute.String("messaging.destination", "dagruntime-events"),
+		attribute.String("messaging.operation", "send"),
+		attribute.String("messaging.message_id", runID),
+	)
 
 	partition := state.Partition(runID)
 	payload := map[string]any{

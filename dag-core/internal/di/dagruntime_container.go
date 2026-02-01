@@ -118,28 +118,36 @@ func newKafkaProducer(cfg Config) (*eventstoreinfra.KafkaProducer, error) {
 	if cfg.EventStoreType != "kafka" {
 		return nil, nil
 	}
-	if cfg.KafkaBrokers == "" || cfg.KafkaTopic == "" {
+	topic := cfg.KafkaTaskTopic
+	if topic == "" {
+		topic = cfg.KafkaTopic
+	}
+	if cfg.KafkaBrokers == "" || topic == "" {
 		return nil, fmt.Errorf("dagruntime: kafka brokers/topic are required when EVENT_STORE_TYPE=kafka")
 	}
 	brokers := splitCSV(cfg.KafkaBrokers)
 	if len(brokers) == 0 {
 		return nil, fmt.Errorf("dagruntime: kafka brokers are required")
 	}
-	return eventstoreinfra.NewKafkaProducer(brokers, cfg.KafkaTopic)
+	return eventstoreinfra.NewKafkaProducer(brokers, topic)
 }
 
 func newKafkaConsumer(cfg Config) (*eventstoreinfra.KafkaConsumer, error) {
 	if cfg.EventStoreType != "kafka" {
 		return nil, nil
 	}
-	if cfg.KafkaBrokers == "" || cfg.KafkaTopic == "" {
+	topic := cfg.KafkaEventTopic
+	if topic == "" {
+		topic = cfg.KafkaTopic
+	}
+	if cfg.KafkaBrokers == "" || topic == "" {
 		return nil, fmt.Errorf("dagruntime: kafka brokers/topic are required when EVENT_STORE_TYPE=kafka")
 	}
 	brokers := splitCSV(cfg.KafkaBrokers)
 	if len(brokers) == 0 {
 		return nil, fmt.Errorf("dagruntime: kafka brokers are required")
 	}
-	return eventstoreinfra.NewKafkaConsumer(brokers, cfg.KafkaTopic, cfg.KafkaGroupID)
+	return eventstoreinfra.NewKafkaConsumer(brokers, topic, cfg.KafkaGroupID)
 }
 
 func splitCSV(raw string) []string {

@@ -15,6 +15,8 @@ type Config struct {
 	BoltPath         string
 	KafkaBrokers     string
 	KafkaTopic       string
+	KafkaTaskTopic   string
+	KafkaEventTopic  string
 	KafkaGroupID     string
 
 	OTLPEndpoint        string // e.g. http://otel-collector:4318
@@ -37,6 +39,8 @@ func NewConfig() Config {
 		BoltPath:         getenv("BOLT_PATH", "dagruntime.bolt"),
 		KafkaBrokers:     getenv("KAFKA_BROKERS", ""),
 		KafkaTopic:       getenv("KAFKA_TOPIC", ""),
+		KafkaTaskTopic:   getenv("KAFKA_TASK_TOPIC", ""),
+		KafkaEventTopic:  getenv("KAFKA_EVENT_TOPIC", ""),
 		KafkaGroupID:     getenv("KAFKA_GROUP_ID", ""),
 		OTLPEndpoint: getenv("OTEL_EXPORTER_OTLP_ENDPOINT",
 			"http://otel-collector:4318"),

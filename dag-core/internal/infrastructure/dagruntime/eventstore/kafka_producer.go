@@ -6,6 +6,9 @@ import (
 
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
 	"github.com/segmentio/kafka-go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 type KafkaProducer struct {
@@ -31,14 +34,26 @@ func (p *KafkaProducer) Enqueue(ctx context.Context, event events.Event) error {
 	if p == nil || p.writer == nil {
 		return fmt.Errorf("eventstore: producer not configured")
 	}
+	tracer := otel.Tracer("dag-observatory-dag-core")
+	spanCtx, span := tracer.Start(ctx, fmt.Sprintf("kafka.produce %s", event.Type))
+	span.SetAttributes(
+		attribute.String("messaging.system", "kafka"),
+		attribute.String("messaging.destination", p.writer.Topic),
+		attribute.String("messaging.operation", "send"),
+		attribute.String("messaging.message_id", event.EventID),
+	)
+	defer span.End()
+
 	key, value, err := EncodeEvent(event)
 	if err != nil {
 		return err
 	}
-	return p.writer.WriteMessages(ctx, kafka.Message{
+	headers := kafkaHeadersFromCarrier(spanCtx)
+	return p.writer.WriteMessages(spanCtx, kafka.Message{
 		Key:   key,
 		Value: value,
 		Time:  event.EventTime,
+		Headers: headers,
 	})
 }
 
@@ -47,4 +62,20 @@ func (p *KafkaProducer) Close() error {
 		return nil
 	}
 	return p.writer.Close()
+}
+
+func kafkaHeadersFromCarrier(ctx context.Context) []kafka.Header {
+	carrier := propagation.MapCarrier{}
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
+	if len(carrier) == 0 {
+		return nil
+	}
+	headers := make([]kafka.Header, 0, len(carrier))
+	for key, value := range carrier {
+		if value == "" {
+			continue
+		}
+		headers = append(headers, kafka.Header{Key: key, Value: []byte(value)})
+	}
+	return headers
 }

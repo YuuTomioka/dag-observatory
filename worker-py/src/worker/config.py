@@ -7,7 +7,8 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class Config:
     kafka_brokers: str
-    kafka_topic: str
+    kafka_in_topic: str
+    kafka_out_topic: str
     kafka_group_id: str
     service_name: str
     env: str
@@ -22,7 +23,8 @@ def _getenv(key: str, default: str) -> str:
 def load_config() -> Config:
     return Config(
         kafka_brokers=_getenv("KAFKA_BROKERS", ""),
-        kafka_topic=_getenv("KAFKA_TOPIC", "dagruntime-events"),
+        kafka_in_topic=_getenv("KAFKA_IN_TOPIC", _getenv("KAFKA_TOPIC", "dagruntime-events")),
+        kafka_out_topic=_getenv("KAFKA_OUT_TOPIC", _getenv("KAFKA_TOPIC", "dagruntime-events")),
         kafka_group_id=_getenv("KAFKA_GROUP_ID", "dagruntime-worker-py"),
         service_name=_getenv("SERVICE_NAME", "dag-observatory-worker-py"),
         env=_getenv("ENV", "dev"),

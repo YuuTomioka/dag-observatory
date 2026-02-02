@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
+	"dag-observatory/dag-core/internal/application/dagruntime/port"
 	"dag-observatory/dag-core/internal/domain/dagruntime/driver"
 	"dag-observatory/dag-core/internal/domain/dagruntime/engine"
 	"dag-observatory/dag-core/internal/domain/dagruntime/pipeline"
@@ -22,6 +23,7 @@ type DAGRuntimeContainer struct {
 	StateStore    *StateStoreBundle
 	EventProducer *eventstoreinfra.KafkaProducer
 	EventConsumer *eventstoreinfra.KafkaConsumer
+	EventStream   port.EventStream
 	Observer      *observerinfra.OTelObserver
 	Recorder      *recorderinfra.NoopRecorder
 	Runner        *engine.Runner
@@ -47,6 +49,10 @@ func NewDAGRuntimeContainer(cfg Config, otelc *OTelContainer, compiled pipeline.
 	consumer, err := newKafkaConsumer(cfg)
 	if err != nil {
 		return nil, err
+	}
+	var eventStream port.EventStream
+	if consumer != nil {
+		eventStream = eventstoreinfra.NewKafkaEventStream(consumer)
 	}
 	var observer *observerinfra.OTelObserver
 	if otelc != nil {
@@ -81,6 +87,7 @@ func NewDAGRuntimeContainer(cfg Config, otelc *OTelContainer, compiled pipeline.
 		StateStore:    stateStore,
 		EventProducer: producer,
 		EventConsumer: consumer,
+		EventStream:   eventStream,
 		Observer:      observer,
 		Recorder:      recorder,
 		Runner:        runner,

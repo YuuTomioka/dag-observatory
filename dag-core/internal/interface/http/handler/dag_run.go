@@ -13,6 +13,18 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// DagRun
+// @Summary Run workflow
+// @Description Triggers workflow execution (sync/async depending on backend)
+// @Tags dag
+// @Accept json
+// @Produce json
+// @Param request body dto.DagRunRequest true "Run workflow request"
+// @Success 200 {object} map[string]any
+// @Success 202 {object} map[string]any
+// @Failure 400 {object} map[string]any
+// @Failure 500 {object} map[string]any
+// @Router /dag/run [post]
 func (h *Handlers) DagRun(c echo.Context) error {
 	ctx := c.Request().Context()
 

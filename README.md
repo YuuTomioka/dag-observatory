@@ -76,6 +76,25 @@ Clock＋DAG実行基盤を持つ Golang + Python SaaS テンプレート。
 
 ---
 
+## 5.4 RunView Phase（正規化仕様）
+RunView は event.Type から phase を正規化します。
+
+### 許容値
+- `in_progress`
+- `succeeded`
+- `failed`
+- `cancelled`
+- `unknown`
+
+### マッピング規則
+- `*.requested` / `*.started` / `*.running` → `in_progress`
+- `*.completed` / `*.succeeded` → `succeeded`
+- `*.failed` / `*.error` → `failed`
+- `*.cancelled` / `*.canceled` → `cancelled`
+- それ以外 → `unknown`
+
+---
+
 ## 6. ローカル開発セットアップ
 ### 6.1 必要ツール
 - Docker / Docker Compose

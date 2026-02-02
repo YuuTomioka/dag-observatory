@@ -4,7 +4,7 @@ SHELL := /usr/bin/env bash
 GO_DIR := dag-core
 SCRIPTS_DIR := scripts
 
-.PHONY: help dev-up dev-down go-mod-tidy go-mod-download go-fmt go-vet go-test go-build
+.PHONY: help dev-up dev-down go-mod-tidy go-mod-download go-fmt go-vet go-test go-build openapi grpc-gen graphql-gen grpc-ci contracts-check
 
 help:
 	@printf "Targets:\n"
@@ -16,6 +16,11 @@ help:
 	@printf "  go-vet          Run go vet\n"
 	@printf "  go-test         Run tests\n"
 	@printf "  go-build        Build API binary\n"
+	@printf "  openapi         Generate OpenAPI spec\n"
+	@printf "  grpc-gen        Generate gRPC code from proto\n"
+	@printf "  graphql-gen     Generate GraphQL code from schema\n"
+	@printf "  grpc-ci         Run buf lint/breaking for gRPC\n"
+	@printf "  contracts-check Regenerate contracts and fail on diff\n"
 
 dev-up:
 	@bash $(SCRIPTS_DIR)/dev_up.sh
@@ -40,3 +45,25 @@ go-test:
 
 go-build:
 	@cd $(GO_DIR) && go build -trimpath -o bin/api ./cmd/api
+
+openapi:
+	@mkdir -p docs/openapi
+	@cd $(GO_DIR) && go run github.com/swaggo/swag/cmd/swag@v1.16.3 init -g main.go -d ./cmd/api,./internal/interface/http -o ../docs/openapi
+
+grpc-gen:
+	@mkdir -p $(GO_DIR)/internal/interface/grpc/gen
+	@cd $(GO_DIR) && buf generate --path internal/interface/grpc/proto
+
+graphql-gen:
+	@mkdir -p $(GO_DIR)/internal/interface/graphql/schema
+	@cd $(GO_DIR) && go run github.com/99designs/gqlgen@v0.17.60 generate -c internal/interface/graphql/gqlgen.yml
+
+grpc-ci:
+	@cd $(GO_DIR)/internal/interface/grpc && buf lint
+	@cd $(GO_DIR)/internal/interface/grpc && buf breaking --against .
+
+contracts-check:
+	@$(MAKE) openapi
+	@$(MAKE) grpc-gen
+	@$(MAKE) graphql-gen
+	@git diff --exit-code docs/openapi $(GO_DIR)/internal/interface/grpc/gen $(GO_DIR)/internal/interface/graphql/gen

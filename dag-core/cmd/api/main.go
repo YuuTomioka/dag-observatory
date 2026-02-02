@@ -1,3 +1,7 @@
+// @title DAG Observatory API
+// @version 0.1.0
+// @description DAG runtime HTTP API (auto-generated via swag).
+// @BasePath /
 package main
 
 import (
@@ -52,6 +56,21 @@ func main() {
 	go func() {
 		if err := app.Echo.Start(":" + app.Config.HTTPPort); err != nil {
 			log.Printf("server stopped: %v", err)
+		}
+	}()
+	go func() {
+		if app.GRPC != nil {
+			log.Printf("grpc server placeholder started on :%s", app.Config.GRPCPort)
+		}
+	}()
+	go func() {
+		if app.GraphQL != nil {
+			log.Printf("graphql server placeholder started on :%s", app.Config.GraphQLPort)
+		}
+	}()
+	go func() {
+		if app.WS != nil {
+			log.Printf("ws server placeholder started on :%s", app.Config.WSPort)
 		}
 	}()
 

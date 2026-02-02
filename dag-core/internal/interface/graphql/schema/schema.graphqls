@@ -1,0 +1,28 @@
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+type Query {
+  healthz: Healthz!
+}
+
+type Mutation {
+  runWorkflow(input: RunWorkflowInput!): RunWorkflowResult!
+}
+
+type Healthz {
+  ok: Boolean!
+}
+
+input RunWorkflowInput {
+  symbol: String
+  mode: String
+  runId: String
+}
+
+type RunWorkflowResult {
+  runId: String!
+  status: String!
+  symbol: String!
+}

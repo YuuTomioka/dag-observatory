@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package dagruntime.v1;
+
+option go_package = "dag-observatory/dag-core/internal/interface/grpc/gen;grpcgen";
+
+service DAGRuntimes {
+  rpc RunWorkflow (RunWorkflowRequest) returns (RunWorkflowResponse) {}
+}
+
+message RunWorkflowRequest {
+  string symbol = 1;
+  string mode = 2;
+  string run_id = 3;
+}
+
+message RunWorkflowResponse {
+  string run_id = 1;
+  string status = 2;
+  string symbol = 3;
+}

@@ -1,0 +1,68 @@
+basePath: /
+definitions:
+  dto.DagRunRequest:
+    properties:
+      mode:
+        type: string
+      symbol:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: DAG runtime HTTP API (auto-generated via swag).
+  title: DAG Observatory API
+  version: 0.1.0
+paths:
+  /dag/run:
+    post:
+      consumes:
+      - application/json
+      description: Triggers workflow execution (sync/async depending on backend)
+      parameters:
+      - description: Run workflow request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.DagRunRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "202":
+          description: Accepted
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Run workflow
+      tags:
+      - dag
+  /healthz:
+    get:
+      description: Returns OK when server is healthy
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Health check
+      tags:
+      - health
+swagger: "2.0"

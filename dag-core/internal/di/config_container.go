@@ -8,6 +8,9 @@ type Config struct {
 	ServiceVersion   string
 	Env              string
 	HTTPPort         string
+	GRPCPort         string
+	GraphQLPort      string
+	WSPort           string
 	AppLogLevel      string
 	AppLogOutput     string
 	StateStoreType   string
@@ -32,6 +35,9 @@ func NewConfig() Config {
 		ServiceVersion:   getenv("SERVICE_VERSION", ""),
 		Env:              getenv("ENV", "dev"),
 		HTTPPort:         getenv("HTTP_PORT", "8080"),
+		GRPCPort:         getenv("GRPC_PORT", "9090"),
+		GraphQLPort:      getenv("GRAPHQL_PORT", "8081"),
+		WSPort:           getenv("WS_PORT", "8082"),
 		AppLogLevel:      getenv("APP_LOG_LEVEL", "info"),
 		AppLogOutput:     getenv("APP_LOG_OUTPUT", "stdout"),
 		StateStoreType:   getenv("STATE_STORE_TYPE", "memory"),

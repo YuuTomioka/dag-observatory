@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
+	"dag-observatory/dag-core/internal/domain/observability/semantics"
 	"github.com/segmentio/kafka-go"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -37,10 +38,10 @@ func (p *KafkaProducer) Enqueue(ctx context.Context, event events.Event) error {
 	tracer := otel.Tracer("dag-observatory-dag-core")
 	spanCtx, span := tracer.Start(ctx, fmt.Sprintf("kafka.produce %s", event.Type))
 	span.SetAttributes(
-		attribute.String("messaging.system", "kafka"),
-		attribute.String("messaging.destination", p.writer.Topic),
-		attribute.String("messaging.operation", "send"),
-		attribute.String("messaging.message_id", event.EventID),
+		attribute.String(semantics.KeyMessagingSystem, "kafka"),
+		attribute.String(semantics.KeyMessagingDestination, p.writer.Topic),
+		attribute.String(semantics.KeyMessagingOperation, "send"),
+		attribute.String(semantics.KeyMessagingMessageID, event.EventID),
 	)
 	defer span.End()
 

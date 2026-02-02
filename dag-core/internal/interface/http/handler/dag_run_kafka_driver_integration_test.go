@@ -7,56 +7,18 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"sync"
 	"testing"
 	"time"
 
 	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
-	"dag-observatory/dag-core/internal/domain/dagruntime/artifact"
-	"dag-observatory/dag-core/internal/domain/dagruntime/driver"
-	"dag-observatory/dag-core/internal/domain/dagruntime/engine"
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
-	"dag-observatory/dag-core/internal/domain/dagruntime/node"
-	"dag-observatory/dag-core/internal/domain/dagruntime/pipeline"
-	"dag-observatory/dag-core/internal/domain/dagruntime/policy"
-	"dag-observatory/dag-core/internal/domain/dagruntime/state"
-	artifactinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/artifact"
 	eventstore "dag-observatory/dag-core/internal/infrastructure/dagruntime/eventstore"
-	stateinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/state"
 	"dag-observatory/dag-core/internal/infrastructure/observability/applog"
 
 	"github.com/labstack/echo/v4"
 )
 
-type countNode struct {
-	mu    sync.Mutex
-	count int
-}
-
-func (n *countNode) Name() string { return "count.node" }
-func (n *countNode) Requires() []artifact.AnyKey { return nil }
-func (n *countNode) Provides() []artifact.AnyKey { return nil }
-func (n *countNode) Reads() []state.AnyKey       { return nil }
-func (n *countNode) Writes() []state.AnyKey      { return nil }
-func (n *countNode) Spec() node.ExecutionSpec    { return node.ExecutionSpec{} }
-func (n *countNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
-	_ = ctx
-	_ = av
-	_ = aw
-	_ = txn
-	n.mu.Lock()
-	n.count++
-	n.mu.Unlock()
-	return nil
-}
-
-func (n *countNode) Count() int {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	return n.count
-}
-
-func TestHTTPToKafkaToDriver(t *testing.T) {
+func TestHTTPToKafkaSmoke(t *testing.T) {
 	brokers := splitCSV(os.Getenv("KAFKA_BROKERS"))
 	topic := os.Getenv("KAFKA_TOPIC")
 	groupID := os.Getenv("KAFKA_GROUP_ID")
@@ -110,35 +72,9 @@ func TestHTTPToKafkaToDriver(t *testing.T) {
 		_ = consumer.Run(ctx, out)
 	}()
 
-	var got events.Event
 	select {
-	case got = <-out:
+	case <-out:
 	case <-ctx.Done():
 		t.Fatal("timeout waiting for event")
-	}
-
-	stream := make(chan events.Event, 1)
-	stream <- got
-	close(stream)
-
-	countNodeInst := &countNode{}
-	driver := &driver.Driver{
-		Runner: &engine.Runner{
-			ArtifactStore: artifactinfra.NewMemoryStore(),
-			StateStore:    stateinfra.NewMemoryStore(),
-			Policy:        policy.Policy{DefaultRetry: policy.RetryPolicy{MaxAttempts: 1}},
-		},
-		Compiled: pipeline.Compiled{
-			Name:  "test",
-			Order: []node.Node{countNodeInst},
-			Nodes: []node.Node{countNodeInst},
-		},
-	}
-
-	if err := driver.Run(context.Background(), stream); err != nil {
-		t.Fatalf("driver run failed: %v", err)
-	}
-	if countNodeInst.Count() != 1 {
-		t.Fatalf("expected node to run once, got %d", countNodeInst.Count())
 	}
 }

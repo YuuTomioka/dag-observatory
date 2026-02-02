@@ -4,66 +4,30 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
-	"dag-observatory/dag-core/internal/domain/dagruntime/artifact"
-	"dag-observatory/dag-core/internal/domain/dagruntime/driver"
-	"dag-observatory/dag-core/internal/domain/dagruntime/engine"
-	"dag-observatory/dag-core/internal/domain/dagruntime/node"
-	"dag-observatory/dag-core/internal/domain/dagruntime/pipeline"
-	"dag-observatory/dag-core/internal/domain/dagruntime/policy"
-	"dag-observatory/dag-core/internal/domain/dagruntime/state"
-	artifactinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/artifact"
-	stateinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/state"
+	"dag-observatory/dag-core/internal/domain/dagruntime/events"
 	"dag-observatory/dag-core/internal/infrastructure/observability/applog"
 
 	"github.com/labstack/echo/v4"
 )
 
-type inputCheckNode struct{}
-
-func (n *inputCheckNode) Name() string { return "input.check" }
-func (n *inputCheckNode) Requires() []artifact.AnyKey {
-	return []artifact.AnyKey{usecase.InputKeySymbol, usecase.InputKeyMode}
+type recordingEnqueuer struct {
+	last events.Event
 }
-func (n *inputCheckNode) Provides() []artifact.AnyKey { return nil }
-func (n *inputCheckNode) Reads() []state.AnyKey       { return nil }
-func (n *inputCheckNode) Writes() []state.AnyKey      { return nil }
-func (n *inputCheckNode) Spec() node.ExecutionSpec    { return node.ExecutionSpec{} }
-func (n *inputCheckNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+
+func (r *recordingEnqueuer) Enqueue(ctx context.Context, event events.Event) error {
 	_ = ctx
-	_ = aw
-	_ = txn
-	if _, ok := artifact.Get(av, usecase.InputKeySymbol); !ok {
-		return errors.New("missing symbol")
-	}
-	if _, ok := artifact.Get(av, usecase.InputKeyMode); !ok {
-		return errors.New("missing mode")
-	}
+	r.last = event
 	return nil
 }
 
-func TestDagRunE2E(t *testing.T) {
-	compiled := pipeline.Compiled{
-		Name:  "e2e",
-		Order: []node.Node{&inputCheckNode{}},
-		Nodes: []node.Node{&inputCheckNode{}},
-	}
-
-	runner := &engine.Runner{
-		ArtifactStore: artifactinfra.NewMemoryStore(),
-		StateStore:    stateinfra.NewMemoryStore(),
-		Policy:        policy.Policy{},
-	}
-	drv := &driver.Driver{
-		Runner:   runner,
-		Compiled: compiled,
-	}
-	uc := &usecase.RunWorkflow{Driver: drv}
+func TestDagRunHTTP(t *testing.T) {
+	enqueuer := &recordingEnqueuer{}
+	uc := &usecase.RunWorkflow{Enqueuer: enqueuer}
 
 	h := New(Dependencies{
 		AppLog:     applog.New("info", "stdout", nil),
@@ -80,7 +44,7 @@ func TestDagRunE2E(t *testing.T) {
 	if err := h.DagRun(c); err != nil {
 		t.Fatalf("handler error: %v", err)
 	}
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", rec.Code)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d", rec.Code)
 	}
 }

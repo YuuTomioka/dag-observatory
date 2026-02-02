@@ -3,22 +3,15 @@ package handler
 import (
 	"log/slog"
 	"net/http"
-	"time"
 
-	"dag-observatory/dag-core/internal/domain/dagruntime/events"
-	"dag-observatory/dag-core/internal/domain/dagruntime/state"
-	"dag-observatory/dag-core/internal/domain/observability/ctxprop"
+	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
+	"dag-observatory/dag-core/internal/domain/observability/semantics"
+	"dag-observatory/dag-core/internal/interface/http/dto"
 
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
-
-type dagRunReq struct {
-	Symbol string `json:"symbol"`
-	Mode   string `json:"mode"`
-}
 
 func (h *Handlers) DagRun(c echo.Context) error {
 	ctx := c.Request().Context()
@@ -30,7 +23,7 @@ func (h *Handlers) DagRun(c echo.Context) error {
 		})
 	}
 
-	var req dagRunReq
+	var req dto.DagRunRequest
 	if err := c.Bind(&req); err != nil {
 		h.appLog.Warn(ctx, "dag run request bind failed",
 			slog.String("error", err.Error()),
@@ -39,75 +32,49 @@ func (h *Handlers) DagRun(c echo.Context) error {
 			"error": "invalid request",
 		})
 	}
-	if req.Symbol == "" {
-		req.Symbol = "USDJPY"
-	}
-	if req.Mode == "" {
-		req.Mode = c.QueryParam("mode")
-	}
-	if req.Mode == "" {
-		req.Mode = "normal"
+	mode := req.Mode
+	if mode == "" {
+		mode = c.QueryParam("mode")
 	}
 
-	runID := uuid.NewString()
-	ctx = ctxprop.WithRunID(ctx, runID)
-	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(
-		attribute.String("dag.run_id", runID),
-		attribute.String("dag.task_id", "heavy_calc"),
-		attribute.String("dag.task_name", "heavy_calc"),
-		attribute.Int("dag.attempt", 1),
-		attribute.String("messaging.system", "kafka"),
-		attribute.String("messaging.destination", "dagruntime-events"),
-		attribute.String("messaging.operation", "send"),
-		attribute.String("messaging.message_id", runID),
-	)
-
-	partition := state.Partition(runID)
-	payload := map[string]any{
-		"run_id":    runID,
-		"task_id":   "heavy_calc",
-		"attempt":   1,
-		"task_name": "heavy_calc",
-		"input": map[string]any{
-			"mode":   req.Mode,
-			"symbol": req.Symbol,
-		},
-		// Keep top-level keys for direct execution compatibility.
-		"mode":   req.Mode,
-		"symbol": req.Symbol,
-	}
-
-	event := events.Event{
-		EventID:   runID,
-		EventTime: time.Now(),
-		Partition: partition,
-		Type:      "task.requested",
-		Payload:   payload,
-	}
-
-	if err := h.runWF.Handle(ctx, partition, event); err != nil {
+	result, err := h.runWF.Execute(ctx, usecase.RunWorkflowRequest{
+		Symbol: req.Symbol,
+		Mode:   mode,
+	})
+	if err != nil {
 		h.appLog.Error(ctx, "dag run failed",
 			slog.String("error", err.Error()),
 		)
 		return c.JSON(http.StatusInternalServerError, map[string]any{
 			"status": "failed",
-			"symbol": req.Symbol,
-			"run_id": runID,
+			"symbol": result.Symbol,
+			"run_id": result.RunID,
 		})
 	}
 
-	if h.runWF.IsEnqueueMode() {
+	span := trace.SpanFromContext(ctx)
+	span.SetAttributes(
+		attribute.String(semantics.KeyDAGRunID, result.RunID),
+		attribute.String(semantics.KeyDAGTaskID, result.TaskID),
+		attribute.String(semantics.KeyDAGTaskName, result.TaskName),
+		attribute.Int(semantics.KeyDAGAttempt, result.Attempt),
+		attribute.String(semantics.KeyMessagingSystem, "kafka"),
+		attribute.String(semantics.KeyMessagingDestination, "dagruntime-events"),
+		attribute.String(semantics.KeyMessagingOperation, "send"),
+		attribute.String(semantics.KeyMessagingMessageID, result.RunID),
+	)
+
+	if result.EnqueueMode {
 		return c.JSON(http.StatusAccepted, map[string]any{
 			"status": "enqueued",
-			"symbol": req.Symbol,
-			"run_id": runID,
+			"symbol": result.Symbol,
+			"run_id": result.RunID,
 		})
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"status": "completed",
-		"symbol": req.Symbol,
-		"run_id": runID,
+		"symbol": result.Symbol,
+		"run_id": result.RunID,
 	})
 }

@@ -6,6 +6,7 @@ import (
 
 	"dag-observatory/dag-core/internal/domain/dagruntime/driver"
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
+	"dag-observatory/dag-core/internal/domain/observability/semantics"
 	"github.com/segmentio/kafka-go"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -73,10 +74,10 @@ func (c *KafkaConsumer) RunWithContext(ctx context.Context, out chan<- driver.St
 		tracer := otel.Tracer("dag-observatory-dag-core")
 		spanCtx, span := tracer.Start(msgCtx, fmt.Sprintf("kafka.consume %s", event.Type))
 		span.SetAttributes(
-			attribute.String("messaging.system", "kafka"),
-			attribute.String("messaging.destination", c.reader.Config().Topic),
-			attribute.String("messaging.operation", "receive"),
-			attribute.String("messaging.message_id", event.EventID),
+			attribute.String(semantics.KeyMessagingSystem, "kafka"),
+			attribute.String(semantics.KeyMessagingDestination, c.reader.Config().Topic),
+			attribute.String(semantics.KeyMessagingOperation, "receive"),
+			attribute.String(semantics.KeyMessagingMessageID, event.EventID),
 		)
 		select {
 		case out <- driver.StreamEvent{Ctx: spanCtx, Event: event}:

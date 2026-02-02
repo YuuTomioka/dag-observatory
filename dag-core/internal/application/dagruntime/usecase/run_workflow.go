@@ -4,17 +4,40 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"dag-observatory/dag-core/internal/application/dagruntime/port"
 	"dag-observatory/dag-core/internal/domain/dagruntime/driver"
 	"dag-observatory/dag-core/internal/domain/dagruntime/engine"
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
 	"dag-observatory/dag-core/internal/domain/dagruntime/state"
+	"dag-observatory/dag-core/internal/domain/observability/ctxprop"
+
+	"github.com/google/uuid"
+)
+
+const (
+	defaultSymbol   = "USDJPY"
+	defaultMode     = "normal"
+	defaultTaskID   = "heavy_calc"
+	defaultTaskName = "heavy_calc"
+	defaultAttempt  = 1
+	defaultEventType = "task.requested"
 )
 
 type RunWorkflow struct {
 	Driver   *driver.Driver
 	Enqueuer port.EventEnqueuer
+}
+
+func (u *RunWorkflow) Execute(ctx context.Context, req RunWorkflowRequest) (RunWorkflowResult, error) {
+	result, event, partition := buildRunEvent(req)
+	ctx = ctxprop.WithRunID(ctx, result.RunID)
+	if err := u.Handle(ctx, partition, event); err != nil {
+		return result, err
+	}
+	result.EnqueueMode = u.IsEnqueueMode()
+	return result, nil
 }
 
 func (u *RunWorkflow) Handle(ctx context.Context, partition state.Partition, event events.Event) error {
@@ -44,6 +67,55 @@ func (u *RunWorkflow) Handle(ctx context.Context, partition state.Partition, eve
 
 func (u *RunWorkflow) IsEnqueueMode() bool {
 	return u != nil && u.Enqueuer != nil
+}
+
+func buildRunEvent(req RunWorkflowRequest) (RunWorkflowResult, events.Event, state.Partition) {
+	runID := req.RunID
+	if runID == "" {
+		runID = uuid.NewString()
+	}
+	symbol := req.Symbol
+	if symbol == "" {
+		symbol = defaultSymbol
+	}
+	mode := req.Mode
+	if mode == "" {
+		mode = defaultMode
+	}
+
+	result := RunWorkflowResult{
+		RunID:    runID,
+		Symbol:   symbol,
+		Mode:     mode,
+		TaskID:   defaultTaskID,
+		TaskName: defaultTaskName,
+		Attempt:  defaultAttempt,
+	}
+
+	payload := map[string]any{
+		"run_id":    runID,
+		"task_id":   defaultTaskID,
+		"attempt":   defaultAttempt,
+		"task_name": defaultTaskName,
+		"input": map[string]any{
+			"mode":   mode,
+			"symbol": symbol,
+		},
+		// Keep top-level keys for direct execution compatibility.
+		"mode":   mode,
+		"symbol": symbol,
+	}
+
+	partition := state.Partition(runID)
+	event := events.Event{
+		EventID:   runID,
+		EventTime: time.Now(),
+		Partition: partition,
+		Type:      defaultEventType,
+		Payload:   payload,
+	}
+
+	return result, event, partition
 }
 
 func toInputMap(payload any) (engine.InputMap, error) {

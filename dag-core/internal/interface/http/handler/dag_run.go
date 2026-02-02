@@ -20,18 +20,19 @@ import (
 // @Accept json
 // @Produce json
 // @Param request body dto.DagRunRequest true "Run workflow request"
-// @Success 200 {object} map[string]any
-// @Success 202 {object} map[string]any
-// @Failure 400 {object} map[string]any
-// @Failure 500 {object} map[string]any
+// @Param mode query string false "Override mode when body omits it"
+// @Success 200 {object} dto.DagRunResponse
+// @Success 202 {object} dto.DagRunResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
 // @Router /dag/run [post]
 func (h *Handlers) DagRun(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	if h.runWF == nil {
 		h.appLog.Error(ctx, "dag runtime usecase not configured")
-		return c.JSON(http.StatusInternalServerError, map[string]any{
-			"error": "dag runtime not configured",
+		return c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error: "dag runtime not configured",
 		})
 	}
 
@@ -40,8 +41,8 @@ func (h *Handlers) DagRun(c echo.Context) error {
 		h.appLog.Warn(ctx, "dag run request bind failed",
 			slog.String("error", err.Error()),
 		)
-		return c.JSON(http.StatusBadRequest, map[string]any{
-			"error": "invalid request",
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error: "invalid request",
 		})
 	}
 	mode := req.Mode
@@ -57,10 +58,10 @@ func (h *Handlers) DagRun(c echo.Context) error {
 		h.appLog.Error(ctx, "dag run failed",
 			slog.String("error", err.Error()),
 		)
-		return c.JSON(http.StatusInternalServerError, map[string]any{
-			"status": "failed",
-			"symbol": result.Symbol,
-			"run_id": result.RunID,
+		return c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Status: "failed",
+			Symbol: result.Symbol,
+			RunID:  result.RunID,
 		})
 	}
 
@@ -77,16 +78,16 @@ func (h *Handlers) DagRun(c echo.Context) error {
 	)
 
 	if result.EnqueueMode {
-		return c.JSON(http.StatusAccepted, map[string]any{
-			"status": "enqueued",
-			"symbol": result.Symbol,
-			"run_id": result.RunID,
+		return c.JSON(http.StatusAccepted, dto.DagRunResponse{
+			Status: "enqueued",
+			Symbol: result.Symbol,
+			RunID:  result.RunID,
 		})
 	}
 
-	return c.JSON(http.StatusOK, map[string]any{
-		"status": "completed",
-		"symbol": result.Symbol,
-		"run_id": result.RunID,
+	return c.JSON(http.StatusOK, dto.DagRunResponse{
+		Status: "completed",
+		Symbol: result.Symbol,
+		RunID:  result.RunID,
 	})
 }

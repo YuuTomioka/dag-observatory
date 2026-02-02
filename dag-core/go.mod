@@ -4,6 +4,8 @@ go 1.24.0
 
 toolchain go1.24.12
 
+replace dag-observatory/openapi/dag-core => ../openapi/dag-core
+
 require (
 	github.com/google/uuid v1.6.0
 	github.com/labstack/echo/v4 v4.13.4

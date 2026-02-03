@@ -28,6 +28,7 @@ func NewEchoContainer(cfg Config, otelc *OTelContainer, dagRuntime *DAGRuntimeCo
 	}
 
 	var artifactsRepo *tsdb.ArtifactsRepository
+	var dbBackupsRepo *tsdb.DBBackupsRepository
 	var presigner *miniostore.Presigner
 	if cfg.TSDBURL != "" {
 		client, err := tsdb.New(cfg.TSDBURL)
@@ -35,6 +36,7 @@ func NewEchoContainer(cfg Config, otelc *OTelContainer, dagRuntime *DAGRuntimeCo
 			return nil, err
 		}
 		artifactsRepo = tsdb.NewArtifactsRepository(client)
+		dbBackupsRepo = tsdb.NewDBBackupsRepository(client)
 	}
 	if cfg.MinIOEndpoint != "" {
 		presigner = miniostore.NewPresigner(miniostore.Config{
@@ -53,6 +55,7 @@ func NewEchoContainer(cfg Config, otelc *OTelContainer, dagRuntime *DAGRuntimeCo
 		Metrics:    otelc.Metrics,
 		RunWorkflow: dagRuntime.Usecase,
 		ArtifactsRepo: artifactsRepo,
+		DBBackupsRepo: dbBackupsRepo,
 		Presigner: presigner,
 	})
 

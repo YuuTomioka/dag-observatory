@@ -38,4 +38,6 @@ func RegisterRoutes(e *echo.Echo, d Dependencies) {
 	e.POST("/dag/run", h.DagRun)
 	e.GET("/workflow-runs/:workflow_run_id/artifacts", h.ListArtifactsByWorkflow)
 	e.POST("/artifacts/:artifact_id:presign-download", h.PresignArtifact)
+	e.GET("/db-backups", h.ListDBBackups)
+	e.POST("/db-backups/:backup_id:presign-download", h.PresignDBBackup)
 }

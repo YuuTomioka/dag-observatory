@@ -43,3 +43,13 @@ func (p *Presigner) PresignGet(ctx context.Context, objectKey string, expires ti
 	}
 	return p.client.PresignedGetObject(ctx, p.bucket, objectKey, expires, url.Values{})
 }
+
+func (p *Presigner) PresignGetWithBucket(ctx context.Context, bucket, objectKey string, expires time.Duration) (*url.URL, error) {
+	if p == nil || p.client == nil {
+		return nil, fmt.Errorf("minio: presigner not configured")
+	}
+	if bucket == "" {
+		bucket = p.bucket
+	}
+	return p.client.PresignedGetObject(ctx, bucket, objectKey, expires, url.Values{})
+}

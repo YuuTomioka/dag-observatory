@@ -19,6 +19,7 @@ type Handlers struct {
 	runWF     *usecase.RunWorkflow
 	artifacts *tsdb.ArtifactsRepository
 	presigner *miniostore.Presigner
+	dbBackups *tsdb.DBBackupsRepository
 }
 
 type Dependencies struct {
@@ -29,6 +30,7 @@ type Dependencies struct {
 	RunWorkflow *usecase.RunWorkflow
 	ArtifactsRepo *tsdb.ArtifactsRepository
 	Presigner *miniostore.Presigner
+	DBBackupsRepo *tsdb.DBBackupsRepository
 }
 
 func New(d Dependencies) *Handlers {
@@ -40,5 +42,6 @@ func New(d Dependencies) *Handlers {
 		runWF:     d.RunWorkflow,
 		artifacts: d.ArtifactsRepo,
 		presigner: d.Presigner,
+		dbBackups: d.DBBackupsRepo,
 	}
 }

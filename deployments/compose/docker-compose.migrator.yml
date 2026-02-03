@@ -1,0 +1,8 @@
+services:
+  tsdb-migrator:
+    build:
+      context: ../../
+      dockerfile: deployments/migrator/Dockerfile
+    environment:
+      - TSDB_URL=${TSDB_URL}
+    restart: "no"

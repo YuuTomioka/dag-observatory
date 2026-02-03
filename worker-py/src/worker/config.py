@@ -13,6 +13,7 @@ class Config:
     service_name: str
     env: str
     otlp_endpoint: str
+    tsdb_url: str
 
 
 def _getenv(key: str, default: str) -> str:
@@ -29,4 +30,5 @@ def load_config() -> Config:
         service_name=_getenv("SERVICE_NAME", "dag-observatory-worker-py"),
         env=_getenv("ENV", "dev"),
         otlp_endpoint=_getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4318"),
+        tsdb_url=_getenv("TSDB_URL", ""),
     )

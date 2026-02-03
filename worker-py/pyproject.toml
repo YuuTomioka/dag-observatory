@@ -13,6 +13,7 @@ dependencies = [
 [project.scripts]
 worker-py = "worker.main:main"
 worker-py-outbox = "worker.outbox.main:main"
+worker-py-gc = "worker.minio.gc_main:main"
 
 [tool.black]
 line-length = 100

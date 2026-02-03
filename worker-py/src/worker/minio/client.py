@@ -50,3 +50,6 @@ class MinIOClient:
             "etag": result.etag,
             "size_bytes": size_bytes,
         }
+
+    def remove_object(self, bucket: str, object_key: str) -> None:
+        self._client.remove_object(bucket, object_key)

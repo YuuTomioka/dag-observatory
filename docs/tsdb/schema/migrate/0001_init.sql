@@ -57,6 +57,28 @@ CREATE TABLE artifacts (
   tags            JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
+CREATE TABLE artifact_upload_sessions (
+  upload_id     UUID PRIMARY KEY,
+  workflow_run_id TEXT NOT NULL,
+  task_id       TEXT NOT NULL,
+  attempt_no    INT  NOT NULL,
+  bucket        TEXT NOT NULL,
+  object_key    TEXT NOT NULL,
+  kind          TEXT NOT NULL,
+  filename      TEXT NULL,
+  content_type  TEXT NULL,
+  status        TEXT NOT NULL,
+  error         TEXT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  uploaded_at   TIMESTAMPTZ NULL
+);
+
+CREATE UNIQUE INDEX ux_upload_sessions_object
+  ON artifact_upload_sessions(bucket, object_key);
+
+CREATE INDEX ix_upload_sessions_status_created
+  ON artifact_upload_sessions(status, created_at);
+
 CREATE UNIQUE INDEX ux_artifacts_object
   ON artifacts(bucket, object_key);
 

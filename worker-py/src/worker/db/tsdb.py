@@ -111,3 +111,41 @@ class TSDB:
         )
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(query, params)
+
+    def insert_upload_session(self, payload: dict[str, Any]) -> None:
+        query = get_query("InsertUploadSession")
+        params = (
+            payload["upload_id"],
+            payload["workflow_run_id"],
+            payload["task_id"],
+            payload["attempt_no"],
+            payload["bucket"],
+            payload["object_key"],
+            payload["kind"],
+            payload.get("filename"),
+            payload.get("content_type"),
+            payload["status"],
+        )
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(query, params)
+
+    def mark_upload_session_uploaded(self, upload_id: str, status: str, uploaded_at: str) -> None:
+        query = get_query("MarkUploadSessionUploaded")
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(query, (upload_id, status, uploaded_at))
+
+    def mark_upload_session_failed(self, upload_id: str, status: str, error: str) -> None:
+        query = get_query("MarkUploadSessionFailed")
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(query, (upload_id, status, error))
+
+    def list_expired_upload_sessions(self, expired_before: str, limit: int) -> list[dict[str, Any]]:
+        query = get_query("ListExpiredUploadSessions")
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(query, (expired_before, limit))
+            return list(cur.fetchall())
+
+    def mark_upload_session_expired(self, upload_id: str) -> None:
+        query = get_query("MarkUploadSessionExpired")
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(query, (upload_id,))

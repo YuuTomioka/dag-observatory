@@ -21,6 +21,9 @@ class Config:
     minio_bucket: str
     outbox_poll_interval_sec: float
     outbox_batch_size: int
+    gc_poll_interval_sec: float
+    gc_expire_minutes: int
+    gc_batch_size: int
 
 
 def _getenv(key: str, default: str) -> str:
@@ -52,4 +55,7 @@ def load_config() -> Config:
         minio_bucket=_getenv("MINIO_BUCKET", "worker-results"),
         outbox_poll_interval_sec=float(_getenv("OUTBOX_POLL_INTERVAL_SEC", "1.0")),
         outbox_batch_size=int(_getenv("OUTBOX_BATCH_SIZE", "100")),
+        gc_poll_interval_sec=float(_getenv("GC_POLL_INTERVAL_SEC", "60")),
+        gc_expire_minutes=int(_getenv("GC_EXPIRE_MINUTES", "30")),
+        gc_batch_size=int(_getenv("GC_BATCH_SIZE", "100")),
     )

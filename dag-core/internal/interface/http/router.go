@@ -21,6 +21,7 @@ type Dependencies struct {
 	RunWorkflow *usecase.RunWorkflow
 	ArtifactsRepo *tsdb.ArtifactsRepository
 	Presigner *miniostore.Presigner
+	DBBackupsRepo *tsdb.DBBackupsRepository
 }
 
 func RegisterRoutes(e *echo.Echo, d Dependencies) {
@@ -32,6 +33,7 @@ func RegisterRoutes(e *echo.Echo, d Dependencies) {
 		RunWorkflow: d.RunWorkflow,
 		ArtifactsRepo: d.ArtifactsRepo,
 		Presigner: d.Presigner,
+		DBBackupsRepo: d.DBBackupsRepo,
 	})
 
 	e.GET("/healthz", h.Healthz)

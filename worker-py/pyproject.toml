@@ -7,10 +7,12 @@ dependencies = [
   "kafka-python>=2.0.2",
   "opentelemetry-api>=1.25.0",
   "psycopg[binary]>=3.2.1",
+  "minio>=7.2.7",
 ]
 
 [project.scripts]
 worker-py = "worker.main:main"
+worker-py-outbox = "worker.outbox.main:main"
 
 [tool.black]
 line-length = 100

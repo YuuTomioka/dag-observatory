@@ -75,6 +75,22 @@ class TSDB:
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(query, (event_type, partition_key, payload))
 
+    def list_pending_outbox_events(self, limit: int) -> list[dict[str, Any]]:
+        query = get_query("ListPendingOutboxEvents")
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(query, (limit,))
+            return list(cur.fetchall())
+
+    def mark_outbox_event_published(self, event_id: int, published_at: str) -> None:
+        query = get_query("MarkOutboxEventPublished")
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(query, (event_id, published_at))
+
+    def mark_outbox_event_failed(self, event_id: int, error: str, next_publish_at: str) -> None:
+        query = get_query("MarkOutboxEventFailed")
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(query, (event_id, error, next_publish_at))
+
     def insert_artifact(self, payload: dict[str, Any]) -> None:
         query = get_query("InsertArtifact")
         params = (

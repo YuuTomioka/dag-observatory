@@ -5,6 +5,8 @@ import (
 	"dag-observatory/dag-core/internal/application/observability/port"
 	"dag-observatory/dag-core/internal/infrastructure/observability/applog"
 	"dag-observatory/dag-core/internal/infrastructure/observability/metrics"
+	"dag-observatory/dag-core/internal/infrastructure/persistence/tsdb"
+	miniostore "dag-observatory/dag-core/internal/infrastructure/storage/minio"
 	"dag-observatory/dag-core/internal/interface/http/handler"
 
 	"github.com/labstack/echo/v4"
@@ -17,6 +19,8 @@ type Dependencies struct {
 	Tracer      trace.Tracer
 	Metrics     *metrics.Instruments
 	RunWorkflow *usecase.RunWorkflow
+	ArtifactsRepo *tsdb.ArtifactsRepository
+	Presigner *miniostore.Presigner
 }
 
 func RegisterRoutes(e *echo.Echo, d Dependencies) {
@@ -26,8 +30,12 @@ func RegisterRoutes(e *echo.Echo, d Dependencies) {
 		Tracer:     d.Tracer,
 		Metrics:    d.Metrics,
 		RunWorkflow: d.RunWorkflow,
+		ArtifactsRepo: d.ArtifactsRepo,
+		Presigner: d.Presigner,
 	})
 
 	e.GET("/healthz", h.Healthz)
 	e.POST("/dag/run", h.DagRun)
+	e.GET("/workflow-runs/:workflow_run_id/artifacts", h.ListArtifactsByWorkflow)
+	e.POST("/artifacts/:artifact_id:presign-download", h.PresignArtifact)
 }

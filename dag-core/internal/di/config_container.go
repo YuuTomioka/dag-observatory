@@ -22,6 +22,13 @@ type Config struct {
 	KafkaEventTopic  string
 	KafkaGroupID     string
 
+	TSDBURL       string
+	MinIOEndpoint string
+	MinIOAccessKey string
+	MinIOSecretKey string
+	MinIOSecure   string
+	MinIOBucket   string
+
 	OTLPEndpoint        string // e.g. http://otel-collector:4318
 	OTLPLogsEndpoint    string // e.g. http://otel-collector:4318/v1/logs
 	OTLPTracesEndpoint  string // e.g. http://otel-collector:4318/v1/traces
@@ -48,6 +55,12 @@ func NewConfig() Config {
 		KafkaTaskTopic:   getenv("KAFKA_TASK_TOPIC", ""),
 		KafkaEventTopic:  getenv("KAFKA_EVENT_TOPIC", ""),
 		KafkaGroupID:     getenv("KAFKA_GROUP_ID", ""),
+		TSDBURL:          getenv("TSDB_URL", ""),
+		MinIOEndpoint:    getenv("MINIO_ENDPOINT", ""),
+		MinIOAccessKey:   getenv("MINIO_ACCESS_KEY", ""),
+		MinIOSecretKey:   getenv("MINIO_SECRET_KEY", ""),
+		MinIOSecure:      getenv("MINIO_SECURE", "false"),
+		MinIOBucket:      getenv("MINIO_BUCKET", "worker-results"),
 		OTLPEndpoint: getenv("OTEL_EXPORTER_OTLP_ENDPOINT",
 			"http://otel-collector:4318"),
 		OTLPLogsEndpoint:    getenv("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", ""),

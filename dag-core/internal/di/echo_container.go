@@ -2,6 +2,8 @@ package di
 
 import (
 	"dag-observatory/dag-core/internal/infrastructure/observability/applog"
+	"dag-observatory/dag-core/internal/infrastructure/persistence/tsdb"
+	miniostore "dag-observatory/dag-core/internal/infrastructure/storage/minio"
 	httpif "dag-observatory/dag-core/internal/interface/http"
 	"dag-observatory/dag-core/internal/domain/dagruntime/pipeline"
 
@@ -25,12 +27,33 @@ func NewEchoContainer(cfg Config, otelc *OTelContainer, dagRuntime *DAGRuntimeCo
 		}
 	}
 
+	var artifactsRepo *tsdb.ArtifactsRepository
+	var presigner *miniostore.Presigner
+	if cfg.TSDBURL != "" {
+		client, err := tsdb.New(cfg.TSDBURL)
+		if err != nil {
+			return nil, err
+		}
+		artifactsRepo = tsdb.NewArtifactsRepository(client)
+	}
+	if cfg.MinIOEndpoint != "" {
+		presigner = miniostore.NewPresigner(miniostore.Config{
+			Endpoint:  cfg.MinIOEndpoint,
+			AccessKey: cfg.MinIOAccessKey,
+			SecretKey: cfg.MinIOSecretKey,
+			Secure:    cfg.MinIOSecure == "true",
+			Bucket:    cfg.MinIOBucket,
+		})
+	}
+
 	httpif.RegisterRoutes(e, httpif.Dependencies{
 		IntentLog:  otelc.IntentLog,
 		AppLog:     appLog,
 		Tracer:     otelc.Tracer,
 		Metrics:    otelc.Metrics,
 		RunWorkflow: dagRuntime.Usecase,
+		ArtifactsRepo: artifactsRepo,
+		Presigner: presigner,
 	})
 
 	return e, nil

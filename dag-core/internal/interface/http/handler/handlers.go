@@ -5,6 +5,8 @@ import (
 	"dag-observatory/dag-core/internal/application/observability/port"
 	"dag-observatory/dag-core/internal/infrastructure/observability/applog"
 	"dag-observatory/dag-core/internal/infrastructure/observability/metrics"
+	"dag-observatory/dag-core/internal/infrastructure/persistence/tsdb"
+	miniostore "dag-observatory/dag-core/internal/infrastructure/storage/minio"
 
 	"go.opentelemetry.io/otel/trace"
 )
@@ -15,6 +17,8 @@ type Handlers struct {
 	tracer    trace.Tracer
 	metrics   *metrics.Instruments
 	runWF     *usecase.RunWorkflow
+	artifacts *tsdb.ArtifactsRepository
+	presigner *miniostore.Presigner
 }
 
 type Dependencies struct {
@@ -23,6 +27,8 @@ type Dependencies struct {
 	Tracer     trace.Tracer
 	Metrics    *metrics.Instruments
 	RunWorkflow *usecase.RunWorkflow
+	ArtifactsRepo *tsdb.ArtifactsRepository
+	Presigner *miniostore.Presigner
 }
 
 func New(d Dependencies) *Handlers {
@@ -32,5 +38,7 @@ func New(d Dependencies) *Handlers {
 		tracer:    d.Tracer,
 		metrics:   d.Metrics,
 		runWF:     d.RunWorkflow,
+		artifacts: d.ArtifactsRepo,
+		presigner: d.Presigner,
 	}
 }

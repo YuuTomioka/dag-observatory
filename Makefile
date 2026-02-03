@@ -4,7 +4,7 @@ SHELL := /usr/bin/env bash
 GO_DIR := dag-core
 SCRIPTS_DIR := scripts
 
-.PHONY: help dev-up dev-down go-mod-tidy go-mod-download go-fmt go-vet go-test go-build openapi grpc-gen graphql-gen grpc-ci contracts-check
+.PHONY: help dev-up dev-down go-mod-tidy go-mod-download go-fmt go-vet go-test go-build openapi grpc-gen graphql-gen grpc-ci contracts-check sqlc-gen
 
 help:
 	@printf "Targets:\n"
@@ -21,6 +21,7 @@ help:
 	@printf "  graphql-gen     Generate GraphQL code from schema\n"
 	@printf "  grpc-ci         Run buf lint/breaking for gRPC\n"
 	@printf "  contracts-check Regenerate contracts and fail on diff\n"
+	@printf "  sqlc-gen        Generate sqlc code from docs/tsdb/query\n"
 
 dev-up:
 	@bash $(SCRIPTS_DIR)/dev_up.sh
@@ -67,3 +68,6 @@ contracts-check:
 	@$(MAKE) grpc-gen
 	@$(MAKE) graphql-gen
 	@git diff --exit-code docs/openapi $(GO_DIR)/internal/interface/grpc/gen $(GO_DIR)/internal/interface/graphql/gen
+
+sqlc-gen:
+	@cd $(GO_DIR) && sqlc generate -f internal/infrastructure/persistence/tsdb/query/sqlc.yaml

@@ -7,6 +7,20 @@ export TSDB_URL="postgres://user:pass@host:5432/dbname?sslmode=disable"
 docker compose -f deployments/compose/docker-compose.migrator.yml run --rm tsdb-migrator
 ```
 
+## Compose起動順（dev）
+
+```sh
+# 1) 基盤を起動
+docker compose -f deployments/compose/docker-compose.app.dev.yml up -d timescaledb minio redpanda
+
+# 2) マイグレーション適用
+export TSDB_URL="postgres://dag:dag@localhost:5432/dag?sslmode=disable"
+docker compose -f deployments/compose/docker-compose.migrator.yml run --rm tsdb-migrator
+
+# 3) アプリ起動
+docker compose -f deployments/compose/docker-compose.app.dev.yml up -d dag-core-api worker-py worker-py-outbox worker-py-gc
+```
+
 ## CI 例（GitHub Actions）
 
 ```yaml

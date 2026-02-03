@@ -105,10 +105,15 @@ RunView は event.Type から phase を正規化します。
 - `make dev-up` でローカルスタック起動
 - `make dev-down` で停止
 
+#### 追加サービス（Compose）
+- TimescaleDB / MinIO / worker-py-outbox / worker-py-gc が `deployments/compose/docker-compose.app.dev.yml` に追加済み
+- マイグレーションは `docs/tsdb/README.md` の手順で実行
+
 ### 6.3 Go 側の開発コマンド
 - `make go-mod-download` / `make go-mod-tidy`
 - `make go-fmt` / `make go-vet` / `make go-test`
 - `make go-build`
+ - `make sqlc-gen`
 
 ---
 

@@ -1,4 +1,27 @@
 services:
+  timescaledb:
+    image: timescale/timescaledb:2.16.1-pg16
+    environment:
+      - POSTGRES_USER=dag
+      - POSTGRES_PASSWORD=dag
+      - POSTGRES_DB=dag
+    ports:
+      - "5432:5432"
+    volumes:
+      - tsdb-data:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio:RELEASE.2024-06-29T01-20-47Z
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minio
+      - MINIO_ROOT_PASSWORD=minio123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+
   dag-core-api:
     build:
       # Build from the Go module root so Dockerfile.dev can COPY go.mod/go.sum.
@@ -16,6 +39,12 @@ services:
       - KAFKA_EVENT_TOPIC=dagruntime-events
       - KAFKA_TOPIC=dagruntime-events
       - KAFKA_GROUP_ID=dagruntime-worker
+      - TSDB_URL=postgres://dag:dag@timescaledb:5432/dag?sslmode=disable
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minio
+      - MINIO_SECRET_KEY=minio123
+      - MINIO_SECURE=false
+      - MINIO_BUCKET=worker-results
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
     ports:
       - "8080:8080"
@@ -23,6 +52,8 @@ services:
       - ../../dag-core:/app
       - dag-core-data:/data
     depends_on:
+      - timescaledb
+      - minio
       - redpanda
       - otel-collector
       - loki
@@ -39,12 +70,66 @@ services:
       - KAFKA_OUT_TOPIC=dagruntime-events
       - KAFKA_TOPIC=dagruntime-events
       - KAFKA_GROUP_ID=dagruntime-worker-py
+      - TSDB_URL=postgres://dag:dag@timescaledb:5432/dag?sslmode=disable
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minio
+      - MINIO_SECRET_KEY=minio123
+      - MINIO_SECURE=false
+      - MINIO_BUCKET=worker-results
       - SERVICE_NAME=dag-observatory-worker-py
       - ENV=dev
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
     depends_on:
+      - timescaledb
+      - minio
       - redpanda
       - otel-collector
+    networks:
+      - default
+
+  worker-py-outbox:
+    build:
+      context: ../../worker-py
+      dockerfile: docker/Dockerfile
+    command: ["worker-py-outbox"]
+    environment:
+      - KAFKA_BROKERS=redpanda:9092
+      - KAFKA_OUT_TOPIC=dagruntime-events
+      - KAFKA_TOPIC=dagruntime-events
+      - KAFKA_GROUP_ID=dagruntime-worker-py-outbox
+      - TSDB_URL=postgres://dag:dag@timescaledb:5432/dag?sslmode=disable
+      - OUTBOX_POLL_INTERVAL_SEC=1.0
+      - OUTBOX_BATCH_SIZE=100
+      - SERVICE_NAME=dag-observatory-worker-py-outbox
+      - ENV=dev
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+    depends_on:
+      - timescaledb
+      - redpanda
+      - otel-collector
+    networks:
+      - default
+
+  worker-py-gc:
+    build:
+      context: ../../worker-py
+      dockerfile: docker/Dockerfile
+    command: ["worker-py-gc"]
+    environment:
+      - SERVICE_NAME=dag-observatory-worker-py-gc
+      - ENV=dev
+      - TSDB_URL=postgres://dag:dag@timescaledb:5432/dag?sslmode=disable
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minio
+      - MINIO_SECRET_KEY=minio123
+      - MINIO_SECURE=false
+      - MINIO_BUCKET=worker-results
+      - GC_POLL_INTERVAL_SEC=60
+      - GC_EXPIRE_MINUTES=30
+      - GC_BATCH_SIZE=100
+    depends_on:
+      - timescaledb
+      - minio
     networks:
       - default
 
@@ -66,3 +151,5 @@ services:
 volumes:
   dag-core-data:
   redpanda-data:
+  tsdb-data:
+  minio-data:

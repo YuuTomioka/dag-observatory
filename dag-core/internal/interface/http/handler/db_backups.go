@@ -10,6 +10,19 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// ListDBBackups
+// @Summary List DB backups
+// @Description Returns DB backup metadata filtered by env
+// @Tags db-backups
+// @Produce json
+// @Param env query string true "Environment"
+// @Param limit query int false "Max items (default 100)"
+// @Param offset query int false "Offset (default 0)"
+// @Success 200 {object} dto.ListDBBackupsResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Failure 501 {object} dto.ErrorResponse
+// @Router /db-backups [get]
 func (h *Handlers) ListDBBackups(c echo.Context) error {
 	if h.dbBackups == nil {
 		return c.JSON(http.StatusNotImplemented, dto.ErrorResponse{
@@ -53,6 +66,20 @@ func (h *Handlers) ListDBBackups(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
+// PresignDBBackup
+// @Summary Presign DB backup download URL
+// @Description Returns a time-limited URL for downloading a DB backup object
+// @Tags db-backups
+// @Produce json
+// @Param backup_id path string true "Backup ID"
+// @Param expires query int false "Expiry seconds (allowed: 60,300,900; default 900)"
+// @Success 200 {object} dto.PresignDBBackupResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Failure 410 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Failure 501 {object} dto.ErrorResponse
+// @Router /db-backups/{backup_id}:presign-download [post]
 func (h *Handlers) PresignDBBackup(c echo.Context) error {
 	if h.dbBackups == nil || h.presigner == nil {
 		return c.JSON(http.StatusNotImplemented, dto.ErrorResponse{

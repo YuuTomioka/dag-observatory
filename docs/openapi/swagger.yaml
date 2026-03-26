@@ -1,10 +1,116 @@
 basePath: /
 definitions:
+  dto.ArtifactItem:
+    properties:
+      artifact_id:
+        type: string
+      attempt_no:
+        type: integer
+      content_type:
+        type: string
+      created_at:
+        type: string
+      filename:
+        type: string
+      kind:
+        type: string
+      size_bytes:
+        type: integer
+      status:
+        type: string
+      tags:
+        additionalProperties: {}
+        type: object
+      task_id:
+        type: string
+      workflow_run_id:
+        type: string
+    type: object
+  dto.DBBackupItem:
+    properties:
+      backup_id:
+        type: string
+      backup_type:
+        type: string
+      checksum_sha256:
+        type: string
+      created_at:
+        type: string
+      db_name:
+        type: string
+      env:
+        type: string
+      finished_at:
+        type: string
+      meta:
+        additionalProperties: {}
+        type: object
+      schema_version:
+        type: string
+      size_bytes:
+        type: integer
+      started_at:
+        type: string
+      status:
+        type: string
+    type: object
   dto.DagRunRequest:
     properties:
       mode:
         type: string
       symbol:
+        type: string
+    type: object
+  dto.DagRunResponse:
+    properties:
+      run_id:
+        type: string
+      status:
+        type: string
+      symbol:
+        type: string
+    type: object
+  dto.ErrorResponse:
+    properties:
+      error:
+        type: string
+      run_id:
+        type: string
+      status:
+        type: string
+      symbol:
+        type: string
+    type: object
+  dto.ListArtifactsResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/dto.ArtifactItem'
+        type: array
+    type: object
+  dto.ListDBBackupsResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/dto.DBBackupItem'
+        type: array
+    type: object
+  dto.PresignDBBackupResponse:
+    properties:
+      backup_id:
+        type: string
+      expires_in_seconds:
+        type: integer
+      url:
+        type: string
+    type: object
+  dto.PresignResponse:
+    properties:
+      artifact_id:
+        type: string
+      expires_in_seconds:
+        type: integer
+      url:
         type: string
     type: object
 info:
@@ -13,6 +119,58 @@ info:
   title: DAG Observatory API
   version: 0.1.0
 paths:
+  /artifacts/{artifact_id}:presign-download:
+    post:
+      description: Returns a time-limited URL for downloading an artifact
+      parameters:
+      - description: Artifact ID
+        in: path
+        name: artifact_id
+        required: true
+        type: string
+      - description: Workflow run ID for access control
+        in: query
+        name: workflow_run_id
+        required: true
+        type: string
+      - description: 'Expiry seconds (allowed: 60,300,900; default 900)'
+        in: query
+        name: expires
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PresignResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Presign artifact download URL
+      tags:
+      - artifacts
   /dag/run:
     post:
       consumes:
@@ -25,32 +183,114 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/dto.DagRunRequest'
+      - description: Override mode when body omits it
+        in: query
+        name: mode
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/dto.DagRunResponse'
         "202":
           description: Accepted
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/dto.DagRunResponse'
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/dto.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Run workflow
       tags:
       - dag
+  /db-backups:
+    get:
+      description: Returns DB backup metadata filtered by env
+      parameters:
+      - description: Environment
+        in: query
+        name: env
+        required: true
+        type: string
+      - description: Max items (default 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ListDBBackupsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: List DB backups
+      tags:
+      - db-backups
+  /db-backups/{backup_id}:presign-download:
+    post:
+      description: Returns a time-limited URL for downloading a DB backup object
+      parameters:
+      - description: Backup ID
+        in: path
+        name: backup_id
+        required: true
+        type: string
+      - description: 'Expiry seconds (allowed: 60,300,900; default 900)'
+        in: query
+        name: expires
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PresignDBBackupResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Presign DB backup download URL
+      tags:
+      - db-backups
   /healthz:
     get:
       description: Returns OK when server is healthy
@@ -65,4 +305,43 @@ paths:
       summary: Health check
       tags:
       - health
+  /workflow-runs/{workflow_run_id}/artifacts:
+    get:
+      description: Returns artifacts associated with a workflow run id
+      parameters:
+      - description: Workflow run ID
+        in: path
+        name: workflow_run_id
+        required: true
+        type: string
+      - description: Max items (default 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ListArtifactsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: List artifacts by workflow run
+      tags:
+      - artifacts
 swagger: "2.0"

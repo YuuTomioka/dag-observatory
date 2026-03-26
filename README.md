@@ -117,7 +117,34 @@ RunView は event.Type から phase を正規化します。
 
 ---
 
-## 7. リポジトリ構成
+## 7. 仕様管理ポリシー
+### 7.1 仕様の正本（Source of Truth）
+- API 仕様の正本: `dag-core/internal/interface/http/router.go` と handler/dto 実装
+- DB 仕様の正本: `docs/tsdb/schema/migrate/*.sql`
+- `README.md` は概要と導線を提供する要約ドキュメント（正本ではない）
+
+### 7.2 変更フロー（開発）
+1. API 変更時は `dag-core` 実装を先に更新する
+2. DB 変更時は `docs/tsdb/schema/migrate` に forward-only な migration を追加する
+3. OpenAPI / sqlc などの生成物を更新する
+4. `go test ./...` で回帰確認する
+5. `README.md` と関連ドキュメントを更新し、導線を揃える
+
+### 7.3 起動・運用フロー
+1. 基盤コンテナ（DB/MinIO/メッセージ基盤）を起動する
+2. `TSDB_URL` を設定し、migrator を実行する
+3. `dag-core` と worker 群を起動する
+4. `/healthz` と主要 API を疎通確認する
+
+### 7.4 受け入れ条件（DoD）
+- 実装と OpenAPI の API 差分がない
+- migration / query / sqlc 設定の参照パスが一致している
+- `go test ./...` が成功する
+- `docs/tsdb/README.md` の手順でセットアップ再現できる
+
+---
+
+## 8. リポジトリ構成
 - `dag-core`: Go API / DAG Runtime
 - `worker-py`: Python Worker
 - `deployments`: Grafana / Loki / Tempo / OTel Collector / Promtail など
@@ -127,26 +154,26 @@ RunView は event.Type から phase を正規化します。
 
 ---
 
-## 8. ドキュメントガイド
-### 8.1 観測可能性
+## 9. ドキュメントガイド
+### 9.1 観測可能性
 - `.docs/report/p1_観測可能性/OTelの構成について.md`
 - `.docs/report/p1_観測可能性/OTelの運用手順.md`
 - `.docs/report/p1_観測可能性/スモークテスト手順.md`
 - `.docs/report/p1_観測可能性/環境変数一覧.md`
 
-### 8.2 DAG Runtime（抽象 Clock + DAG）
+### 9.2 DAG Runtime（抽象 Clock + DAG）
 - `.docs/report/p2_抽象Clock+DAG/00_概要.md`
 - `.docs/report/p2_抽象Clock+DAG/10_アーキテクチャ.md`
 - `.docs/report/p2_抽象Clock+DAG/20_Workflow_Compile.md`
 - `.docs/report/p2_抽象Clock+DAG/40_Node_ExecutionSpec_Txn.md`
 
-### 8.3 Python Worker
+### 9.3 Python Worker
 - `.docs/report/p3_Worker(Python)/1_ワーカー追加案.md`
 - `.docs/report/p3_Worker(Python)/5_実装状況まとめ.md`
 
 ---
 
-## 9. 今後の拡張予定
+## 10. 今後の拡張予定
 - Python 側の OTLP exporter 追加
 - task_name 拡張時の registry 分割
 - error payload の code 規約の厳密化

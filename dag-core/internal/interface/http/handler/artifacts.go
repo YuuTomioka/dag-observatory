@@ -16,6 +16,19 @@ const (
 	defaultOffset = 0
 )
 
+// ListArtifactsByWorkflow
+// @Summary List artifacts by workflow run
+// @Description Returns artifacts associated with a workflow run id
+// @Tags artifacts
+// @Produce json
+// @Param workflow_run_id path string true "Workflow run ID"
+// @Param limit query int false "Max items (default 100)"
+// @Param offset query int false "Offset (default 0)"
+// @Success 200 {object} dto.ListArtifactsResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Failure 501 {object} dto.ErrorResponse
+// @Router /workflow-runs/{workflow_run_id}/artifacts [get]
 func (h *Handlers) ListArtifactsByWorkflow(c echo.Context) error {
 	if h.artifacts == nil {
 		return c.JSON(http.StatusNotImplemented, dto.ErrorResponse{
@@ -58,6 +71,22 @@ func (h *Handlers) ListArtifactsByWorkflow(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
+// PresignArtifact
+// @Summary Presign artifact download URL
+// @Description Returns a time-limited URL for downloading an artifact
+// @Tags artifacts
+// @Produce json
+// @Param artifact_id path string true "Artifact ID"
+// @Param workflow_run_id query string true "Workflow run ID for access control"
+// @Param expires query int false "Expiry seconds (allowed: 60,300,900; default 900)"
+// @Success 200 {object} dto.PresignResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 403 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Failure 410 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Failure 501 {object} dto.ErrorResponse
+// @Router /artifacts/{artifact_id}:presign-download [post]
 func (h *Handlers) PresignArtifact(c echo.Context) error {
 	if h.artifacts == nil || h.presigner == nil {
 		return c.JSON(http.StatusNotImplemented, dto.ErrorResponse{

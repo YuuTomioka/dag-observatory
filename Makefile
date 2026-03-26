@@ -21,7 +21,7 @@ help:
 	@printf "  graphql-gen     Generate GraphQL code from schema\n"
 	@printf "  grpc-ci         Run buf lint/breaking for gRPC\n"
 	@printf "  contracts-check Regenerate contracts and fail on diff\n"
-	@printf "  sqlc-gen        Generate sqlc code from docs/tsdb/query\n"
+	@printf "  sqlc-gen        Generate sqlc code from data/tsdb/query\n"
 
 dev-up:
 	@bash $(SCRIPTS_DIR)/dev_up.sh
@@ -48,8 +48,8 @@ go-build:
 	@cd $(GO_DIR) && go build -trimpath -o bin/api ./cmd/api
 
 openapi:
-	@mkdir -p docs/openapi
-	@cd $(GO_DIR) && go run github.com/swaggo/swag/cmd/swag@v1.16.3 init -g main.go -d ./cmd/api,./internal/interface/http -o ../docs/openapi
+	@mkdir -p implementations/dag-core/openapi
+	@cd $(GO_DIR) && go run github.com/swaggo/swag/cmd/swag@v1.16.3 init -g main.go -d ./cmd/api,./internal/interface/http -o ../implementations/dag-core/openapi
 
 grpc-gen:
 	@mkdir -p $(GO_DIR)/internal/interface/grpc/gen
@@ -67,7 +67,7 @@ contracts-check:
 	@$(MAKE) openapi
 	@$(MAKE) grpc-gen
 	@$(MAKE) graphql-gen
-	@git diff --exit-code docs/openapi $(GO_DIR)/internal/interface/grpc/gen $(GO_DIR)/internal/interface/graphql/gen
+	@git diff --exit-code implementations/dag-core/openapi $(GO_DIR)/internal/interface/grpc/gen $(GO_DIR)/internal/interface/graphql/gen
 
 sqlc-gen:
 	@cd $(GO_DIR) && sqlc generate -f internal/infrastructure/persistence/tsdb/query/sqlc.yaml

@@ -12,13 +12,13 @@ def _find_query_dir() -> Path:
     if override:
         return Path(override)
 
-    # Walk up from this file to locate docs/tsdb/query in repo.
+    # Walk up from this file to locate data/tsdb/query in repo.
     current = Path(__file__).resolve()
     for parent in current.parents:
-        candidate = parent / "docs" / "tsdb" / "query"
+        candidate = parent / "data" / "tsdb" / "query"
         if candidate.is_dir():
             return candidate
-    raise FileNotFoundError("docs/tsdb/query not found; set TSDB_QUERY_DIR")
+    raise FileNotFoundError("data/tsdb/query not found; set TSDB_QUERY_DIR")
 
 
 def _parse_sql_file(path: Path) -> dict[str, str]:

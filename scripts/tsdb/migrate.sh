@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-# Minimal migrator runner: applies SQL files in docs/tsdb/schema/migrate once.
+# Minimal migrator runner: applies SQL files in data/tsdb/schema/migrate once.
 
 DB_URL="${TSDB_URL:-${DATABASE_URL:-}}"
 if [ -z "$DB_URL" ]; then
@@ -9,7 +9,7 @@ if [ -z "$DB_URL" ]; then
   exit 1
 fi
 
-MIGRATIONS_DIR="${MIGRATIONS_DIR:-docs/tsdb/schema/migrate}"
+MIGRATIONS_DIR="${MIGRATIONS_DIR:-data/tsdb/schema/migrate}"
 
 psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
 CREATE TABLE IF NOT EXISTS schema_migrations (

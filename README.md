@@ -1,7 +1,19 @@
 # dag-observatory
 
-Clock＋DAG実行基盤を持つ Golang + Python SaaS テンプレート。
-「観測可能性設計を前提としたシステムアーキテクチャ」の実験場。
+Clock＋DAG 実行基盤と時系列設計を持つ親リポジトリ。
+
+このリポジトリは単一プロダクトではなく、DAG + 時系列システムの派生プロジェクト向け設計テンプレートとして再編中です。
+
+## 入口
+
+- 親リポジトリの位置づけ: `blueprint/identity/repository-purpose.md`
+- 構造境界: `blueprint/architecture/system-boundaries.md`
+- フローと時間モデル: `blueprint/architecture/flow-and-time-model.md`
+- 実装原則: `blueprint/conventions/implementation-principles.md`
+- 観測性原則: `blueprint/conventions/observability-conventions.md`
+- データ原則: `blueprint/conventions/data-conventions.md`
+- 代表シナリオ: `scenarios/representative-scenario.md`
+- Codex 向け総則: `AGENTS.md`
 
 ---
 
@@ -9,6 +21,7 @@ Clock＋DAG実行基盤を持つ Golang + Python SaaS テンプレート。
 - Clock + DAG 実行基盤と観測可能性設計の同居を検証するためのリポジトリ
 - SaaS バックエンドの非同期処理・ワークフロー基盤を想定
 - OTel（意図ログ/トレース/メトリクス）と Promtail（環境ログ）の併用を前提に設計
+- 親リポジトリとしては、実装より先に構造原則を保持する
 
 ---
 
@@ -21,10 +34,14 @@ Clock＋DAG実行基盤を持つ Golang + Python SaaS テンプレート。
 
 ## 3. コアアーキテクチャ概要
 ### 3.1 コンポーネント
-- Go API / DAG Runtime: `dag-core`
-- Python Worker: `worker-py`
-- 認可実験: `auth-n-z`
-- 観測/基盤コンテナ: `deployments`
+- Go 参照実装: `dag-core`
+- Python Worker 参照実装: `worker-py`
+- 観測/基盤参照構成: `deployments`
+
+注記:
+
+- `dag-core` と `worker-py` は概念上 `implementations/` に属する
+- 現時点では物理移設せず、既存パスを維持したまま責務だけ先に固定する
 
 ### 3.2 Clock + DAG 実行モデル
 - 外部入力（Clock/Event）を起点に DAG を起動
@@ -32,9 +49,9 @@ Clock＋DAG実行基盤を持つ Golang + Python SaaS テンプレート。
 - Store/Txn により Cycle 単位の整合性を担保
 
 ### 3.3 参考ドキュメント
-- `.docs/report/p2_抽象Clock+DAG/00_概要.md`
-- `.docs/report/p2_抽象Clock+DAG/10_アーキテクチャ.md`
-- `.docs/report/p2_抽象Clock+DAG/50_Runner_Driver_EventStream.md`
+- `blueprint/architecture/system-boundaries.md`
+- `blueprint/architecture/flow-and-time-model.md`
+- `blueprint/conventions/implementation-principles.md`
 
 ---
 
@@ -54,10 +71,9 @@ Clock＋DAG実行基盤を持つ Golang + Python SaaS テンプレート。
 - Tempo ↔ Loki を相互参照する導線を用意
 
 ### 4.4 参考ドキュメント
-- `.docs/report/p1_観測可能性/意図ログと環境ログについて.md`
-- `.docs/report/p1_観測可能性/OTelの構成について.md`
-- `.docs/report/p1_観測可能性/メトリクス一覧.md`
-- `.docs/spec/30_intent_events.md`
+- `blueprint/conventions/observability-conventions.md`
+- `platform/observability/README.md`
+- `blueprint/architecture/flow-and-time-model.md`
 
 ---
 
@@ -71,8 +87,8 @@ Clock＋DAG実行基盤を持つ Golang + Python SaaS テンプレート。
 - Go/Python 両方で span を作成
 
 ### 5.3 参考ドキュメント
-- `.docs/report/p3_Worker(Python)/5_実装状況まとめ.md`
-- `.docs/report/p3_Worker(Python)/3_TraceContext伝播案.md`
+- `implementations/worker-py/README.md`
+- `blueprint/conventions/observability-conventions.md`
 
 ---
 
@@ -107,7 +123,8 @@ RunView は event.Type から phase を正規化します。
 
 #### 追加サービス（Compose）
 - TimescaleDB / MinIO / worker-py-outbox / worker-py-gc が `deployments/compose/docker-compose.app.dev.yml` に追加済み
-- マイグレーションは `docs/tsdb/README.md` の手順で実行
+- 観測基盤の compose は `platform/observability/compose/docker-compose.observability.yml` に配置
+- マイグレーションは `data/tsdb/README.md` の手順で実行
 
 ### 6.3 Go 側の開発コマンド
 - `make go-mod-download` / `make go-mod-tidy`
@@ -121,12 +138,14 @@ RunView は event.Type から phase を正規化します。
 ## 7. 仕様管理ポリシー
 ### 7.1 仕様の正本（Source of Truth）
 - API 仕様の正本: `dag-core/internal/interface/http/router.go` と handler/dto 実装
-- DB 仕様の正本: `docs/tsdb/schema/migrate/*.sql`
+- DB 仕様の正本: `data/tsdb/` 配下の SQL 資産
 - `README.md` は概要と導線を提供する要約ドキュメント（正本ではない）
+
+生成された OpenAPI は `implementations/dag-core/openapi/` に置く。
 
 ### 7.2 変更フロー（開発）
 1. API 変更時は `dag-core` 実装を先に更新する
-2. DB 変更時は `docs/tsdb/schema/migrate` に forward-only な migration を追加する
+2. DB 変更時は `data/tsdb/` 配下の migration 資産を更新する
 3. OpenAPI / sqlc などの生成物を更新する
 4. `make go-test` で回帰確認する
 5. `make contracts-check` で契約生成物の差分がないことを確認する
@@ -143,7 +162,7 @@ RunView は event.Type から phase を正規化します。
 - migration / query / sqlc 設定の参照パスが一致している
 - `make go-test` が成功する
 - `make contracts-check` が成功する
-- `docs/tsdb/README.md` の手順でセットアップ再現できる
+- `data/tsdb/README.md` の手順でセットアップ再現できる
 
 ### 7.5 CI ゲート
 - PR では `contracts-check` workflow を必須とし、以下を検証する
@@ -151,38 +170,45 @@ RunView は event.Type から phase を正規化します。
 - `make contracts-check`
 
 ### 7.6 DB アクセス方針（現時点）
-- `docs/tsdb/schema/migrate` を DDL の正本、`docs/tsdb/query` を SQL 仕様の正本とする
-- `db_backups` の query 定義は `docs/tsdb/query/06_db_backups.sql` で管理する
-- `dag-core` 側の実装が inline SQL でも、仕様変更時は先に `docs/tsdb/query` を更新する
+- `data/tsdb/` 配下の schema/migrate を DDL の正本、query を SQL 仕様の正本とする
+- `db_backups` の query 定義は `data/tsdb/query/` 配下で管理する
+- `dag-core` 側の実装が inline SQL でも、仕様変更時は先に `data/tsdb/query/` 相当の SQL 資産を更新する
 
 ---
 
 ## 8. リポジトリ構成
-- `dag-core`: Go API / DAG Runtime
-- `worker-py`: Python Worker
-- `deployments`: Grafana / Loki / Tempo / OTel Collector / Promtail など
-- `configs`: ローカル設定
-- `scripts`: 開発用スクリプト
-- `.docs`: 設計・運用ドキュメント
+- `blueprint`: 恒久的な設計原則
+- `implementations`: 参照実装の受け先
+- `platform`: 実行環境・運用基盤の受け先
+- `data`: 時系列・分析設計資産の受け先
+- `scenarios`: 代表導線
+- `governance`: 変更制御
+- `dag-core`: 現在の Go 実装
+- `worker-py`: 現在の Python 実装
+- `deployments`: ローカル実行用の compose / container wrapper
+
+現在の運用方針では、`dag-core` と `worker-py` は概念上 `implementations` に属するが、物理パスは維持する。
+
+この判断は `blueprint/adr/ADR-0002-reference-implementation-paths.md` に固定している。
+
+`deployments` は恒久的な設計や platform/source-of-truth の置き場ではなく、現時点では app dev と migrator を起動するための実行ラッパとして扱う。
 
 ---
 
 ## 9. ドキュメントガイド
 ### 9.1 観測可能性
-- `.docs/report/p1_観測可能性/OTelの構成について.md`
-- `.docs/report/p1_観測可能性/OTelの運用手順.md`
-- `.docs/report/p1_観測可能性/スモークテスト手順.md`
-- `.docs/report/p1_観測可能性/環境変数一覧.md`
+- `blueprint/conventions/observability-conventions.md`
+- `platform/observability/README.md`
+- `scenarios/representative-scenario.md`
 
 ### 9.2 DAG Runtime（抽象 Clock + DAG）
-- `.docs/report/p2_抽象Clock+DAG/00_概要.md`
-- `.docs/report/p2_抽象Clock+DAG/10_アーキテクチャ.md`
-- `.docs/report/p2_抽象Clock+DAG/20_Workflow_Compile.md`
-- `.docs/report/p2_抽象Clock+DAG/40_Node_ExecutionSpec_Txn.md`
+- `blueprint/architecture/system-boundaries.md`
+- `blueprint/architecture/flow-and-time-model.md`
+- `blueprint/conventions/implementation-principles.md`
 
 ### 9.3 Python Worker
-- `.docs/report/p3_Worker(Python)/1_ワーカー追加案.md`
-- `.docs/report/p3_Worker(Python)/5_実装状況まとめ.md`
+- `implementations/worker-py/README.md`
+- `blueprint/conventions/observability-conventions.md`
 
 ---
 

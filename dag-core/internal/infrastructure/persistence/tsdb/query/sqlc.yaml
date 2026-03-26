@@ -1,8 +1,8 @@
 version: "2"
 sql:
   - engine: "postgresql"
-    schema: "../../../../../../docs/tsdb/schema/migrate"
-    queries: "../../../../../../docs/tsdb/query"
+    schema: "../../../../../../data/tsdb/schema/migrate"
+    queries: "../../../../../../data/tsdb/query"
     gen:
       go:
         package: "query"

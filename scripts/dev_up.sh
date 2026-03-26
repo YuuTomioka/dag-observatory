@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+docker compose -f platform/observability/compose/docker-compose.observability.yml up -d
 cd deployments/compose
-docker compose -f docker-compose.observability.yml up -d
-docker compose -f docker-compose.observability.yml -f docker-compose.app.dev.yml up -d --build
+docker compose -f ../../platform/observability/compose/docker-compose.observability.yml -f docker-compose.app.dev.yml up -d --build

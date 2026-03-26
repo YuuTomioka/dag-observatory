@@ -113,7 +113,8 @@ RunView は event.Type から phase を正規化します。
 - `make go-mod-download` / `make go-mod-tidy`
 - `make go-fmt` / `make go-vet` / `make go-test`
 - `make go-build`
- - `make sqlc-gen`
+- `make sqlc-gen`
+- `make contracts-check`（OpenAPI / gRPC / GraphQL の生成差分チェック）
 
 ---
 
@@ -127,8 +128,9 @@ RunView は event.Type から phase を正規化します。
 1. API 変更時は `dag-core` 実装を先に更新する
 2. DB 変更時は `docs/tsdb/schema/migrate` に forward-only な migration を追加する
 3. OpenAPI / sqlc などの生成物を更新する
-4. `go test ./...` で回帰確認する
-5. `README.md` と関連ドキュメントを更新し、導線を揃える
+4. `make go-test` で回帰確認する
+5. `make contracts-check` で契約生成物の差分がないことを確認する
+6. `README.md` と関連ドキュメントを更新し、導線を揃える
 
 ### 7.3 起動・運用フロー
 1. 基盤コンテナ（DB/MinIO/メッセージ基盤）を起動する
@@ -139,8 +141,19 @@ RunView は event.Type から phase を正規化します。
 ### 7.4 受け入れ条件（DoD）
 - 実装と OpenAPI の API 差分がない
 - migration / query / sqlc 設定の参照パスが一致している
-- `go test ./...` が成功する
+- `make go-test` が成功する
+- `make contracts-check` が成功する
 - `docs/tsdb/README.md` の手順でセットアップ再現できる
+
+### 7.5 CI ゲート
+- PR では `contracts-check` workflow を必須とし、以下を検証する
+- `make go-test`
+- `make contracts-check`
+
+### 7.6 DB アクセス方針（現時点）
+- `docs/tsdb/schema/migrate` を DDL の正本、`docs/tsdb/query` を SQL 仕様の正本とする
+- `db_backups` の query 定義は `docs/tsdb/query/06_db_backups.sql` で管理する
+- `dag-core` 側の実装が inline SQL でも、仕様変更時は先に `docs/tsdb/query` を更新する
 
 ---
 

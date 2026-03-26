@@ -1,0 +1,26 @@
+name: contracts-check
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: dag-core/go.mod
+
+      - name: Setup buf
+        uses: bufbuild/buf-setup-action@v1
+
+      - name: Run tests
+        run: make go-test
+
+      - name: Verify generated contracts
+        run: make contracts-check

@@ -139,7 +139,4 @@ They should be read as execution shells around `data/tsdb/` assets rather than a
 
 ## Migration Notes
 
-This document will absorb durable parts of:
-
-- `docs/tsdb/README.md`
-- the old migration-era store design notes
+This document is the durable home for TSDB data asset guidance and the old migration-era store design notes.

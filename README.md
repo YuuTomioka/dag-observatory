@@ -17,6 +17,28 @@ Clock＋DAG 実行基盤と時系列設計を持つ親リポジトリ。
 
 ---
 
+## Root 直下の責務
+- `AGENTS.md`: AI ペアプロ向けの読解順と変更原則
+- `README.md`: 人間向けの総合入口と全体導線
+- `Makefile`: 共通操作の実行入口
+- `blueprint/`: 親リポジトリとしての設計原則の正本
+- `governance/`: 変更ルールと作業文脈の管理
+- `implementations/`: 参照実装の正本
+- `platform/`: 環境と運用基盤の恒久的リファレンス
+- `deployments/`: ローカル実行や移行のための実行ラッパ
+- `data/`: 時系列・分析向けデータ設計資産
+- `scenarios/`: 代表ユースケースの入口
+- `scripts/`: 補助的な実行・保守スクリプト
+- `.codex/`: AI ローカルな作業補助メモとチェックリスト
+
+この構造は次の 3 層として読むと扱いやすいです。
+
+- 上位原則層: `blueprint/`, `governance/`, `AGENTS.md`, `README.md`
+- 実装・資産層: `implementations/`, `platform/`, `data/`
+- 実行・利用層: `deployments/`, `scripts/`, `scenarios/`
+
+---
+
 ## 1. プロジェクト概要
 - Clock + DAG 実行基盤と観測可能性設計の同居を検証するためのリポジトリ
 - SaaS バックエンドの非同期処理・ワークフロー基盤を想定

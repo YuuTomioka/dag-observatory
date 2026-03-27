@@ -9,6 +9,7 @@
 - `platform/`: environment and operating reference
 - `data/`: time-series and analysis assets
 - `scenarios/`: recommended entrypoint use cases
+- `.codex/`: AI-local workflow helpers that do not become structural source of truth
 - `governance/tasks/`: temporary task context
 - derivative or migration-era proposal notes: `governance/tasks/` until promoted or retired
 

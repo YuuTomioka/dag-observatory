@@ -8,6 +8,11 @@ This directory defines the reference operating environment for observability.
 - local visibility and smoke-test guidance
 - environment-level conventions that are not application code
 
+In short:
+
+- `platform/observability/` owns the observability platform definition
+- `platform/observability/` does not own app-local runtime wiring outside observability concerns
+
 ## Current Asset Mapping
 
 The current platform assets are split between permanent platform-owned assets and app-development composition assets.
@@ -28,6 +33,11 @@ Related app-development composition currently remains in:
 - `deployments/compose/docker-compose.migrator.yml`
 
 See `deployments/README.md` for the execution-wrapper role of those files.
+
+When deciding where to edit:
+
+- change `platform/observability/` if the task is about collector routing, backend config, or observability-stack composition
+- change `deployments/` if the task is about starting the broader local app stack or running cross-cutting helpers
 
 ## Boundary Note
 

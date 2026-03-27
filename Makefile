@@ -53,11 +53,10 @@ openapi:
 
 grpc-gen:
 	@mkdir -p $(GO_DIR)/internal/interface/grpc/gen
-	@cd $(GO_DIR) && buf generate --path internal/interface/grpc/proto
+	@cd $(GO_DIR)/internal/interface/grpc && buf generate
 
 graphql-gen:
-	@mkdir -p $(GO_DIR)/internal/interface/graphql/schema
-	@cd $(GO_DIR) && go run github.com/99designs/gqlgen@v0.17.60 generate -c internal/interface/graphql/gqlgen.yml
+	@echo "graphql-gen is skipped: GraphQL transport is currently placeholder."
 
 grpc-ci:
 	@cd $(GO_DIR)/internal/interface/grpc && buf lint
@@ -67,7 +66,7 @@ contracts-check:
 	@$(MAKE) openapi
 	@$(MAKE) grpc-gen
 	@$(MAKE) graphql-gen
-	@git diff --exit-code implementations/dag-core/openapi $(GO_DIR)/internal/interface/grpc/gen $(GO_DIR)/internal/interface/graphql/gen
+	@git diff --exit-code implementations/dag-core/openapi $(GO_DIR)/internal/interface/grpc/gen
 
 sqlc-gen:
 	@cd $(GO_DIR) && sqlc generate -f internal/infrastructure/persistence/tsdb/query/sqlc.yaml

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by ADR-0003
 
 ## Context
 
@@ -33,4 +33,3 @@ They are treated conceptually as the repository's reference implementation block
 - implementation guidance continues to live under `implementations/*/README.md`
 - local scripts, Docker assets, CI references, and Go module paths stay stable
 - a future physical move should be treated as an explicit migration project, not as a routine cleanup step
-

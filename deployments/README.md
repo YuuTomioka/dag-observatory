@@ -17,7 +17,7 @@ This directory holds operational wrappers for local execution.
 
 - observability topology and its main compose entrypoint belong to `platform/observability/`
 - time-series schema, migrations, and queries belong to `data/tsdb/`
-- application implementation details belong to `dag-core/` and `worker-py/`
+- application implementation details belong to `implementations/dag-core/` and `implementations/worker-py/`
 
 `deployments/` should therefore be read as an execution-layer helper, not as the source of truth for architecture, data design, or implementation structure.
 

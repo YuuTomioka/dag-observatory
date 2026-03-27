@@ -1,7 +1,7 @@
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
-GO_DIR := dag-core
+GO_DIR := implementations/dag-core
 SCRIPTS_DIR := scripts
 
 .PHONY: help dev-up dev-down go-mod-tidy go-mod-download go-fmt go-vet go-test go-build openapi grpc-gen graphql-gen grpc-ci contracts-check sqlc-gen
@@ -39,17 +39,17 @@ go-fmt:
 	@cd $(GO_DIR) && gofmt -w ./cmd ./internal
 
 go-vet:
-	@cd $(GO_DIR) && go vet ./...
+	@cd $(GO_DIR) && go vet ./cmd/... ./internal/...
 
 go-test:
-	@cd $(GO_DIR) && go test ./...
+	@cd $(GO_DIR) && go test ./cmd/... ./internal/...
 
 go-build:
 	@cd $(GO_DIR) && go build -trimpath -o bin/api ./cmd/api
 
 openapi:
 	@mkdir -p implementations/dag-core/openapi
-	@cd $(GO_DIR) && go run github.com/swaggo/swag/cmd/swag@v1.16.3 init -g main.go -d ./cmd/api,./internal/interface/http -o ../implementations/dag-core/openapi
+	@cd $(GO_DIR) && go run github.com/swaggo/swag/cmd/swag@v1.16.3 init -g main.go -d ./cmd/api,./internal/interface/http -o ./openapi
 
 grpc-gen:
 	@mkdir -p $(GO_DIR)/internal/interface/grpc/gen

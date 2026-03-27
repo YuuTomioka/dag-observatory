@@ -34,14 +34,14 @@ Clock＋DAG 実行基盤と時系列設計を持つ親リポジトリ。
 
 ## 3. コアアーキテクチャ概要
 ### 3.1 コンポーネント
-- Go 参照実装: `dag-core`
-- Python Worker 参照実装: `worker-py`
+- Go 参照実装: `implementations/dag-core`
+- Python Worker 参照実装: `implementations/worker-py`
 - 観測/基盤参照構成: `deployments`
 
 注記:
 
-- `dag-core` と `worker-py` は概念上 `implementations/` に属する
-- 現時点では物理移設せず、既存パスを維持したまま責務だけ先に固定する
+- 参照実装の物理正本は `implementations/` 配下に統一する
+- 判断根拠は `blueprint/adr/ADR-0003-implementation-directories-under-implementations.md`
 
 ### 3.2 Clock + DAG 実行モデル
 - 外部入力（Clock/Event）を起点に DAG を起動
@@ -114,8 +114,8 @@ RunView は event.Type から phase を正規化します。
 ## 6. ローカル開発セットアップ
 ### 6.1 必要ツール
 - Docker / Docker Compose
-- Go（`dag-core` 用）
-- Python（`worker-py` 用）
+- Go（`implementations/dag-core` 用）
+- Python（`implementations/worker-py` 用）
 
 ### 6.2 起動・停止
 - `make dev-up` でローカルスタック起動
@@ -137,14 +137,14 @@ RunView は event.Type から phase を正規化します。
 
 ## 7. 仕様管理ポリシー
 ### 7.1 仕様の正本（Source of Truth）
-- API 仕様の正本: `dag-core/internal/interface/http/router.go` と handler/dto 実装
+- API 仕様の正本: `implementations/dag-core/internal/interface/http/router.go` と handler/dto 実装
 - DB 仕様の正本: `data/tsdb/` 配下の SQL 資産
 - `README.md` は概要と導線を提供する要約ドキュメント（正本ではない）
 
 生成された OpenAPI は `implementations/dag-core/openapi/` に置く。
 
 ### 7.2 変更フロー（開発）
-1. API 変更時は `dag-core` 実装を先に更新する
+1. API 変更時は `implementations/dag-core` 実装を先に更新する
 2. DB 変更時は `data/tsdb/` 配下の migration 資産を更新する
 3. OpenAPI / sqlc などの生成物を更新する
 4. `make go-test` で回帰確認する
@@ -154,7 +154,7 @@ RunView は event.Type から phase を正規化します。
 ### 7.3 起動・運用フロー
 1. 基盤コンテナ（DB/MinIO/メッセージ基盤）を起動する
 2. `TSDB_URL` を設定し、migrator を実行する
-3. `dag-core` と worker 群を起動する
+3. `implementations/dag-core` と `implementations/worker-py` を起点に core / worker 群を起動する
 4. `/healthz` と主要 API を疎通確認する
 
 ### 7.4 受け入れ条件（DoD）
@@ -172,7 +172,7 @@ RunView は event.Type から phase を正規化します。
 ### 7.6 DB アクセス方針（現時点）
 - `data/tsdb/` 配下の schema/migrate を DDL の正本、query を SQL 仕様の正本とする
 - `db_backups` の query 定義は `data/tsdb/query/` 配下で管理する
-- `dag-core` 側の実装が inline SQL でも、仕様変更時は先に `data/tsdb/query/` 相当の SQL 資産を更新する
+- `implementations/dag-core` 側の実装が inline SQL でも、仕様変更時は先に `data/tsdb/query/` 相当の SQL 資産を更新する
 
 ---
 
@@ -183,13 +183,11 @@ RunView は event.Type から phase を正規化します。
 - `data`: 時系列・分析設計資産の受け先
 - `scenarios`: 代表導線
 - `governance`: 変更制御
-- `dag-core`: 現在の Go 実装
-- `worker-py`: 現在の Python 実装
+- `implementations/dag-core`: Go 参照実装
+- `implementations/worker-py`: Python 参照実装
 - `deployments`: ローカル実行用の compose / container wrapper
 
-現在の運用方針では、`dag-core` と `worker-py` は概念上 `implementations` に属するが、物理パスは維持する。
-
-この判断は `blueprint/adr/ADR-0002-reference-implementation-paths.md` に固定している。
+実装ディレクトリ移行方針は `blueprint/adr/ADR-0003-implementation-directories-under-implementations.md` に固定している。
 
 `deployments` は恒久的な設計や platform/source-of-truth の置き場ではなく、現時点では app dev と migrator を起動するための実行ラッパとして扱う。
 

@@ -1,6 +1,6 @@
 # worker-py
 
-This directory will become the canonical location for the Python worker reference implementation.
+This directory is the canonical location for the Python worker reference implementation.
 
 ## Role
 
@@ -64,7 +64,6 @@ The current Python implementation expresses the repository structure through:
 
 ## Migration Notes
 
-Existing implementation currently lives under `worker-py/`.
+Physical-path alignment policy is defined in:
 
-The physical implementation path remains `worker-py/` by accepted repository decision.
-See `blueprint/adr/ADR-0002-reference-implementation-paths.md`.
+- `blueprint/adr/ADR-0003-implementation-directories-under-implementations.md`

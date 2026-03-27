@@ -14,7 +14,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: dag-core/go.mod
+          go-version-file: implementations/dag-core/go.mod
 
       - name: Setup buf
         uses: bufbuild/buf-setup-action@v1

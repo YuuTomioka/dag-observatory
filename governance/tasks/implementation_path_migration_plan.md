@@ -98,5 +98,12 @@ Maintaining both old and new paths would increase ambiguity and violate the pare
 
 ## Result
 
-Planned.
-No physical move has been executed in this task document update.
+In progress.
+
+- T1 completed.
+- `ADR-0003` was added and `ADR-0002` status was changed to superseded.
+- top-level implementation code was moved to `implementations/dag-core/` and `implementations/worker-py/`.
+- path references in `Makefile`, compose, CI, and entrypoint docs were updated.
+- `make go-test` passed after narrowing test target to `cmd/...` and `internal/...`.
+- `make contracts-check` currently fails in this environment because `buf` is not installed.
+- top-level `dag-core/tmp` cleanup is blocked by file ownership/permission (`nobody` owned files).

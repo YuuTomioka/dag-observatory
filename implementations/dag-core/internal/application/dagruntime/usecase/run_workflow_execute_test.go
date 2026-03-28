@@ -121,8 +121,9 @@ func TestExecuteEnqueuePayloadIsEnvelope(t *testing.T) {
 	enqueuer := &recordingEnqueuer{}
 	now := time.Date(2026, 3, 29, 10, 0, 0, 0, time.UTC)
 	uc := &RunWorkflow{
-		Enqueuer: enqueuer,
-		Clock:    fixedClock{now: now},
+		Enqueuer:      enqueuer,
+		Clock:         fixedClock{now: now},
+		ProducerTopic: "dagruntime-tasks",
 	}
 
 	result, err := uc.Execute(context.Background(), RunWorkflowRequest{
@@ -134,6 +135,9 @@ func TestExecuteEnqueuePayloadIsEnvelope(t *testing.T) {
 	}
 	if !result.EnqueueMode {
 		t.Fatal("expected enqueue mode result")
+	}
+	if result.MessagingDestination != "dagruntime-tasks" {
+		t.Fatalf("expected enqueue destination dagruntime-tasks, got %q", result.MessagingDestination)
 	}
 	if _, ok := enqueuer.last.Payload.([]events.PayloadEnvelope); !ok {
 		t.Fatalf("expected envelope payload, got %T", enqueuer.last.Payload)
@@ -166,6 +170,9 @@ func TestExecuteDriverPayloadIsInputMap(t *testing.T) {
 	}
 	if result.EnqueueMode {
 		t.Fatal("expected driver mode result")
+	}
+	if result.MessagingDestination != defaultDriverDestinationName {
+		t.Fatalf("expected driver destination %q, got %q", defaultDriverDestinationName, result.MessagingDestination)
 	}
 	if _, ok := recorder.last.Payload.(engine.InputMap); !ok {
 		t.Fatalf("expected input map payload, got %T", recorder.last.Payload)

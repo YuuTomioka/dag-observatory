@@ -7,11 +7,12 @@ type RunWorkflowRequest struct {
 }
 
 type RunWorkflowResult struct {
-	RunID       string
-	Symbol      string
-	Mode        string
-	TaskID      string
-	TaskName    string
-	Attempt     int
-	EnqueueMode bool
+	RunID                string
+	Symbol               string
+	Mode                 string
+	TaskID               string
+	TaskName             string
+	Attempt              int
+	EnqueueMode          bool
+	MessagingDestination string
 }

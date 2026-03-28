@@ -66,16 +66,21 @@ func (h *Handlers) DagRun(c echo.Context) error {
 	}
 
 	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(
+	attrs := []attribute.KeyValue{
 		attribute.String(semantics.KeyDAGRunID, result.RunID),
 		attribute.String(semantics.KeyDAGTaskID, result.TaskID),
 		attribute.String(semantics.KeyDAGTaskName, result.TaskName),
 		attribute.Int(semantics.KeyDAGAttempt, result.Attempt),
-		attribute.String(semantics.KeyMessagingSystem, "kafka"),
-		attribute.String(semantics.KeyMessagingDestination, "dagruntime-events"),
+		attribute.String(semantics.KeyMessagingDestination, result.MessagingDestination),
 		attribute.String(semantics.KeyMessagingOperation, "send"),
 		attribute.String(semantics.KeyMessagingMessageID, result.RunID),
-	)
+	}
+	if result.EnqueueMode {
+		attrs = append(attrs, attribute.String(semantics.KeyMessagingSystem, "kafka"))
+	} else {
+		attrs = append(attrs, attribute.String(semantics.KeyMessagingSystem, "inproc"))
+	}
+	span.SetAttributes(attrs...)
 
 	if result.EnqueueMode {
 		return c.JSON(http.StatusAccepted, dto.DagRunResponse{

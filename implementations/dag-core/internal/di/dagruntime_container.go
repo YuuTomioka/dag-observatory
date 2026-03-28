@@ -79,9 +79,10 @@ func NewDAGRuntimeContainer(cfg Config, otelc *OTelContainer, compiled pipeline.
 	}
 
 	uc := &usecase.RunWorkflow{
-		Driver:   driver,
-		Enqueuer: producer,
-		Clock:    clockinfra.NewRealClock(),
+		Driver:        driver,
+		Enqueuer:      producer,
+		Clock:         clockinfra.NewRealClock(),
+		ProducerTopic: kafkaTaskTopic(cfg),
 	}
 
 	return &DAGRuntimeContainer{
@@ -127,10 +128,7 @@ func newKafkaProducer(cfg Config) (*eventstoreinfra.KafkaProducer, error) {
 	if cfg.EventStoreType != "kafka" {
 		return nil, nil
 	}
-	topic := cfg.KafkaTaskTopic
-	if topic == "" {
-		topic = cfg.KafkaTopic
-	}
+	topic := kafkaTaskTopic(cfg)
 	if cfg.KafkaBrokers == "" || topic == "" {
 		return nil, fmt.Errorf("dagruntime: kafka brokers/topic are required when EVENT_STORE_TYPE=kafka")
 	}
@@ -139,6 +137,13 @@ func newKafkaProducer(cfg Config) (*eventstoreinfra.KafkaProducer, error) {
 		return nil, fmt.Errorf("dagruntime: kafka brokers are required")
 	}
 	return eventstoreinfra.NewKafkaProducer(brokers, topic)
+}
+
+func kafkaTaskTopic(cfg Config) string {
+	if cfg.KafkaTaskTopic != "" {
+		return cfg.KafkaTaskTopic
+	}
+	return cfg.KafkaTopic
 }
 
 func newKafkaConsumer(cfg Config) (*eventstoreinfra.KafkaConsumer, error) {

@@ -17,18 +17,20 @@ import (
 )
 
 const (
-	defaultSymbol    = "USDJPY"
-	defaultMode      = "normal"
-	defaultTaskID    = "heavy_calc"
-	defaultTaskName  = "heavy_calc"
-	defaultAttempt   = 1
-	defaultEventType = "task.requested"
+	defaultSymbol                = "USDJPY"
+	defaultMode                  = "normal"
+	defaultTaskID                = "heavy_calc"
+	defaultTaskName              = "heavy_calc"
+	defaultAttempt               = 1
+	defaultEventType             = "task.requested"
+	defaultDriverDestinationName = "dagruntime-driver"
 )
 
 type RunWorkflow struct {
-	Driver   *driver.Driver
-	Enqueuer port.EventEnqueuer
-	Clock    port.Clock
+	Driver        *driver.Driver
+	Enqueuer      port.EventEnqueuer
+	Clock         port.Clock
+	ProducerTopic string
 }
 
 func (u *RunWorkflow) Execute(ctx context.Context, req RunWorkflowRequest) (RunWorkflowResult, error) {
@@ -38,6 +40,7 @@ func (u *RunWorkflow) Execute(ctx context.Context, req RunWorkflowRequest) (RunW
 		return result, err
 	}
 	result.EnqueueMode = u.IsEnqueueMode()
+	result.MessagingDestination = u.messagingDestination(result.EnqueueMode)
 	return result, nil
 }
 
@@ -68,6 +71,16 @@ func (u *RunWorkflow) Handle(ctx context.Context, partition state.Partition, eve
 
 func (u *RunWorkflow) IsEnqueueMode() bool {
 	return u != nil && u.Enqueuer != nil
+}
+
+func (u *RunWorkflow) messagingDestination(enqueueMode bool) string {
+	if enqueueMode {
+		if u != nil && u.ProducerTopic != "" {
+			return u.ProducerTopic
+		}
+		return "unknown"
+	}
+	return defaultDriverDestinationName
 }
 
 func (u *RunWorkflow) now() time.Time {

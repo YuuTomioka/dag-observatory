@@ -17,21 +17,22 @@ import (
 )
 
 const (
-	defaultSymbol   = "USDJPY"
-	defaultMode     = "normal"
-	defaultTaskID   = "heavy_calc"
-	defaultTaskName = "heavy_calc"
-	defaultAttempt  = 1
+	defaultSymbol    = "USDJPY"
+	defaultMode      = "normal"
+	defaultTaskID    = "heavy_calc"
+	defaultTaskName  = "heavy_calc"
+	defaultAttempt   = 1
 	defaultEventType = "task.requested"
 )
 
 type RunWorkflow struct {
 	Driver   *driver.Driver
 	Enqueuer port.EventEnqueuer
+	Clock    port.Clock
 }
 
 func (u *RunWorkflow) Execute(ctx context.Context, req RunWorkflowRequest) (RunWorkflowResult, error) {
-	result, event, partition := buildRunEvent(req)
+	result, event, partition := buildRunEvent(req, u.now())
 	ctx = ctxprop.WithRunID(ctx, result.RunID)
 	if err := u.Handle(ctx, partition, event); err != nil {
 		return result, err
@@ -69,7 +70,14 @@ func (u *RunWorkflow) IsEnqueueMode() bool {
 	return u != nil && u.Enqueuer != nil
 }
 
-func buildRunEvent(req RunWorkflowRequest) (RunWorkflowResult, events.Event, state.Partition) {
+func (u *RunWorkflow) now() time.Time {
+	if u != nil && u.Clock != nil {
+		return u.Clock.Now()
+	}
+	return time.Now()
+}
+
+func buildRunEvent(req RunWorkflowRequest, now time.Time) (RunWorkflowResult, events.Event, state.Partition) {
 	runID := req.RunID
 	if runID == "" {
 		runID = uuid.NewString()
@@ -109,7 +117,7 @@ func buildRunEvent(req RunWorkflowRequest) (RunWorkflowResult, events.Event, sta
 	partition := state.Partition(runID)
 	event := events.Event{
 		EventID:   runID,
-		EventTime: time.Now(),
+		EventTime: now,
 		Partition: partition,
 		Type:      defaultEventType,
 		Payload:   payload,

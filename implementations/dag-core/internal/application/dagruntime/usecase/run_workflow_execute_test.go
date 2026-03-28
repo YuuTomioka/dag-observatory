@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"testing"
+	"time"
 
 	"dag-observatory/dag-core/internal/application/dagruntime/port"
 	"dag-observatory/dag-core/internal/domain/dagruntime/driver"
@@ -29,6 +30,14 @@ type recordingRecorder struct {
 	last events.Event
 }
 
+type fixedClock struct {
+	now time.Time
+}
+
+func (c fixedClock) Now() time.Time {
+	return c.now
+}
+
 func (r *recordingRecorder) RecordEvent(ctx context.Context, event events.Event) {
 	_ = ctx
 	r.last = event
@@ -45,7 +54,8 @@ func (r *recordingRecorder) RecordCycleResult(ctx context.Context, result port.C
 }
 
 func TestBuildRunEventDefaults(t *testing.T) {
-	result, event, partition := buildRunEvent(RunWorkflowRequest{})
+	now := time.Date(2026, 3, 29, 8, 0, 0, 0, time.UTC)
+	result, event, partition := buildRunEvent(RunWorkflowRequest{}, now)
 
 	if result.RunID == "" {
 		t.Fatal("expected run_id to be generated")
@@ -58,6 +68,9 @@ func TestBuildRunEventDefaults(t *testing.T) {
 	}
 	if event.EventID != result.RunID {
 		t.Fatalf("expected event id %q, got %q", result.RunID, event.EventID)
+	}
+	if !event.EventTime.Equal(now) {
+		t.Fatalf("expected event time %s, got %s", now, event.EventTime)
 	}
 	if partition != state.Partition(result.RunID) {
 		t.Fatalf("expected partition %q, got %q", result.RunID, partition)
@@ -87,7 +100,8 @@ func TestBuildRunEventDefaults(t *testing.T) {
 
 func TestBuildRunEventWithRunID(t *testing.T) {
 	req := RunWorkflowRequest{RunID: "fixed-id", Symbol: "USDJPY", Mode: "normal"}
-	result, event, partition := buildRunEvent(req)
+	now := time.Date(2026, 3, 29, 9, 0, 0, 0, time.UTC)
+	result, event, partition := buildRunEvent(req, now)
 
 	if result.RunID != "fixed-id" {
 		t.Fatalf("expected run_id fixed-id, got %q", result.RunID)
@@ -98,11 +112,18 @@ func TestBuildRunEventWithRunID(t *testing.T) {
 	if partition != state.Partition("fixed-id") {
 		t.Fatalf("expected partition fixed-id, got %q", partition)
 	}
+	if !event.EventTime.Equal(now) {
+		t.Fatalf("expected event time %s, got %s", now, event.EventTime)
+	}
 }
 
 func TestExecuteEnqueuePayloadIsEnvelope(t *testing.T) {
 	enqueuer := &recordingEnqueuer{}
-	uc := &RunWorkflow{Enqueuer: enqueuer}
+	now := time.Date(2026, 3, 29, 10, 0, 0, 0, time.UTC)
+	uc := &RunWorkflow{
+		Enqueuer: enqueuer,
+		Clock:    fixedClock{now: now},
+	}
 
 	result, err := uc.Execute(context.Background(), RunWorkflowRequest{
 		Symbol: "EURUSD",
@@ -116,6 +137,9 @@ func TestExecuteEnqueuePayloadIsEnvelope(t *testing.T) {
 	}
 	if _, ok := enqueuer.last.Payload.([]events.PayloadEnvelope); !ok {
 		t.Fatalf("expected envelope payload, got %T", enqueuer.last.Payload)
+	}
+	if !enqueuer.last.EventTime.Equal(now) {
+		t.Fatalf("expected event time %s, got %s", now, enqueuer.last.EventTime)
 	}
 }
 

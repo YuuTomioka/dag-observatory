@@ -1,11 +1,12 @@
 package di
 
 import (
+	"fmt"
+
 	"dag-observatory/dag-core/internal/infrastructure/observability/applog"
 	"dag-observatory/dag-core/internal/infrastructure/persistence/tsdb"
 	miniostore "dag-observatory/dag-core/internal/infrastructure/storage/minio"
 	httpif "dag-observatory/dag-core/internal/interface/http"
-	"dag-observatory/dag-core/internal/domain/dagruntime/pipeline"
 
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
@@ -20,8 +21,11 @@ func NewEchoContainer(cfg Config, otelc *OTelContainer, dagRuntime *DAGRuntimeCo
 	appLog := applog.New(cfg.AppLogLevel, cfg.AppLogOutput, otelc.AppLogger)
 
 	if dagRuntime == nil {
-		var err error
-		dagRuntime, err = NewDAGRuntimeContainer(cfg, otelc, pipeline.Compiled{})
+		compiled, err := compileDefaultWorkflow()
+		if err != nil {
+			return nil, fmt.Errorf("dagruntime: compile default workflow: %w", err)
+		}
+		dagRuntime, err = NewDAGRuntimeContainer(cfg, otelc, compiled)
 		if err != nil {
 			return nil, err
 		}
@@ -49,14 +53,14 @@ func NewEchoContainer(cfg Config, otelc *OTelContainer, dagRuntime *DAGRuntimeCo
 	}
 
 	httpif.RegisterRoutes(e, httpif.Dependencies{
-		IntentLog:  otelc.IntentLog,
-		AppLog:     appLog,
-		Tracer:     otelc.Tracer,
-		Metrics:    otelc.Metrics,
-		RunWorkflow: dagRuntime.Usecase,
+		IntentLog:     otelc.IntentLog,
+		AppLog:        appLog,
+		Tracer:        otelc.Tracer,
+		Metrics:       otelc.Metrics,
+		RunWorkflow:   dagRuntime.Usecase,
 		ArtifactsRepo: artifactsRepo,
 		DBBackupsRepo: dbBackupsRepo,
-		Presigner: presigner,
+		Presigner:     presigner,
 	})
 
 	return e, nil

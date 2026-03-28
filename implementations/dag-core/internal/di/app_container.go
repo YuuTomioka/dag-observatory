@@ -1,9 +1,8 @@
 package di
 
 import (
-	"dag-observatory/dag-core/internal/domain/dagruntime/pipeline"
-	grpcif "dag-observatory/dag-core/internal/interface/grpc"
 	graphqlif "dag-observatory/dag-core/internal/interface/graphql"
+	grpcif "dag-observatory/dag-core/internal/interface/grpc"
 	wsif "dag-observatory/dag-core/internal/interface/ws"
 
 	"github.com/labstack/echo/v4"
@@ -27,7 +26,10 @@ func NewAppContainer() (*AppContainer, error) {
 		return nil, err
 	}
 
-	compiled := pipeline.Compiled{}
+	compiled, err := compileDefaultWorkflow()
+	if err != nil {
+		return nil, err
+	}
 	dagRuntime, err := NewDAGRuntimeContainer(cfg, otelc, compiled)
 	if err != nil {
 		return nil, err

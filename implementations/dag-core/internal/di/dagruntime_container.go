@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"strings"
 
-	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
 	"dag-observatory/dag-core/internal/application/dagruntime/port"
+	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
 	"dag-observatory/dag-core/internal/domain/dagruntime/driver"
 	"dag-observatory/dag-core/internal/domain/dagruntime/engine"
 	"dag-observatory/dag-core/internal/domain/dagruntime/pipeline"
 	"dag-observatory/dag-core/internal/domain/dagruntime/policy"
 	"dag-observatory/dag-core/internal/domain/dagruntime/state"
 	artifactinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/artifact"
+	clockinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/clock"
 	eventstoreinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/eventstore"
 	observerinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/observer"
 	recorderinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/recorder"
@@ -80,6 +81,7 @@ func NewDAGRuntimeContainer(cfg Config, otelc *OTelContainer, compiled pipeline.
 	uc := &usecase.RunWorkflow{
 		Driver:   driver,
 		Enqueuer: producer,
+		Clock:    clockinfra.NewRealClock(),
 	}
 
 	return &DAGRuntimeContainer{

@@ -27,7 +27,7 @@ type counterNode struct {
 	err   error
 }
 
-func (n *counterNode) Name() string { return "counter.node" }
+func (n *counterNode) Name() string                { return "counter.node" }
 func (n *counterNode) Requires() []artifact.AnyKey { return nil }
 func (n *counterNode) Provides() []artifact.AnyKey { return nil }
 func (n *counterNode) Reads() []state.AnyKey       { return nil }
@@ -54,7 +54,7 @@ type timeoutNode struct {
 	spec node.ExecutionSpec
 }
 
-func (n *timeoutNode) Name() string { return "timeout.node" }
+func (n *timeoutNode) Name() string                { return "timeout.node" }
 func (n *timeoutNode) Requires() []artifact.AnyKey { return nil }
 func (n *timeoutNode) Provides() []artifact.AnyKey { return nil }
 func (n *timeoutNode) Reads() []state.AnyKey       { return nil }
@@ -69,8 +69,9 @@ func (n *timeoutNode) Run(ctx context.Context, av artifact.View, aw artifact.Wri
 }
 
 type sequenceObserver struct {
-	mu     sync.Mutex
-	events []string
+	mu      sync.Mutex
+	events  []string
+	starts  []port.NodeInfo
 	results []port.NodeResult
 }
 
@@ -83,6 +84,9 @@ func (o *sequenceObserver) OnCycleEnd(ctx context.Context, info port.CycleResult
 }
 func (o *sequenceObserver) OnNodeStart(ctx context.Context, info port.NodeInfo) {
 	o.append("node_start:" + info.NodeName)
+	o.mu.Lock()
+	o.starts = append(o.starts, info)
+	o.mu.Unlock()
 }
 func (o *sequenceObserver) OnNodeEnd(ctx context.Context, info port.NodeResult) {
 	o.append("node_end:" + info.NodeName)
@@ -111,6 +115,14 @@ func (o *sequenceObserver) Results() []port.NodeResult {
 	defer o.mu.Unlock()
 	out := make([]port.NodeResult, len(o.results))
 	copy(out, o.results)
+	return out
+}
+
+func (o *sequenceObserver) Starts() []port.NodeInfo {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	out := make([]port.NodeInfo, len(o.starts))
+	copy(out, o.starts)
 	return out
 }
 
@@ -362,8 +374,47 @@ func TestObserverSequence(t *testing.T) {
 		if res.RetryCount != 0 {
 			t.Fatalf("expected retry count 0, got %d", res.RetryCount)
 		}
-		if res.QueueWaitMS != 0 {
-			t.Fatalf("expected queue wait 0, got %d", res.QueueWaitMS)
+		if res.QueueWaitMS < 0 {
+			t.Fatalf("expected non-negative queue wait, got %d", res.QueueWaitMS)
 		}
+	}
+}
+
+func TestQueueWaitObservedFromEventTime(t *testing.T) {
+	n1 := &counterNode{}
+	compiled := pipeline.Compiled{
+		Name:  "queue_wait",
+		Order: []node.Node{n1},
+		Nodes: []node.Node{n1},
+	}
+	observer := &sequenceObserver{}
+	runner := &Runner{
+		ArtifactStore: artifactinfra.NewMemoryStore(),
+		StateStore:    stateinfra.NewMemoryStore(),
+		Policy:        policy.Policy{},
+		Observer:      observer,
+	}
+	event := events.Event{
+		EventID:   "queue_wait",
+		EventTime: time.Now().Add(-2 * time.Second),
+		Partition: state.Partition("default"),
+		Type:      "test",
+	}
+	if err := runner.RunCycle(context.Background(), compiled, InputMap{}, event.Partition, event); err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+	starts := observer.Starts()
+	if len(starts) != 1 {
+		t.Fatalf("expected one node start, got %d", len(starts))
+	}
+	if starts[0].QueueWaitMS <= 0 {
+		t.Fatalf("expected positive queue wait, got %d", starts[0].QueueWaitMS)
+	}
+	results := observer.Results()
+	if len(results) != 1 {
+		t.Fatalf("expected one node result, got %d", len(results))
+	}
+	if results[0].QueueWaitMS <= 0 {
+		t.Fatalf("expected positive queue wait in result, got %d", results[0].QueueWaitMS)
 	}
 }

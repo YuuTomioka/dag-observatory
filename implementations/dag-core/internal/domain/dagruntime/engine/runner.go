@@ -17,12 +17,12 @@ import (
 )
 
 type Runner struct {
-	ArtifactStore artifact.Store
-	StateStore    state.Store
-	StateHasher   state.Hasher
-	Observer      port.Observer
-	Policy        policy.Policy
-	Recorder      port.Recorder
+	ArtifactStore   artifact.Store
+	StateStore      state.Store
+	StateHasher     state.Hasher
+	Observer        port.Observer
+	Policy          policy.Policy
+	Recorder        port.Recorder
 	ContinueOnError bool
 }
 
@@ -142,11 +142,12 @@ type nodeFailure struct {
 
 func (r *Runner) runPipeline(ctx context.Context, compiled pipeline.Compiled, txn state.Txn, runID string, retryCount int64) *nodeFailure {
 	for _, n := range compiled.Order {
+		queueWaitMS := queueWaitFromContextMS(ctx)
 		if r.Observer != nil {
 			r.Observer.OnNodeStart(ctx, port.NodeInfo{
-				RunID:    runID,
-				NodeName: nodeName(n),
-				QueueWaitMS: 0,
+				RunID:       runID,
+				NodeName:    nodeName(n),
+				QueueWaitMS: queueWaitMS,
 			})
 		}
 
@@ -171,20 +172,22 @@ func (r *Runner) runPipeline(ctx context.Context, compiled pipeline.Compiled, tx
 
 		if r.Observer != nil {
 			r.Observer.OnNodeEnd(ctx, port.NodeResult{
-				RunID:    runID,
-				NodeName: nodeName(n),
-				Duration: duration,
-				Err:      err,
-				RetryCount: retryCount,
+				RunID:       runID,
+				NodeName:    nodeName(n),
+				Duration:    duration,
+				Err:         err,
+				RetryCount:  retryCount,
+				QueueWaitMS: queueWaitMS,
 			})
 		}
 		if r.Recorder != nil {
 			r.Recorder.RecordNodeResult(ctx, port.NodeResult{
-				RunID:    runID,
-				NodeName: nodeName(n),
-				Duration: duration,
-				Err:      err,
-				RetryCount: retryCount,
+				RunID:       runID,
+				NodeName:    nodeName(n),
+				Duration:    duration,
+				Err:         err,
+				RetryCount:  retryCount,
+				QueueWaitMS: queueWaitMS,
 			})
 		}
 
@@ -198,6 +201,18 @@ func (r *Runner) runPipeline(ctx context.Context, compiled pipeline.Compiled, tx
 		}
 	}
 	return nil
+}
+
+func queueWaitFromContextMS(ctx context.Context) int64 {
+	event, ok := events.EventFromContext(ctx)
+	if !ok || event.EventTime.IsZero() {
+		return 0
+	}
+	wait := time.Since(event.EventTime).Milliseconds()
+	if wait < 0 {
+		return 0
+	}
+	return wait
 }
 
 func effectiveTimeout(policy policy.Policy, spec node.ExecutionSpec) time.Duration {

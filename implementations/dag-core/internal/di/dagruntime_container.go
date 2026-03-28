@@ -1,6 +1,7 @@
 package di
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -62,6 +63,10 @@ func NewDAGRuntimeContainer(cfg Config, otelc *OTelContainer, compiled pipeline.
 		observer = observerinfra.NewOTelObserver(nil, nil)
 	}
 	recorder := recorderinfra.NewNoopRecorder()
+	observer.OnCompile(context.Background(), port.CompileInfo{
+		WorkflowName: compiled.Name,
+		NodeCount:    len(compiled.Order),
+	})
 
 	runner := &engine.Runner{
 		ArtifactStore: artifactStore,

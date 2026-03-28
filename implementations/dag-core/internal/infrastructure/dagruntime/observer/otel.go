@@ -6,13 +6,14 @@ import (
 	"strings"
 	"time"
 
-	appport "dag-observatory/dag-core/internal/application/observability/port"
 	"dag-observatory/dag-core/internal/application/dagruntime/port"
+	appport "dag-observatory/dag-core/internal/application/observability/port"
 	"dag-observatory/dag-core/internal/domain/observability/semantics"
 	"dag-observatory/dag-core/internal/infrastructure/observability/metrics"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type OTelObserver struct {
@@ -27,7 +28,13 @@ func NewOTelObserver(intentLog appport.IntentLog, instruments *metrics.Instrumen
 	}
 }
 
-func (o *OTelObserver) OnCompile(ctx context.Context, info port.CompileInfo) {}
+func (o *OTelObserver) OnCompile(ctx context.Context, info port.CompileInfo) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("dag.compile", trace.WithAttributes(
+		attribute.String("workflow", info.WorkflowName),
+		attribute.Int("workflow.node_count", info.NodeCount),
+	))
+}
 
 func (o *OTelObserver) OnCycleStart(ctx context.Context, info port.CycleInfo) {
 	runID := info.Event.EventID
@@ -58,20 +65,20 @@ func (o *OTelObserver) OnCycleEnd(ctx context.Context, info port.CycleResult) {
 	attrs := cycleAttrs(info.WorkflowName, symbol, runID)
 
 	if info.Err == nil {
-	if o.intentLog != nil {
-		o.intentLog.DAGRunStateChanged(ctx, semantics.DAGRunStateChanged{
-			DAGRunID:   runID,
-			FromState:  "running",
-			ToState:    "succeeded",
-			DurationMS: durationMS,
-		})
-		o.intentLog.DAGRunFinished(ctx, semantics.DAGRunFinished{
-			DAGRunID:   runID,
-			Status:     "succeeded",
-			DurationMS: durationMS,
-			RetryCount: info.RetryCount,
-		})
-	}
+		if o.intentLog != nil {
+			o.intentLog.DAGRunStateChanged(ctx, semantics.DAGRunStateChanged{
+				DAGRunID:   runID,
+				FromState:  "running",
+				ToState:    "succeeded",
+				DurationMS: durationMS,
+			})
+			o.intentLog.DAGRunFinished(ctx, semantics.DAGRunFinished{
+				DAGRunID:   runID,
+				Status:     "succeeded",
+				DurationMS: durationMS,
+				RetryCount: info.RetryCount,
+			})
+		}
 		o.recordRunMetrics(ctx, attrs, "succeeded", info.Duration)
 		return
 	}
@@ -99,10 +106,10 @@ func (o *OTelObserver) OnNodeStart(ctx context.Context, info port.NodeInfo) {
 		return
 	}
 	o.intentLog.DAGNodeStateChanged(ctx, semantics.DAGNodeStateChanged{
-		DAGRunID:  info.RunID,
-		DAGNodeID: info.NodeName,
-		FromState: "queued",
-		ToState:   "running",
+		DAGRunID:    info.RunID,
+		DAGNodeID:   info.NodeName,
+		FromState:   "queued",
+		ToState:     "running",
 		QueueWaitMS: info.QueueWaitMS,
 	})
 	o.intentLog.DAGNodeStarted(ctx, semantics.DAGNodeStarted{
@@ -121,11 +128,11 @@ func (o *OTelObserver) OnNodeEnd(ctx context.Context, info port.NodeResult) {
 	if info.Err == nil {
 		if o.intentLog != nil {
 			o.intentLog.DAGNodeStateChanged(ctx, semantics.DAGNodeStateChanged{
-				DAGRunID:   info.RunID,
-				DAGNodeID:  info.NodeName,
-				FromState:  "running",
-				ToState:    "succeeded",
-				DurationMS: durationMS,
+				DAGRunID:    info.RunID,
+				DAGNodeID:   info.NodeName,
+				FromState:   "running",
+				ToState:     "succeeded",
+				DurationMS:  durationMS,
 				QueueWaitMS: info.QueueWaitMS,
 			})
 			o.intentLog.DAGNodeFinished(ctx, semantics.DAGNodeFinished{
@@ -143,11 +150,11 @@ func (o *OTelObserver) OnNodeEnd(ctx context.Context, info port.NodeResult) {
 	if errors.Is(info.Err, context.DeadlineExceeded) {
 		if o.intentLog != nil {
 			o.intentLog.DAGNodeStateChanged(ctx, semantics.DAGNodeStateChanged{
-				DAGRunID:   info.RunID,
-				DAGNodeID:  info.NodeName,
-				FromState:  "running",
-				ToState:    "timeout",
-				DurationMS: durationMS,
+				DAGRunID:    info.RunID,
+				DAGNodeID:   info.NodeName,
+				FromState:   "running",
+				ToState:     "timeout",
+				DurationMS:  durationMS,
 				QueueWaitMS: info.QueueWaitMS,
 			})
 			o.intentLog.DAGNodeTimeout(ctx, semantics.DAGNodeTimeout{
@@ -163,11 +170,11 @@ func (o *OTelObserver) OnNodeEnd(ctx context.Context, info port.NodeResult) {
 
 	if o.intentLog != nil {
 		o.intentLog.DAGNodeStateChanged(ctx, semantics.DAGNodeStateChanged{
-			DAGRunID:   info.RunID,
-			DAGNodeID:  info.NodeName,
-			FromState:  "running",
-			ToState:    "failed",
-			DurationMS: durationMS,
+			DAGRunID:    info.RunID,
+			DAGNodeID:   info.NodeName,
+			FromState:   "running",
+			ToState:     "failed",
+			DurationMS:  durationMS,
 			QueueWaitMS: info.QueueWaitMS,
 		})
 		o.intentLog.DAGNodeFailed(ctx, semantics.DAGNodeFailed{

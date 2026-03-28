@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"dag-observatory/dag-core/internal/di"
+	"dag-observatory/dag-core/internal/domain/dagruntime/driver"
 )
 
 func main() {
@@ -42,8 +43,19 @@ func main() {
 		if err != nil {
 			log.Fatalf("event stream subscribe failed: %v", err)
 		}
+		driverStream := make(chan driver.StreamEvent, 32)
 		go func() {
-			if err := app.DAGRuntime.Driver.Run(consumerCtx, stream); err != nil && consumerCtx.Err() == nil {
+			defer close(driverStream)
+			for item := range stream {
+				select {
+				case driverStream <- driver.StreamEvent{Ctx: item.Ctx, Event: item.Event}:
+				case <-consumerCtx.Done():
+					return
+				}
+			}
+		}()
+		go func() {
+			if err := app.DAGRuntime.Driver.RunWithContext(consumerCtx, driverStream); err != nil && consumerCtx.Err() == nil {
 				log.Printf("dag driver stopped: %v", err)
 			}
 		}()

@@ -6,7 +6,12 @@ import (
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
 )
 
+type StreamEvent struct {
+	Ctx   context.Context
+	Event events.Event
+}
+
 // EventStream provides a unified event source for streaming transports.
 type EventStream interface {
-	Subscribe(ctx context.Context) (<-chan events.Event, error)
+	Subscribe(ctx context.Context) (<-chan StreamEvent, error)
 }

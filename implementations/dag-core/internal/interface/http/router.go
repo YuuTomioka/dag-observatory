@@ -1,12 +1,13 @@
 package http
 
 import (
+	artifactsrepository "dag-observatory/dag-core/internal/application/artifacts/repository"
 	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
+	dbbackupsrepository "dag-observatory/dag-core/internal/application/dbbackups/repository"
 	marketdatausecase "dag-observatory/dag-core/internal/application/marketdata/usecase"
 	"dag-observatory/dag-core/internal/application/observability/port"
 	"dag-observatory/dag-core/internal/infrastructure/observability/applog"
 	"dag-observatory/dag-core/internal/infrastructure/observability/metrics"
-	"dag-observatory/dag-core/internal/infrastructure/persistence/tsdb"
 	miniostore "dag-observatory/dag-core/internal/infrastructure/storage/minio"
 	"dag-observatory/dag-core/internal/interface/http/handler"
 
@@ -20,9 +21,9 @@ type Dependencies struct {
 	Tracer        trace.Tracer
 	Metrics       *metrics.Instruments
 	RunWorkflow   *usecase.RunWorkflow
-	ArtifactsRepo *tsdb.ArtifactsRepository
+	ArtifactsRepo artifactsrepository.Reader
 	Presigner     *miniostore.Presigner
-	DBBackupsRepo *tsdb.DBBackupsRepository
+	DBBackupsRepo dbbackupsrepository.Reader
 
 	CreateSymbol              *marketdatausecase.CreateSymbol
 	GetSymbolByCode           *marketdatausecase.GetSymbolByCode

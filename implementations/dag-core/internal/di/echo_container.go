@@ -3,9 +3,13 @@ package di
 import (
 	"fmt"
 
+	artifactsrepository "dag-observatory/dag-core/internal/application/artifacts/repository"
+	dbbackupsrepository "dag-observatory/dag-core/internal/application/dbbackups/repository"
 	marketdatausecase "dag-observatory/dag-core/internal/application/marketdata/usecase"
 	"dag-observatory/dag-core/internal/infrastructure/observability/applog"
 	"dag-observatory/dag-core/internal/infrastructure/persistence/tsdb"
+	artifactsinfra "dag-observatory/dag-core/internal/infrastructure/persistence/tsdb/repository/artifacts"
+	dbbackupsinfra "dag-observatory/dag-core/internal/infrastructure/persistence/tsdb/repository/dbbackups"
 	miniostore "dag-observatory/dag-core/internal/infrastructure/storage/minio"
 	httpif "dag-observatory/dag-core/internal/interface/http"
 
@@ -37,16 +41,16 @@ func NewEchoContainer(
 		}
 	}
 
-	var artifactsRepo *tsdb.ArtifactsRepository
-	var dbBackupsRepo *tsdb.DBBackupsRepository
+	var artifactsRepo artifactsrepository.Reader
+	var dbBackupsRepo dbbackupsrepository.Reader
 	var presigner *miniostore.Presigner
 	if cfg.TSDBURL != "" {
 		client, err := tsdb.New(cfg.TSDBURL)
 		if err != nil {
 			return nil, err
 		}
-		artifactsRepo = tsdb.NewArtifactsRepository(client)
-		dbBackupsRepo = tsdb.NewDBBackupsRepository(client)
+		artifactsRepo = artifactsinfra.NewRepository(client)
+		dbBackupsRepo = dbbackupsinfra.NewRepository(client)
 	}
 	if cfg.MinIOEndpoint != "" {
 		presigner = miniostore.NewPresigner(miniostore.Config{

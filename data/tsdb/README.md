@@ -50,6 +50,8 @@ The current repository separates storage responsibilities as follows:
 - `seed/`: optional initialization data
 - notes: rationale for time-series-oriented design decisions
 
+Schema-specific structure and migration filename rules are defined in `data/tsdb/schema/README.md`.
+
 ## Minimal Data Model Direction
 
 The current repository direction centers on:
@@ -77,6 +79,7 @@ The database should store metadata and references, while file transfer should be
 data/tsdb/
 ├─ README.md
 ├─ schema/
+│  ├─ README.md
 │  ├─ migrate/
 │  └─ seed/
 └─ query/

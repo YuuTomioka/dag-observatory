@@ -19,6 +19,9 @@ jobs:
       - name: Setup buf
         uses: bufbuild/buf-setup-action@v1
 
+      - name: Lint TSDB schema filenames
+        run: make tsdb-schema-lint
+
       - name: Run tests
         run: make go-test
 

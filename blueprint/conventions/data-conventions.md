@@ -47,6 +47,7 @@ This repository is moving those assets under `data/tsdb/` as a permanent home.
 - schema changes should be forward-only migration assets
 - application services should not be the primary DDL executor in long-lived environments
 - operational migration paths should remain reproducible and auditable
+- migration filename ordering must be deterministic and repository-wide rules should avoid mixed-width sequence formats
 
 ## Timeseries Design Rules
 

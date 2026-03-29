@@ -12,6 +12,7 @@ This directory is the canonical location for the Go reference implementation.
 - HTTP entrypoint for DAG execution
 - runtime orchestration through runner and driver
 - event-driven execution with Kafka-backed transport
+- YAML-based workflow spec loading and compile pipeline
 - state handling and persistence integration
 - observability integration through the application container
 - placeholder transports for gRPC, GraphQL, and WebSocket
@@ -39,6 +40,25 @@ The current Go implementation expresses the repository structure through:
 - workflow definitions and payload conventions
 - product-specific transport exposure
 - product-specific persistence and deployment settings
+
+## Workflow Specs (YAML)
+
+- Workflow specs are stored under `implementations/dag-core/workflows/`.
+- Current examples are `default.yaml` and `sma_cross_signal.yaml`.
+- The compile path is `YAML -> WorkflowSpec -> validator -> factory registry -> adapter -> workflow.Compile`.
+- Node `kind` must be registered in the builtin registry.
+- Supported spec version is currently `v1`.
+
+## Runtime Workflow Selection
+
+- `DAGRUNTIME_WORKFLOW_SPEC_PATH` selects which workflow YAML to load at startup.
+- Default value is `workflows/default.yaml`.
+- Example: `DAGRUNTIME_WORKFLOW_SPEC_PATH=workflows/sma_cross_signal.yaml`.
+
+## HTTP Input Notes
+
+- `POST /dag/run` accepts `symbol`, `mode`, and optional `bars`.
+- `bars` is mapped to runtime input key `market.bars`.
 
 ## Contract Assets
 

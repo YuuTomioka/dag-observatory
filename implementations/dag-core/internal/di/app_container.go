@@ -16,6 +16,7 @@ type AppContainer struct {
 	GraphQL    *graphqlif.Server
 	WS         *wsif.Server
 	DAGRuntime *DAGRuntimeContainer
+	MarketData *MarketDataContainer
 }
 
 func NewAppContainer() (*AppContainer, error) {
@@ -34,8 +35,12 @@ func NewAppContainer() (*AppContainer, error) {
 	if err != nil {
 		return nil, err
 	}
+	marketData, err := NewMarketDataContainer(cfg)
+	if err != nil {
+		return nil, err
+	}
 
-	e, err := NewEchoContainer(cfg, otelc, dagRuntime)
+	e, err := NewEchoContainer(cfg, otelc, dagRuntime, marketData)
 	if err != nil {
 		return nil, err
 	}
@@ -63,5 +68,6 @@ func NewAppContainer() (*AppContainer, error) {
 		GraphQL:    graphqlServer,
 		WS:         wsServer,
 		DAGRuntime: dagRuntime,
+		MarketData: marketData,
 	}, nil
 }

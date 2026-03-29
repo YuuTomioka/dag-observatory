@@ -2,6 +2,7 @@ package http
 
 import (
 	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
+	marketdatausecase "dag-observatory/dag-core/internal/application/marketdata/usecase"
 	"dag-observatory/dag-core/internal/application/observability/port"
 	"dag-observatory/dag-core/internal/infrastructure/observability/applog"
 	"dag-observatory/dag-core/internal/infrastructure/observability/metrics"
@@ -14,26 +15,39 @@ import (
 )
 
 type Dependencies struct {
-	IntentLog   port.IntentLog
-	AppLog      *applog.Logger
-	Tracer      trace.Tracer
-	Metrics     *metrics.Instruments
-	RunWorkflow *usecase.RunWorkflow
+	IntentLog     port.IntentLog
+	AppLog        *applog.Logger
+	Tracer        trace.Tracer
+	Metrics       *metrics.Instruments
+	RunWorkflow   *usecase.RunWorkflow
 	ArtifactsRepo *tsdb.ArtifactsRepository
-	Presigner *miniostore.Presigner
+	Presigner     *miniostore.Presigner
 	DBBackupsRepo *tsdb.DBBackupsRepository
+
+	CreateSymbol              *marketdatausecase.CreateSymbol
+	GetSymbolByCode           *marketdatausecase.GetSymbolByCode
+	ListSymbols               *marketdatausecase.ListSymbols
+	UpsertTicks               *marketdatausecase.UpsertTicks
+	GetLatestTickBySymbol     *marketdatausecase.GetLatestTickBySymbol
+	ListTicksBySymbolAndRange *marketdatausecase.ListTicksBySymbolAndRange
 }
 
 func RegisterRoutes(e *echo.Echo, d Dependencies) {
 	h := handler.New(handler.Dependencies{
-		IntentLog:  d.IntentLog,
-		AppLog:     d.AppLog,
-		Tracer:     d.Tracer,
-		Metrics:    d.Metrics,
-		RunWorkflow: d.RunWorkflow,
-		ArtifactsRepo: d.ArtifactsRepo,
-		Presigner: d.Presigner,
-		DBBackupsRepo: d.DBBackupsRepo,
+		IntentLog:                 d.IntentLog,
+		AppLog:                    d.AppLog,
+		Tracer:                    d.Tracer,
+		Metrics:                   d.Metrics,
+		RunWorkflow:               d.RunWorkflow,
+		ArtifactsRepo:             d.ArtifactsRepo,
+		Presigner:                 d.Presigner,
+		DBBackupsRepo:             d.DBBackupsRepo,
+		CreateSymbol:              d.CreateSymbol,
+		GetSymbolByCode:           d.GetSymbolByCode,
+		ListSymbols:               d.ListSymbols,
+		UpsertTicks:               d.UpsertTicks,
+		GetLatestTickBySymbol:     d.GetLatestTickBySymbol,
+		ListTicksBySymbolAndRange: d.ListTicksBySymbolAndRange,
 	})
 
 	e.GET("/healthz", h.Healthz)
@@ -42,4 +56,10 @@ func RegisterRoutes(e *echo.Echo, d Dependencies) {
 	e.POST("/artifacts/:artifact_id:presign-download", h.PresignArtifact)
 	e.GET("/db-backups", h.ListDBBackups)
 	e.POST("/db-backups/:backup_id:presign-download", h.PresignDBBackup)
+	e.POST("/marketdata/symbols", h.CreateSymbol)
+	e.GET("/marketdata/symbols", h.ListSymbols)
+	e.GET("/marketdata/symbols/:code", h.GetSymbolByCode)
+	e.POST("/marketdata/ticks:upsert-bulk", h.UpsertTicksBulk)
+	e.GET("/marketdata/ticks/latest", h.GetLatestTickBySymbol)
+	e.GET("/marketdata/ticks", h.ListTicksBySymbolAndRange)
 }

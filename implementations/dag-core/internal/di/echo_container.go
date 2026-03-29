@@ -3,6 +3,7 @@ package di
 import (
 	"fmt"
 
+	marketdatausecase "dag-observatory/dag-core/internal/application/marketdata/usecase"
 	"dag-observatory/dag-core/internal/infrastructure/observability/applog"
 	"dag-observatory/dag-core/internal/infrastructure/persistence/tsdb"
 	miniostore "dag-observatory/dag-core/internal/infrastructure/storage/minio"
@@ -12,7 +13,12 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 )
 
-func NewEchoContainer(cfg Config, otelc *OTelContainer, dagRuntime *DAGRuntimeContainer) (*echo.Echo, error) {
+func NewEchoContainer(
+	cfg Config,
+	otelc *OTelContainer,
+	dagRuntime *DAGRuntimeContainer,
+	marketData *MarketDataContainer,
+) (*echo.Echo, error) {
 	e := echo.New()
 
 	// OTel middleware (official instrumentation)
@@ -52,15 +58,36 @@ func NewEchoContainer(cfg Config, otelc *OTelContainer, dagRuntime *DAGRuntimeCo
 		})
 	}
 
+	var createSymbol *marketdatausecase.CreateSymbol
+	var getSymbolByCode *marketdatausecase.GetSymbolByCode
+	var listSymbols *marketdatausecase.ListSymbols
+	var upsertTicks *marketdatausecase.UpsertTicks
+	var getLatestTickBySymbol *marketdatausecase.GetLatestTickBySymbol
+	var listTicksBySymbolAndRange *marketdatausecase.ListTicksBySymbolAndRange
+	if marketData != nil {
+		createSymbol = marketData.CreateSymbol
+		getSymbolByCode = marketData.GetSymbolByCode
+		listSymbols = marketData.ListSymbols
+		upsertTicks = marketData.UpsertTicks
+		getLatestTickBySymbol = marketData.GetLatestTickBySymbol
+		listTicksBySymbolAndRange = marketData.ListTicksBySymbolAndRange
+	}
+
 	httpif.RegisterRoutes(e, httpif.Dependencies{
-		IntentLog:     otelc.IntentLog,
-		AppLog:        appLog,
-		Tracer:        otelc.Tracer,
-		Metrics:       otelc.Metrics,
-		RunWorkflow:   dagRuntime.Usecase,
-		ArtifactsRepo: artifactsRepo,
-		DBBackupsRepo: dbBackupsRepo,
-		Presigner:     presigner,
+		IntentLog:                 otelc.IntentLog,
+		AppLog:                    appLog,
+		Tracer:                    otelc.Tracer,
+		Metrics:                   otelc.Metrics,
+		RunWorkflow:               dagRuntime.Usecase,
+		ArtifactsRepo:             artifactsRepo,
+		DBBackupsRepo:             dbBackupsRepo,
+		Presigner:                 presigner,
+		CreateSymbol:              createSymbol,
+		GetSymbolByCode:           getSymbolByCode,
+		ListSymbols:               listSymbols,
+		UpsertTicks:               upsertTicks,
+		GetLatestTickBySymbol:     getLatestTickBySymbol,
+		ListTicksBySymbolAndRange: listTicksBySymbolAndRange,
 	})
 
 	return e, nil

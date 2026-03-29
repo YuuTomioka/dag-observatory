@@ -2,186 +2,148 @@ package marketdata
 
 import (
 	"context"
-	"fmt"
-	"time"
 
+	apprepository "dag-observatory/dag-core/internal/application/marketdata/repository"
+	domainmarketdata "dag-observatory/dag-core/internal/domain/marketdata"
 	"dag-observatory/dag-core/internal/infrastructure/persistence/tsdb"
+	mapper "dag-observatory/dag-core/internal/infrastructure/persistence/tsdb/mapper/marketdata"
 	query "dag-observatory/dag-core/internal/infrastructure/persistence/tsdb/query/gen"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type Tick struct {
-	SymbolID int64
-	Time     time.Time
-	Bid      int64
-	Ask      int64
-}
-
 type TickRepository struct {
-	client  *tsdb.Client
-	queries *query.Queries
+	queries query.Querier
 }
 
 func NewTickRepository(client *tsdb.Client) *TickRepository {
-	var q *query.Queries
+	var q query.Querier
 	if client != nil && client.Pool != nil {
 		q = query.New(client.Pool)
 	}
-	return &TickRepository{
-		client:  client,
-		queries: q,
-	}
+	return NewTickRepositoryWithQuerier(q)
 }
 
-func (r *TickRepository) Insert(ctx context.Context, tick Tick) error {
+func NewTickRepositoryWithQuerier(queries query.Querier) *TickRepository {
+	return &TickRepository{queries: queries}
+}
+
+func (r *TickRepository) Insert(ctx context.Context, tick domainmarketdata.Tick) error {
 	if err := r.validate(); err != nil {
 		return err
 	}
-	return r.queries.InsertTick(ctx, query.InsertTickParams{
-		SymbolID: tick.SymbolID,
-		Time:     toPgTimestamptz(tick.Time),
-		Bid:      tick.Bid,
-		Ask:      tick.Ask,
-	})
+	params, err := mapper.ToInsertTickParams(tick)
+	if err != nil {
+		return err
+	}
+	return mapRepositoryError(r.queries.InsertTick(ctx, params))
 }
 
-func (r *TickRepository) Upsert(ctx context.Context, tick Tick) error {
+func (r *TickRepository) Upsert(ctx context.Context, tick domainmarketdata.Tick) error {
 	if err := r.validate(); err != nil {
 		return err
 	}
-	return r.queries.UpsertTick(ctx, query.UpsertTickParams{
-		SymbolID: tick.SymbolID,
-		Time:     toPgTimestamptz(tick.Time),
-		Bid:      tick.Bid,
-		Ask:      tick.Ask,
-	})
+	params, err := mapper.ToUpsertTickParams(tick)
+	if err != nil {
+		return err
+	}
+	return mapRepositoryError(r.queries.UpsertTick(ctx, params))
 }
 
-func (r *TickRepository) BulkUpsert(ctx context.Context, ticks []Tick) error {
+func (r *TickRepository) BulkUpsert(ctx context.Context, ticks []domainmarketdata.Tick) error {
 	if err := r.validate(); err != nil {
 		return err
 	}
 	if len(ticks) == 0 {
 		return nil
 	}
-
-	symbolIDs := make([]int64, 0, len(ticks))
-	times := make([]pgtype.Timestamptz, 0, len(ticks))
-	bids := make([]int64, 0, len(ticks))
-	asks := make([]int64, 0, len(ticks))
-
-	for _, tick := range ticks {
-		symbolIDs = append(symbolIDs, tick.SymbolID)
-		times = append(times, toPgTimestamptz(tick.Time))
-		bids = append(bids, tick.Bid)
-		asks = append(asks, tick.Ask)
-	}
-
-	return r.queries.BulkUpsertTicks(ctx, query.BulkUpsertTicksParams{
-		SymbolIds: symbolIDs,
-		Times:     times,
-		Bids:      bids,
-		Asks:      asks,
-	})
-}
-
-func (r *TickRepository) GetLatestBySymbol(ctx context.Context, symbolID int64) (Tick, error) {
-	if err := r.validate(); err != nil {
-		return Tick{}, err
-	}
-	row, err := r.queries.GetLatestTickBySymbol(ctx, symbolID)
+	params, err := mapper.ToBulkUpsertTickParams(ticks)
 	if err != nil {
-		return Tick{}, err
+		return err
 	}
-	return mapTick(row)
+	return mapRepositoryError(r.queries.BulkUpsertTicks(ctx, params))
 }
 
-func (r *TickRepository) ListBySymbolAndRange(ctx context.Context, symbolID int64, from, to time.Time) ([]Tick, error) {
+func (r *TickRepository) GetLatestBySymbol(
+	ctx context.Context,
+	symbolID domainmarketdata.SymbolID,
+) (domainmarketdata.Tick, error) {
+	if err := r.validate(); err != nil {
+		return domainmarketdata.Tick{}, err
+	}
+	row, err := r.queries.GetLatestTickBySymbol(ctx, int64(symbolID))
+	if err != nil {
+		return domainmarketdata.Tick{}, mapRepositoryError(err)
+	}
+	mapped, err := mapper.TickFromRow(row)
+	if err != nil {
+		return domainmarketdata.Tick{}, err
+	}
+	return mapped, nil
+}
+
+func (r *TickRepository) ListBySymbolAndRange(
+	ctx context.Context,
+	symbolID domainmarketdata.SymbolID,
+	from domainmarketdata.UTCTime,
+	to domainmarketdata.UTCTime,
+) ([]domainmarketdata.Tick, error) {
 	if err := r.validate(); err != nil {
 		return nil, err
 	}
-	rows, err := r.queries.ListTicksBySymbolAndRange(ctx, query.ListTicksBySymbolAndRangeParams{
-		SymbolID: symbolID,
-		FromTime: toPgTimestamptz(from),
-		ToTime:   toPgTimestamptz(to),
-	})
+	params, err := mapper.ToListTicksBySymbolAndRangeParams(symbolID, from, to)
 	if err != nil {
 		return nil, err
 	}
-	return mapTicks(rows)
+	rows, err := r.queries.ListTicksBySymbolAndRange(ctx, params)
+	if err != nil {
+		return nil, mapRepositoryError(err)
+	}
+	return mapper.TicksFromRows(rows)
 }
 
-func (r *TickRepository) ListBySymbolsAndRange(ctx context.Context, symbolIDs []int64, from, to time.Time) ([]Tick, error) {
+func (r *TickRepository) ListBySymbolsAndRange(
+	ctx context.Context,
+	symbolIDs []domainmarketdata.SymbolID,
+	from domainmarketdata.UTCTime,
+	to domainmarketdata.UTCTime,
+) ([]domainmarketdata.Tick, error) {
 	if err := r.validate(); err != nil {
 		return nil, err
 	}
-	rows, err := r.queries.ListTicksBySymbolsAndRange(ctx, query.ListTicksBySymbolsAndRangeParams{
-		SymbolIds: symbolIDs,
-		FromTime:  toPgTimestamptz(from),
-		ToTime:    toPgTimestamptz(to),
-	})
+	params, err := mapper.ToListTicksBySymbolsAndRangeParams(symbolIDs, from, to)
 	if err != nil {
 		return nil, err
 	}
-	return mapTicks(rows)
+	rows, err := r.queries.ListTicksBySymbolsAndRange(ctx, params)
+	if err != nil {
+		return nil, mapRepositoryError(err)
+	}
+	return mapper.TicksFromRows(rows)
 }
 
-func (r *TickRepository) ListByRange(ctx context.Context, from, to time.Time) ([]Tick, error) {
+func (r *TickRepository) ListByRange(
+	ctx context.Context,
+	from domainmarketdata.UTCTime,
+	to domainmarketdata.UTCTime,
+) ([]domainmarketdata.Tick, error) {
 	if err := r.validate(); err != nil {
 		return nil, err
 	}
-	rows, err := r.queries.ListTicksByRange(ctx, query.ListTicksByRangeParams{
-		FromTime: toPgTimestamptz(from),
-		ToTime:   toPgTimestamptz(to),
-	})
+	params, err := mapper.ToListTicksByRangeParams(from, to)
 	if err != nil {
 		return nil, err
 	}
-	return mapTicks(rows)
+	rows, err := r.queries.ListTicksByRange(ctx, params)
+	if err != nil {
+		return nil, mapRepositoryError(err)
+	}
+	return mapper.TicksFromRows(rows)
 }
 
 func (r *TickRepository) validate() error {
-	if r == nil || r.client == nil || r.client.Pool == nil || r.queries == nil {
-		return fmt.Errorf("tsdb: client not configured")
+	if r == nil || r.queries == nil {
+		return apprepository.ErrNotConfigured
 	}
 	return nil
 }
 
-func mapTicks(rows []query.Tick) ([]Tick, error) {
-	out := make([]Tick, 0, len(rows))
-	for _, row := range rows {
-		mapped, err := mapTick(row)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, mapped)
-	}
-	return out, nil
-}
-
-func mapTick(row query.Tick) (Tick, error) {
-	tm, err := fromPgTimestamptz(row.Time)
-	if err != nil {
-		return Tick{}, err
-	}
-	return Tick{
-		SymbolID: row.SymbolID,
-		Time:     tm,
-		Bid:      row.Bid,
-		Ask:      row.Ask,
-	}, nil
-}
-
-func toPgTimestamptz(t time.Time) pgtype.Timestamptz {
-	return pgtype.Timestamptz{
-		Time:  t,
-		Valid: true,
-	}
-}
-
-func fromPgTimestamptz(v pgtype.Timestamptz) (time.Time, error) {
-	if !v.Valid {
-		return time.Time{}, fmt.Errorf("tsdb: tick time is NULL")
-	}
-	return v.Time, nil
-}
+var _ apprepository.TickRepository = (*TickRepository)(nil)

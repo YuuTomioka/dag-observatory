@@ -2,118 +2,98 @@ package marketdata
 
 import (
 	"context"
-	"fmt"
 
+	apprepository "dag-observatory/dag-core/internal/application/marketdata/repository"
+	domainmarketdata "dag-observatory/dag-core/internal/domain/marketdata"
 	"dag-observatory/dag-core/internal/infrastructure/persistence/tsdb"
+	mapper "dag-observatory/dag-core/internal/infrastructure/persistence/tsdb/mapper/marketdata"
 	query "dag-observatory/dag-core/internal/infrastructure/persistence/tsdb/query/gen"
 )
 
-type Symbol struct {
-	ID          int64
-	Code        string
-	Base        string
-	Quote       string
-	PriceScale  int16
-	TickSizeRaw int64
-	PipSizeRaw  int64
-}
-
-type CreateSymbolInput struct {
-	Code        string
-	Base        string
-	Quote       string
-	PriceScale  int16
-	TickSizeRaw int64
-	PipSizeRaw  int64
-}
-
 type SymbolRepository struct {
-	client  *tsdb.Client
-	queries *query.Queries
+	queries query.Querier
 }
 
 func NewSymbolRepository(client *tsdb.Client) *SymbolRepository {
-	var q *query.Queries
+	var q query.Querier
 	if client != nil && client.Pool != nil {
 		q = query.New(client.Pool)
 	}
-	return &SymbolRepository{
-		client:  client,
-		queries: q,
-	}
+	return NewSymbolRepositoryWithQuerier(q)
 }
 
-func (r *SymbolRepository) Create(ctx context.Context, input CreateSymbolInput) (Symbol, error) {
+func NewSymbolRepositoryWithQuerier(queries query.Querier) *SymbolRepository {
+	return &SymbolRepository{queries: queries}
+}
+
+func (r *SymbolRepository) Create(
+	ctx context.Context,
+	input apprepository.CreateSymbolInput,
+) (domainmarketdata.Symbol, error) {
 	if err := r.validate(); err != nil {
-		return Symbol{}, err
+		return domainmarketdata.Symbol{}, err
 	}
-	row, err := r.queries.CreateSymbol(ctx, query.CreateSymbolParams{
-		Code:        input.Code,
-		Base:        input.Base,
-		Quote:       input.Quote,
-		PriceScale:  input.PriceScale,
-		TickSizeRaw: input.TickSizeRaw,
-		PipSizeRaw:  input.PipSizeRaw,
-	})
+	params, err := mapper.ToCreateSymbolParams(input)
 	if err != nil {
-		return Symbol{}, err
+		return domainmarketdata.Symbol{}, err
 	}
-	return mapSymbol(row), nil
-}
-
-func (r *SymbolRepository) GetByID(ctx context.Context, id int64) (Symbol, error) {
-	if err := r.validate(); err != nil {
-		return Symbol{}, err
-	}
-	row, err := r.queries.GetSymbolByID(ctx, id)
+	row, err := r.queries.CreateSymbol(ctx, params)
 	if err != nil {
-		return Symbol{}, err
+		return domainmarketdata.Symbol{}, mapRepositoryError(err)
 	}
-	return mapSymbol(row), nil
+	mapped, err := mapper.SymbolFromRow(row)
+	if err != nil {
+		return domainmarketdata.Symbol{}, err
+	}
+	return mapped, nil
 }
 
-func (r *SymbolRepository) GetByCode(ctx context.Context, code string) (Symbol, error) {
+func (r *SymbolRepository) GetByID(ctx context.Context, id domainmarketdata.SymbolID) (domainmarketdata.Symbol, error) {
 	if err := r.validate(); err != nil {
-		return Symbol{}, err
+		return domainmarketdata.Symbol{}, err
+	}
+	row, err := r.queries.GetSymbolByID(ctx, int64(id))
+	if err != nil {
+		return domainmarketdata.Symbol{}, mapRepositoryError(err)
+	}
+	mapped, err := mapper.SymbolFromRow(row)
+	if err != nil {
+		return domainmarketdata.Symbol{}, err
+	}
+	return mapped, nil
+}
+
+func (r *SymbolRepository) GetByCode(ctx context.Context, code string) (domainmarketdata.Symbol, error) {
+	if err := r.validate(); err != nil {
+		return domainmarketdata.Symbol{}, err
 	}
 	row, err := r.queries.GetSymbolByCode(ctx, code)
 	if err != nil {
-		return Symbol{}, err
+		return domainmarketdata.Symbol{}, mapRepositoryError(err)
 	}
-	return mapSymbol(row), nil
+	mapped, err := mapper.SymbolFromRow(row)
+	if err != nil {
+		return domainmarketdata.Symbol{}, err
+	}
+	return mapped, nil
 }
 
-func (r *SymbolRepository) List(ctx context.Context) ([]Symbol, error) {
+func (r *SymbolRepository) List(ctx context.Context) ([]domainmarketdata.Symbol, error) {
 	if err := r.validate(); err != nil {
 		return nil, err
 	}
 	rows, err := r.queries.ListSymbols(ctx)
 	if err != nil {
-		return nil, err
+		return nil, mapRepositoryError(err)
 	}
-
-	out := make([]Symbol, 0, len(rows))
-	for _, row := range rows {
-		out = append(out, mapSymbol(row))
-	}
-	return out, nil
+	return mapper.SymbolsFromRows(rows)
 }
 
 func (r *SymbolRepository) validate() error {
-	if r == nil || r.client == nil || r.client.Pool == nil || r.queries == nil {
-		return fmt.Errorf("tsdb: client not configured")
+	if r == nil || r.queries == nil {
+		return apprepository.ErrNotConfigured
 	}
 	return nil
 }
 
-func mapSymbol(row query.Symbol) Symbol {
-	return Symbol{
-		ID:          row.ID,
-		Code:        row.Code,
-		Base:        row.Base,
-		Quote:       row.Quote,
-		PriceScale:  row.PriceScale,
-		TickSizeRaw: row.TickSizeRaw,
-		PipSizeRaw:  row.PipSizeRaw,
-	}
-}
+var _ apprepository.SymbolRepository = (*SymbolRepository)(nil)

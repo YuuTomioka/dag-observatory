@@ -35,6 +35,9 @@ func main() {
 		if app.DAGRuntime != nil && app.DAGRuntime.EventConsumer != nil {
 			_ = app.DAGRuntime.EventConsumer.Close()
 		}
+		if app.MarketData != nil && app.MarketData.Client != nil {
+			app.MarketData.Client.Close()
+		}
 		consumerCancel()
 	}()
 

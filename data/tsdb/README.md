@@ -51,6 +51,7 @@ The current repository separates storage responsibilities as follows:
 - notes: rationale for time-series-oriented design decisions
 
 Schema-specific structure and migration filename rules are defined in `data/tsdb/schema/README.md`.
+Query filename rules are defined in `data/tsdb/query/README.md`.
 
 ## Minimal Data Model Direction
 
@@ -83,6 +84,8 @@ data/tsdb/
 │  ├─ migrate/
 │  └─ seed/
 └─ query/
+   ├─ README.md
+   └─ *.sql
 ```
 
 ## Migrator Usage

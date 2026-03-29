@@ -22,6 +22,9 @@ jobs:
       - name: Lint TSDB schema filenames
         run: make tsdb-schema-lint
 
+      - name: Lint TSDB query filenames
+        run: make tsdb-query-lint
+
       - name: Run tests
         run: make go-test
 

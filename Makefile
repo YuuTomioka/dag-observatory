@@ -4,7 +4,7 @@ SHELL := /usr/bin/env bash
 GO_DIR := implementations/dag-core
 SCRIPTS_DIR := scripts
 
-.PHONY: help dev-up dev-down go-mod-tidy go-mod-download go-fmt go-vet go-test go-build openapi grpc-gen graphql-gen grpc-ci contracts-check sqlc-gen tsdb-schema-lint
+.PHONY: help dev-up dev-down go-mod-tidy go-mod-download go-fmt go-vet go-test go-build openapi grpc-gen graphql-gen grpc-ci contracts-check sqlc-gen tsdb-schema-lint tsdb-query-lint
 
 help:
 	@printf "Targets:\n"
@@ -23,6 +23,7 @@ help:
 	@printf "  contracts-check Regenerate contracts and fail on diff\n"
 	@printf "  sqlc-gen        Generate sqlc code from data/tsdb/query\n"
 	@printf "  tsdb-schema-lint Validate migrate/seed filenames under data/tsdb/schema\n"
+	@printf "  tsdb-query-lint Validate query filenames under data/tsdb/query\n"
 
 dev-up:
 	@bash $(SCRIPTS_DIR)/dev_up.sh
@@ -70,7 +71,10 @@ contracts-check:
 	@git diff --exit-code implementations/dag-core/openapi $(GO_DIR)/internal/interface/grpc/gen
 
 sqlc-gen:
-	@cd $(GO_DIR) && sqlc generate -f internal/infrastructure/persistence/tsdb/query/sqlc.yaml
+	@cd $(GO_DIR)/internal/infrastructure/persistence/tsdb/query && go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.27.0 generate -f sqlc.yaml
 
 tsdb-schema-lint:
 	@bash $(SCRIPTS_DIR)/tsdb/lint_migrations.sh
+
+tsdb-query-lint:
+	@bash $(SCRIPTS_DIR)/tsdb/lint_queries.sh

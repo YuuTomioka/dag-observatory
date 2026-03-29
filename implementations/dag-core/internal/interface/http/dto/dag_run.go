@@ -1,8 +1,9 @@
 package dto
 
 type DagRunRequest struct {
-	Symbol string `json:"symbol"`
-	Mode   string `json:"mode"`
+	Symbol string    `json:"symbol"`
+	Mode   string    `json:"mode"`
+	Bars   []float64 `json:"bars,omitempty"`
 }
 
 type DagRunResponse struct {

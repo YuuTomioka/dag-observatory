@@ -3,6 +3,7 @@ package usecase
 type RunWorkflowRequest struct {
 	Symbol string
 	Mode   string
+	Bars   []float64
 	RunID  string
 }
 

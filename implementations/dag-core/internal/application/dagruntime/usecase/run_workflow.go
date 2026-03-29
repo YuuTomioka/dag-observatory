@@ -126,6 +126,10 @@ func buildRunEvent(req RunWorkflowRequest, now time.Time) (RunWorkflowResult, ev
 		"mode":   mode,
 		"symbol": symbol,
 	}
+	if len(req.Bars) > 0 {
+		payload["input"].(map[string]any)["bars"] = req.Bars
+		payload["market_bars"] = req.Bars
+	}
 
 	partition := state.Partition(runID)
 	event := events.Event{
@@ -190,6 +194,13 @@ func fromStringMap(values map[string]any) (engine.InputMap, error) {
 				}
 				inputs[InputKeyMode] = mode
 			}
+			if rawBars, ok := inputMap["bars"]; ok {
+				bars, err := parseFloat64Slice(rawBars)
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketBars] = bars
+			}
 		}
 	}
 	if raw, ok := values["symbol"]; ok {
@@ -206,11 +217,18 @@ func fromStringMap(values map[string]any) (engine.InputMap, error) {
 		}
 		inputs[InputKeyMode] = mode
 	}
+	if raw, ok := values["market_bars"]; ok {
+		bars, err := parseFloat64Slice(raw)
+		if err != nil {
+			return nil, err
+		}
+		inputs[InputKeyMarketBars] = bars
+	}
 	return inputs, nil
 }
 
 func fromInputMap(inputs engine.InputMap) ([]events.PayloadEnvelope, error) {
-	envelopes := make([]events.PayloadEnvelope, 0, 2)
+	envelopes := make([]events.PayloadEnvelope, 0, 3)
 	for key, value := range inputs {
 		if key.Raw() == InputKeySymbol.Raw() {
 			symbol, ok := value.(string)
@@ -230,6 +248,18 @@ func fromInputMap(inputs engine.InputMap) ([]events.PayloadEnvelope, error) {
 				return nil, fmt.Errorf("dagruntime: mode must be string")
 			}
 			env, err := events.EncodePayload(PayloadKeyMode, mode)
+			if err != nil {
+				return nil, err
+			}
+			envelopes = append(envelopes, env)
+			continue
+		}
+		if key.Raw() == InputKeyMarketBars.Raw() {
+			bars, ok := value.([]float64)
+			if !ok {
+				return nil, fmt.Errorf("dagruntime: market_bars must be []float64")
+			}
+			env, err := events.EncodePayload(PayloadKeyMarketBars, bars)
 			if err != nil {
 				return nil, err
 			}
@@ -309,6 +339,17 @@ func encodeEnvelopes(values map[string]any) ([]events.PayloadEnvelope, error) {
 		}
 		envelopes = append(envelopes, env)
 	}
+	if raw, ok := values["market_bars"]; ok {
+		bars, err := parseFloat64Slice(raw)
+		if err != nil {
+			return nil, err
+		}
+		env, err := events.EncodePayload(PayloadKeyMarketBars, bars)
+		if err != nil {
+			return nil, err
+		}
+		envelopes = append(envelopes, env)
+	}
 	return envelopes, nil
 }
 
@@ -334,6 +375,13 @@ func decodeEnvelopes(envelopes []events.PayloadEnvelope) (engine.InputMap, error
 					return nil, fmt.Errorf("dagruntime: mode must be string")
 				}
 			}
+			if raw, ok := value["bars"]; ok {
+				bars, err := parseFloat64Slice(raw)
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketBars] = bars
+			}
 			continue
 		}
 		if env.Key == PayloadKeySymbol.Raw() {
@@ -352,6 +400,33 @@ func decodeEnvelopes(envelopes []events.PayloadEnvelope) (engine.InputMap, error
 			inputs[InputKeyMode] = value
 			continue
 		}
+		if env.Key == PayloadKeyMarketBars.Raw() {
+			value, err := events.DecodePayload(PayloadKeyMarketBars, env)
+			if err != nil {
+				return nil, err
+			}
+			inputs[InputKeyMarketBars] = value
+			continue
+		}
 	}
 	return inputs, nil
+}
+
+func parseFloat64Slice(raw any) ([]float64, error) {
+	switch value := raw.(type) {
+	case []float64:
+		return value, nil
+	case []any:
+		bars := make([]float64, 0, len(value))
+		for _, v := range value {
+			f, ok := v.(float64)
+			if !ok {
+				return nil, fmt.Errorf("dagruntime: market_bars must contain numbers")
+			}
+			bars = append(bars, f)
+		}
+		return bars, nil
+	default:
+		return nil, fmt.Errorf("dagruntime: market_bars must be []float64")
+	}
 }

@@ -1,0 +1,32 @@
+name: dagruntime.sma_cross_signal
+version: v1
+inputs:
+  - market.symbol
+  - market.bars
+nodes:
+  - id: fast_sma
+    kind: sma
+    config:
+      source: close
+      window: 5
+
+  - id: slow_sma
+    kind: sma
+    config:
+      source: close
+      window: 20
+
+  - id: cross
+    kind: cross_detector
+    config:
+      fast_node_id: fast_sma
+      slow_node_id: slow_sma
+      mode: both
+
+  - id: emit
+    kind: signal_mapper
+    config:
+      cross_node_id: cross
+      on_cross_up: buy
+      on_cross_down: flat
+      on_no_cross: hold

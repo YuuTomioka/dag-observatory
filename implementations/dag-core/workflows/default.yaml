@@ -1,0 +1,9 @@
+name: dagruntime.default
+version: v1
+inputs:
+  - symbol
+  - mode
+nodes:
+  - id: heavy_calc
+    kind: heavy_calc
+    config: {}

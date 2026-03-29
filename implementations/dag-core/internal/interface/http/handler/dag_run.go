@@ -53,6 +53,7 @@ func (h *Handlers) DagRun(c echo.Context) error {
 	result, err := h.runWF.Execute(ctx, usecase.RunWorkflowRequest{
 		Symbol: req.Symbol,
 		Mode:   mode,
+		Bars:   req.Bars,
 	})
 	if err != nil {
 		h.appLog.Error(ctx, "dag run failed",

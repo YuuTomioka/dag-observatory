@@ -8,8 +8,9 @@ import (
 
 func TestToInputMapFromStringMap(t *testing.T) {
 	payload := map[string]any{
-		"symbol": "USDJPY",
-		"mode":   "normal",
+		"symbol":      "USDJPY",
+		"mode":        "normal",
+		"market_bars": []any{1.0, 2.0, 3.0},
 	}
 
 	inputs, err := toInputMap(payload)
@@ -23,6 +24,10 @@ func TestToInputMapFromStringMap(t *testing.T) {
 	if inputs[InputKeyMode] != "normal" {
 		t.Fatalf("expected mode to be mapped")
 	}
+	bars, ok := inputs[InputKeyMarketBars].([]float64)
+	if !ok || len(bars) != 3 {
+		t.Fatalf("expected market bars to be mapped")
+	}
 }
 
 func TestToInputMapFromPayloadEnvelopes(t *testing.T) {
@@ -34,8 +39,12 @@ func TestToInputMapFromPayloadEnvelopes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode mode failed: %v", err)
 	}
+	envBars, err := events.EncodePayload(PayloadKeyMarketBars, []float64{1.0, 2.0})
+	if err != nil {
+		t.Fatalf("encode bars failed: %v", err)
+	}
 
-	inputs, err := toInputMap([]events.PayloadEnvelope{envSymbol, envMode})
+	inputs, err := toInputMap([]events.PayloadEnvelope{envSymbol, envMode, envBars})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -45,5 +54,9 @@ func TestToInputMapFromPayloadEnvelopes(t *testing.T) {
 	}
 	if inputs[InputKeyMode] != "debug" {
 		t.Fatalf("expected mode from payload")
+	}
+	bars, ok := inputs[InputKeyMarketBars].([]float64)
+	if !ok || len(bars) != 2 {
+		t.Fatalf("expected market bars from payload")
 	}
 }

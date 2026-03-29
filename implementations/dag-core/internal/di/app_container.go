@@ -26,7 +26,7 @@ func NewAppContainer() (*AppContainer, error) {
 		return nil, err
 	}
 
-	compiled, err := compileDefaultWorkflow()
+	compiled, err := compileDefaultWorkflow(cfg)
 	if err != nil {
 		return nil, err
 	}

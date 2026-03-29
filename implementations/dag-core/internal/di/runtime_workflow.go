@@ -1,51 +1,74 @@
 package di
 
 import (
-	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
+	"dag-observatory/dag-core/internal/application/dagruntime/spec/adapter"
+	"dag-observatory/dag-core/internal/application/dagruntime/spec/factory"
+	"dag-observatory/dag-core/internal/application/dagruntime/spec/loader"
+	"dag-observatory/dag-core/internal/application/dagruntime/spec/validator"
 	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
 	"dag-observatory/dag-core/internal/domain/dagruntime/artifact"
-	"dag-observatory/dag-core/internal/domain/dagruntime/node"
 	"dag-observatory/dag-core/internal/domain/dagruntime/pipeline"
-	"dag-observatory/dag-core/internal/domain/dagruntime/state"
 	"dag-observatory/dag-core/internal/domain/dagruntime/workflow"
 )
 
-var heavyCalcResultKey = artifact.Key[string]{
-	Name:     "heavy_calc_result",
-	StableID: "artifact:dagruntime.heavy_calc.result.v1",
+const defaultWorkflowSpecPath = "workflows/default.yaml"
+
+func compileDefaultWorkflow(cfg Config) (pipeline.Compiled, error) {
+	specPath := cfg.WorkflowSpecPath
+	if specPath == "" {
+		specPath = defaultWorkflowSpecPath
+	}
+	return compileWorkflowFromSpecPath(specPath)
 }
 
-type heavyCalcNode struct{}
+func compileWorkflowFromSpecPath(specPath string) (pipeline.Compiled, error) {
+	registry, err := factory.NewBuiltinRegistry()
+	if err != nil {
+		return pipeline.Compiled{}, err
+	}
 
-func (n *heavyCalcNode) Name() string { return "dagruntime.heavy_calc" }
+	workflowLoader := loader.Loader{}
+	wfSpecPath, err := resolveWorkflowSpecPath(specPath)
+	if err != nil {
+		return pipeline.Compiled{}, err
+	}
+	wfSpec, err := workflowLoader.LoadFile(wfSpecPath)
+	if err != nil {
+		return pipeline.Compiled{}, err
+	}
+	if err := validator.ValidateWorkflowSpec(wfSpec, registry); err != nil {
+		return pipeline.Compiled{}, err
+	}
 
-func (n *heavyCalcNode) Requires() []artifact.AnyKey {
-	return []artifact.AnyKey{usecase.InputKeySymbol, usecase.InputKeyMode}
-}
-
-func (n *heavyCalcNode) Provides() []artifact.AnyKey { return []artifact.AnyKey{heavyCalcResultKey} }
-func (n *heavyCalcNode) Reads() []state.AnyKey       { return nil }
-func (n *heavyCalcNode) Writes() []state.AnyKey      { return nil }
-func (n *heavyCalcNode) Spec() node.ExecutionSpec    { return node.ExecutionSpec{Deterministic: true} }
-
-func (n *heavyCalcNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
-	_ = ctx
-	_ = txn
-	symbol := artifact.MustGet(av, usecase.InputKeySymbol)
-	mode := artifact.MustGet(av, usecase.InputKeyMode)
-	artifact.Set(aw, heavyCalcResultKey, fmt.Sprintf("%s:%s", symbol, mode))
-	return nil
-}
-
-func compileDefaultWorkflow() (pipeline.Compiled, error) {
-	wf := workflow.Workflow{
-		Name:   "dagruntime.default",
-		Inputs: []artifact.AnyKey{usecase.InputKeySymbol, usecase.InputKeyMode},
-		Nodes: []node.Node{
-			&heavyCalcNode{},
+	wf, err := adapter.ToWorkflow(
+		wfSpec,
+		map[string]artifact.AnyKey{
+			"symbol":        usecase.InputKeySymbol,
+			"mode":          usecase.InputKeyMode,
+			"market.symbol": usecase.InputKeySymbol,
+			"market.bars":   usecase.InputKeyMarketBars,
 		},
+		registry,
+	)
+	if err != nil {
+		return pipeline.Compiled{}, err
 	}
 	return workflow.Compile(wf)
+}
+
+func resolveWorkflowSpecPath(path string) (string, error) {
+	candidates := []string{
+		path,
+		filepath.Join("..", "..", path),
+	}
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("dagruntime workflow spec not found: %s", path)
 }

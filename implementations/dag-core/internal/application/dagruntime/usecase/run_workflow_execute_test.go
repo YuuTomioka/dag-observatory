@@ -117,6 +117,32 @@ func TestBuildRunEventWithRunID(t *testing.T) {
 	}
 }
 
+func TestBuildRunEventWithMarketBars(t *testing.T) {
+	req := RunWorkflowRequest{
+		RunID:  "bars-run",
+		Symbol: "USDJPY",
+		Mode:   "normal",
+		Bars:   []float64{1.0, 2.0, 3.0},
+	}
+	now := time.Date(2026, 3, 29, 9, 30, 0, 0, time.UTC)
+	_, event, _ := buildRunEvent(req, now)
+
+	payload, ok := event.Payload.(map[string]any)
+	if !ok {
+		t.Fatalf("expected payload map, got %T", event.Payload)
+	}
+	if _, ok := payload["market_bars"]; !ok {
+		t.Fatal("expected market_bars in payload")
+	}
+	input, ok := payload["input"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected input map, got %T", payload["input"])
+	}
+	if _, ok := input["bars"]; !ok {
+		t.Fatal("expected bars in input payload")
+	}
+}
+
 func TestExecuteEnqueuePayloadIsEnvelope(t *testing.T) {
 	enqueuer := &recordingEnqueuer{}
 	now := time.Date(2026, 3, 29, 10, 0, 0, 0, time.UTC)

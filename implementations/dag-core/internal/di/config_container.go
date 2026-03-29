@@ -21,13 +21,14 @@ type Config struct {
 	KafkaTaskTopic   string
 	KafkaEventTopic  string
 	KafkaGroupID     string
+	WorkflowSpecPath string
 
-	TSDBURL       string
-	MinIOEndpoint string
+	TSDBURL        string
+	MinIOEndpoint  string
 	MinIOAccessKey string
 	MinIOSecretKey string
-	MinIOSecure   string
-	MinIOBucket   string
+	MinIOSecure    string
+	MinIOBucket    string
 
 	OTLPEndpoint        string // e.g. http://otel-collector:4318
 	OTLPLogsEndpoint    string // e.g. http://otel-collector:4318/v1/logs
@@ -55,6 +56,7 @@ func NewConfig() Config {
 		KafkaTaskTopic:   getenv("KAFKA_TASK_TOPIC", ""),
 		KafkaEventTopic:  getenv("KAFKA_EVENT_TOPIC", ""),
 		KafkaGroupID:     getenv("KAFKA_GROUP_ID", ""),
+		WorkflowSpecPath: getenv("DAGRUNTIME_WORKFLOW_SPEC_PATH", "workflows/default.yaml"),
 		TSDBURL:          getenv("TSDB_URL", ""),
 		MinIOEndpoint:    getenv("MINIO_ENDPOINT", ""),
 		MinIOAccessKey:   getenv("MINIO_ACCESS_KEY", ""),

@@ -43,7 +43,12 @@ var (
 		Name:     "mode",
 		StableID: "event:input.mode.v1",
 	}
+	PayloadKeyMarketBars = events.PayloadKey[[]float64]{
+		Name:     "market_bars",
+		StableID: "event:input.market.bars.v1",
+	}
 
-	InputKeySymbol = artifact.Key[string]{Name: "symbol", StableID: "artifact:input.symbol.v1"}
-	InputKeyMode   = artifact.Key[string]{Name: "mode", StableID: "artifact:input.mode.v1"}
+	InputKeySymbol     = artifact.Key[string]{Name: "symbol", StableID: "artifact:input.symbol.v1"}
+	InputKeyMode       = artifact.Key[string]{Name: "mode", StableID: "artifact:input.mode.v1"}
+	InputKeyMarketBars = artifact.Key[[]float64]{Name: "market.bars", StableID: "artifact:input.market.bars.v1"}
 )

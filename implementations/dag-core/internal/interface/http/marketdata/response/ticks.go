@@ -1,8 +1,4 @@
-package dto
-
-type UpsertTicksBulkRequest struct {
-	Ticks []TickItem `json:"ticks"`
-}
+package response
 
 type UpsertTicksBulkResponse struct {
 	Upserted int `json:"upserted"`

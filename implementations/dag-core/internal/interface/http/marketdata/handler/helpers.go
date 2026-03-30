@@ -7,12 +7,13 @@ import (
 	"dag-observatory/dag-core/internal/application/marketdata/repository"
 	"dag-observatory/dag-core/internal/domain/marketdata"
 	"dag-observatory/dag-core/internal/interface/http/dto"
+	"dag-observatory/dag-core/internal/interface/http/marketdata/response"
 
 	"github.com/labstack/echo/v4"
 )
 
-func mapSymbolItem(item marketdata.Symbol) dto.SymbolItem {
-	return dto.SymbolItem{
+func mapSymbolItem(item marketdata.Symbol) response.SymbolItem {
+	return response.SymbolItem{
 		ID:          int64(item.ID),
 		Code:        item.Code,
 		Base:        item.Base,
@@ -23,8 +24,8 @@ func mapSymbolItem(item marketdata.Symbol) dto.SymbolItem {
 	}
 }
 
-func mapTickItem(item marketdata.Tick) dto.TickItem {
-	return dto.TickItem{
+func mapTickItem(item marketdata.Tick) response.TickItem {
+	return response.TickItem{
 		SymbolID: int64(item.SymbolID),
 		Time:     item.Time.String(),
 		BidRaw:   item.Bid.Raw(),

@@ -48,6 +48,26 @@ var (
 		Name:     "market_bars",
 		StableID: "event:input.market.bars.v1",
 	}
+	PayloadKeyMarketdataSymbolID = events.PayloadKey[int64]{
+		Name:     "marketdata.symbol_id",
+		StableID: "event:input.marketdata.symbol_id.v1",
+	}
+	PayloadKeyMarketdataSymbolCode = events.PayloadKey[string]{
+		Name:     "marketdata.symbol_code",
+		StableID: "event:input.marketdata.symbol_code.v1",
+	}
+	PayloadKeyMarketdataTimeframeCode = events.PayloadKey[string]{
+		Name:     "marketdata.timeframe_code",
+		StableID: "event:input.marketdata.timeframe_code.v1",
+	}
+	PayloadKeyMarketdataFrom = events.PayloadKey[marketdata.UTCTime]{
+		Name:     "marketdata.from",
+		StableID: "event:input.marketdata.from.v1",
+	}
+	PayloadKeyMarketdataTo = events.PayloadKey[marketdata.UTCTime]{
+		Name:     "marketdata.to",
+		StableID: "event:input.marketdata.to.v1",
+	}
 
 	InputKeySymbol             = artifact.Key[string]{Name: "symbol", StableID: "artifact:input.symbol.v1"}
 	InputKeyMode               = artifact.Key[string]{Name: "mode", StableID: "artifact:input.mode.v1"}

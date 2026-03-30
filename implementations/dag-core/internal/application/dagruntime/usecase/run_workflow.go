@@ -11,6 +11,7 @@ import (
 	"dag-observatory/dag-core/internal/domain/dagruntime/engine"
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
 	"dag-observatory/dag-core/internal/domain/dagruntime/state"
+	"dag-observatory/dag-core/internal/domain/marketdata"
 	"dag-observatory/dag-core/internal/domain/observability/ctxprop"
 
 	"github.com/google/uuid"
@@ -130,6 +131,28 @@ func buildRunEvent(req RunWorkflowRequest, now time.Time) (RunWorkflowResult, ev
 		payload["input"].(map[string]any)["bars"] = req.Bars
 		payload["market_bars"] = req.Bars
 	}
+	if req.Marketdata != nil {
+		if req.Marketdata.SymbolID > 0 {
+			payload["input"].(map[string]any)["marketdata.symbol_id"] = req.Marketdata.SymbolID
+			payload["marketdata.symbol_id"] = req.Marketdata.SymbolID
+		}
+		if req.Marketdata.SymbolCode != "" {
+			payload["input"].(map[string]any)["marketdata.symbol_code"] = req.Marketdata.SymbolCode
+			payload["marketdata.symbol_code"] = req.Marketdata.SymbolCode
+		}
+		if req.Marketdata.TimeframeCode != "" {
+			payload["input"].(map[string]any)["marketdata.timeframe_code"] = req.Marketdata.TimeframeCode
+			payload["marketdata.timeframe_code"] = req.Marketdata.TimeframeCode
+		}
+		if !req.Marketdata.From.IsZero() {
+			payload["input"].(map[string]any)["marketdata.from"] = req.Marketdata.From
+			payload["marketdata.from"] = req.Marketdata.From
+		}
+		if !req.Marketdata.To.IsZero() {
+			payload["input"].(map[string]any)["marketdata.to"] = req.Marketdata.To
+			payload["marketdata.to"] = req.Marketdata.To
+		}
+	}
 
 	partition := state.Partition(runID)
 	event := events.Event{
@@ -201,6 +224,41 @@ func fromStringMap(values map[string]any) (engine.InputMap, error) {
 				}
 				inputs[InputKeyMarketBars] = bars
 			}
+			if raw, ok := inputMap["marketdata.symbol_id"]; ok {
+				symbolID, err := parseInt64Value(raw, "marketdata.symbol_id")
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketdataSymbolID] = symbolID
+			}
+			if raw, ok := inputMap["marketdata.symbol_code"]; ok {
+				symbolCode, ok := raw.(string)
+				if !ok {
+					return nil, fmt.Errorf("dagruntime: marketdata.symbol_code must be string")
+				}
+				inputs[InputKeyMarketdataSymbolCode] = symbolCode
+			}
+			if raw, ok := inputMap["marketdata.timeframe_code"]; ok {
+				timeframeCode, ok := raw.(string)
+				if !ok {
+					return nil, fmt.Errorf("dagruntime: marketdata.timeframe_code must be string")
+				}
+				inputs[InputKeyMarketdataTimeframeCode] = timeframeCode
+			}
+			if raw, ok := inputMap["marketdata.from"]; ok {
+				from, err := parseUTCTimeValue(raw, "marketdata.from")
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketdataFrom] = from
+			}
+			if raw, ok := inputMap["marketdata.to"]; ok {
+				to, err := parseUTCTimeValue(raw, "marketdata.to")
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketdataTo] = to
+			}
 		}
 	}
 	if raw, ok := values["symbol"]; ok {
@@ -224,11 +282,46 @@ func fromStringMap(values map[string]any) (engine.InputMap, error) {
 		}
 		inputs[InputKeyMarketBars] = bars
 	}
+	if raw, ok := values["marketdata.symbol_id"]; ok {
+		symbolID, err := parseInt64Value(raw, "marketdata.symbol_id")
+		if err != nil {
+			return nil, err
+		}
+		inputs[InputKeyMarketdataSymbolID] = symbolID
+	}
+	if raw, ok := values["marketdata.symbol_code"]; ok {
+		symbolCode, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("dagruntime: marketdata.symbol_code must be string")
+		}
+		inputs[InputKeyMarketdataSymbolCode] = symbolCode
+	}
+	if raw, ok := values["marketdata.timeframe_code"]; ok {
+		timeframeCode, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("dagruntime: marketdata.timeframe_code must be string")
+		}
+		inputs[InputKeyMarketdataTimeframeCode] = timeframeCode
+	}
+	if raw, ok := values["marketdata.from"]; ok {
+		from, err := parseUTCTimeValue(raw, "marketdata.from")
+		if err != nil {
+			return nil, err
+		}
+		inputs[InputKeyMarketdataFrom] = from
+	}
+	if raw, ok := values["marketdata.to"]; ok {
+		to, err := parseUTCTimeValue(raw, "marketdata.to")
+		if err != nil {
+			return nil, err
+		}
+		inputs[InputKeyMarketdataTo] = to
+	}
 	return inputs, nil
 }
 
 func fromInputMap(inputs engine.InputMap) ([]events.PayloadEnvelope, error) {
-	envelopes := make([]events.PayloadEnvelope, 0, 3)
+	envelopes := make([]events.PayloadEnvelope, 0, 8)
 	for key, value := range inputs {
 		if key.Raw() == InputKeySymbol.Raw() {
 			symbol, ok := value.(string)
@@ -260,6 +353,66 @@ func fromInputMap(inputs engine.InputMap) ([]events.PayloadEnvelope, error) {
 				return nil, fmt.Errorf("dagruntime: market_bars must be []float64")
 			}
 			env, err := events.EncodePayload(PayloadKeyMarketBars, bars)
+			if err != nil {
+				return nil, err
+			}
+			envelopes = append(envelopes, env)
+			continue
+		}
+		if key.Raw() == InputKeyMarketdataSymbolID.Raw() {
+			symbolID, ok := value.(int64)
+			if !ok {
+				return nil, fmt.Errorf("dagruntime: marketdata.symbol_id must be int64")
+			}
+			env, err := events.EncodePayload(PayloadKeyMarketdataSymbolID, symbolID)
+			if err != nil {
+				return nil, err
+			}
+			envelopes = append(envelopes, env)
+			continue
+		}
+		if key.Raw() == InputKeyMarketdataSymbolCode.Raw() {
+			symbolCode, ok := value.(string)
+			if !ok {
+				return nil, fmt.Errorf("dagruntime: marketdata.symbol_code must be string")
+			}
+			env, err := events.EncodePayload(PayloadKeyMarketdataSymbolCode, symbolCode)
+			if err != nil {
+				return nil, err
+			}
+			envelopes = append(envelopes, env)
+			continue
+		}
+		if key.Raw() == InputKeyMarketdataTimeframeCode.Raw() {
+			timeframeCode, ok := value.(string)
+			if !ok {
+				return nil, fmt.Errorf("dagruntime: marketdata.timeframe_code must be string")
+			}
+			env, err := events.EncodePayload(PayloadKeyMarketdataTimeframeCode, timeframeCode)
+			if err != nil {
+				return nil, err
+			}
+			envelopes = append(envelopes, env)
+			continue
+		}
+		if key.Raw() == InputKeyMarketdataFrom.Raw() {
+			from, ok := value.(marketdata.UTCTime)
+			if !ok {
+				return nil, fmt.Errorf("dagruntime: marketdata.from must be UTCTime")
+			}
+			env, err := events.EncodePayload(PayloadKeyMarketdataFrom, from)
+			if err != nil {
+				return nil, err
+			}
+			envelopes = append(envelopes, env)
+			continue
+		}
+		if key.Raw() == InputKeyMarketdataTo.Raw() {
+			to, ok := value.(marketdata.UTCTime)
+			if !ok {
+				return nil, fmt.Errorf("dagruntime: marketdata.to must be UTCTime")
+			}
+			env, err := events.EncodePayload(PayloadKeyMarketdataTo, to)
 			if err != nil {
 				return nil, err
 			}
@@ -350,6 +503,61 @@ func encodeEnvelopes(values map[string]any) ([]events.PayloadEnvelope, error) {
 		}
 		envelopes = append(envelopes, env)
 	}
+	if raw, ok := values["marketdata.symbol_id"]; ok {
+		symbolID, err := parseInt64Value(raw, "marketdata.symbol_id")
+		if err != nil {
+			return nil, err
+		}
+		env, err := events.EncodePayload(PayloadKeyMarketdataSymbolID, symbolID)
+		if err != nil {
+			return nil, err
+		}
+		envelopes = append(envelopes, env)
+	}
+	if raw, ok := values["marketdata.symbol_code"]; ok {
+		symbolCode, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("dagruntime: marketdata.symbol_code must be string")
+		}
+		env, err := events.EncodePayload(PayloadKeyMarketdataSymbolCode, symbolCode)
+		if err != nil {
+			return nil, err
+		}
+		envelopes = append(envelopes, env)
+	}
+	if raw, ok := values["marketdata.timeframe_code"]; ok {
+		timeframeCode, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("dagruntime: marketdata.timeframe_code must be string")
+		}
+		env, err := events.EncodePayload(PayloadKeyMarketdataTimeframeCode, timeframeCode)
+		if err != nil {
+			return nil, err
+		}
+		envelopes = append(envelopes, env)
+	}
+	if raw, ok := values["marketdata.from"]; ok {
+		from, err := parseUTCTimeValue(raw, "marketdata.from")
+		if err != nil {
+			return nil, err
+		}
+		env, err := events.EncodePayload(PayloadKeyMarketdataFrom, from)
+		if err != nil {
+			return nil, err
+		}
+		envelopes = append(envelopes, env)
+	}
+	if raw, ok := values["marketdata.to"]; ok {
+		to, err := parseUTCTimeValue(raw, "marketdata.to")
+		if err != nil {
+			return nil, err
+		}
+		env, err := events.EncodePayload(PayloadKeyMarketdataTo, to)
+		if err != nil {
+			return nil, err
+		}
+		envelopes = append(envelopes, env)
+	}
 	return envelopes, nil
 }
 
@@ -382,6 +590,41 @@ func decodeEnvelopes(envelopes []events.PayloadEnvelope) (engine.InputMap, error
 				}
 				inputs[InputKeyMarketBars] = bars
 			}
+			if raw, ok := value["marketdata.symbol_id"]; ok {
+				symbolID, err := parseInt64Value(raw, "marketdata.symbol_id")
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketdataSymbolID] = symbolID
+			}
+			if raw, ok := value["marketdata.symbol_code"]; ok {
+				symbolCode, ok := raw.(string)
+				if !ok {
+					return nil, fmt.Errorf("dagruntime: marketdata.symbol_code must be string")
+				}
+				inputs[InputKeyMarketdataSymbolCode] = symbolCode
+			}
+			if raw, ok := value["marketdata.timeframe_code"]; ok {
+				timeframeCode, ok := raw.(string)
+				if !ok {
+					return nil, fmt.Errorf("dagruntime: marketdata.timeframe_code must be string")
+				}
+				inputs[InputKeyMarketdataTimeframeCode] = timeframeCode
+			}
+			if raw, ok := value["marketdata.from"]; ok {
+				from, err := parseUTCTimeValue(raw, "marketdata.from")
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketdataFrom] = from
+			}
+			if raw, ok := value["marketdata.to"]; ok {
+				to, err := parseUTCTimeValue(raw, "marketdata.to")
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketdataTo] = to
+			}
 			continue
 		}
 		if env.Key == PayloadKeySymbol.Raw() {
@@ -408,8 +651,76 @@ func decodeEnvelopes(envelopes []events.PayloadEnvelope) (engine.InputMap, error
 			inputs[InputKeyMarketBars] = value
 			continue
 		}
+		if env.Key == PayloadKeyMarketdataSymbolID.Raw() {
+			value, err := events.DecodePayload(PayloadKeyMarketdataSymbolID, env)
+			if err != nil {
+				return nil, err
+			}
+			inputs[InputKeyMarketdataSymbolID] = value
+			continue
+		}
+		if env.Key == PayloadKeyMarketdataSymbolCode.Raw() {
+			value, err := events.DecodePayload(PayloadKeyMarketdataSymbolCode, env)
+			if err != nil {
+				return nil, err
+			}
+			inputs[InputKeyMarketdataSymbolCode] = value
+			continue
+		}
+		if env.Key == PayloadKeyMarketdataTimeframeCode.Raw() {
+			value, err := events.DecodePayload(PayloadKeyMarketdataTimeframeCode, env)
+			if err != nil {
+				return nil, err
+			}
+			inputs[InputKeyMarketdataTimeframeCode] = value
+			continue
+		}
+		if env.Key == PayloadKeyMarketdataFrom.Raw() {
+			value, err := events.DecodePayload(PayloadKeyMarketdataFrom, env)
+			if err != nil {
+				return nil, err
+			}
+			inputs[InputKeyMarketdataFrom] = value
+			continue
+		}
+		if env.Key == PayloadKeyMarketdataTo.Raw() {
+			value, err := events.DecodePayload(PayloadKeyMarketdataTo, env)
+			if err != nil {
+				return nil, err
+			}
+			inputs[InputKeyMarketdataTo] = value
+			continue
+		}
 	}
 	return inputs, nil
+}
+
+func parseInt64Value(raw any, name string) (int64, error) {
+	switch value := raw.(type) {
+	case int64:
+		return value, nil
+	case int:
+		return int64(value), nil
+	case float64:
+		return int64(value), nil
+	default:
+		return 0, fmt.Errorf("dagruntime: %s must be int64", name)
+	}
+}
+
+func parseUTCTimeValue(raw any, name string) (marketdata.UTCTime, error) {
+	switch value := raw.(type) {
+	case marketdata.UTCTime:
+		return value, nil
+	case string:
+		var t marketdata.UTCTime
+		if err := t.UnmarshalJSON([]byte(`"` + value + `"`)); err != nil {
+			return marketdata.UTCTime{}, fmt.Errorf("dagruntime: %s must be RFC3339Nano", name)
+		}
+		return t, nil
+	default:
+		return marketdata.UTCTime{}, fmt.Errorf("dagruntime: %s must be UTCTime", name)
+	}
 }
 
 func parseFloat64Slice(raw any) ([]float64, error) {

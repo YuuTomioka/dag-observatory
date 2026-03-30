@@ -12,6 +12,7 @@ import (
 	"dag-observatory/dag-core/internal/domain/dagruntime/pipeline"
 	"dag-observatory/dag-core/internal/domain/dagruntime/policy"
 	"dag-observatory/dag-core/internal/domain/dagruntime/state"
+	"dag-observatory/dag-core/internal/domain/marketdata"
 	artifactinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/artifact"
 	stateinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/state"
 )
@@ -140,6 +141,38 @@ func TestBuildRunEventWithMarketBars(t *testing.T) {
 	}
 	if _, ok := input["bars"]; !ok {
 		t.Fatal("expected bars in input payload")
+	}
+}
+
+func TestBuildRunEventWithMarketdataInput(t *testing.T) {
+	req := RunWorkflowRequest{
+		RunID: "marketdata-run",
+		Marketdata: &MarketdataRunInput{
+			SymbolCode:    "USDJPY",
+			TimeframeCode: "M1",
+			From:          marketdata.MustParseUTCTime("2026-03-01T00:00:00Z"),
+			To:            marketdata.MustParseUTCTime("2026-03-01T01:00:00Z"),
+		},
+	}
+	now := time.Date(2026, 3, 29, 9, 45, 0, 0, time.UTC)
+	_, event, _ := buildRunEvent(req, now)
+
+	payload, ok := event.Payload.(map[string]any)
+	if !ok {
+		t.Fatalf("expected payload map, got %T", event.Payload)
+	}
+	input, ok := payload["input"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected input map, got %T", payload["input"])
+	}
+	if input["marketdata.symbol_code"] != "USDJPY" {
+		t.Fatalf("expected input marketdata.symbol_code, got %v", input["marketdata.symbol_code"])
+	}
+	if input["marketdata.timeframe_code"] != "M1" {
+		t.Fatalf("expected input marketdata.timeframe_code, got %v", input["marketdata.timeframe_code"])
+	}
+	if payload["marketdata.symbol_code"] != "USDJPY" {
+		t.Fatalf("expected payload marketdata.symbol_code, got %v", payload["marketdata.symbol_code"])
 	}
 }
 

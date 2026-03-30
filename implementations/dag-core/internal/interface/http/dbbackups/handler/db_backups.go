@@ -5,9 +5,16 @@ import (
 	"strings"
 	"time"
 
+	"dag-observatory/dag-core/internal/interface/http/dbbackups/response"
 	"dag-observatory/dag-core/internal/interface/http/dto"
+	httpshared "dag-observatory/dag-core/internal/interface/http/shared"
 
 	"github.com/labstack/echo/v4"
+)
+
+const (
+	defaultLimit  = 100
+	defaultOffset = 0
 )
 
 // ListDBBackups
@@ -18,12 +25,12 @@ import (
 // @Param env query string true "Environment"
 // @Param limit query int false "Max items (default 100)"
 // @Param offset query int false "Offset (default 0)"
-// @Success 200 {object} dto.ListDBBackupsResponse
+// @Success 200 {object} response.ListDBBackupsResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
 // @Failure 501 {object} dto.ErrorResponse
 // @Router /db-backups [get]
-func (h *Handlers) ListDBBackups(c echo.Context) error {
+func (h *Handler) ListDBBackups(c echo.Context) error {
 	if h.dbBackups == nil {
 		return c.JSON(http.StatusNotImplemented, dto.ErrorResponse{
 			Error:  "db_backups repository not configured",
@@ -37,8 +44,8 @@ func (h *Handlers) ListDBBackups(c echo.Context) error {
 			Status: "error",
 		})
 	}
-	limit := parseInt(c.QueryParam("limit"), defaultLimit)
-	offset := parseInt(c.QueryParam("offset"), defaultOffset)
+	limit := httpshared.ParseInt(c.QueryParam("limit"), defaultLimit)
+	offset := httpshared.ParseInt(c.QueryParam("offset"), defaultOffset)
 	items, err := h.dbBackups.ListByEnv(c.Request().Context(), env, limit, offset)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
@@ -46,9 +53,9 @@ func (h *Handlers) ListDBBackups(c echo.Context) error {
 			Status: "error",
 		})
 	}
-	resp := dto.ListDBBackupsResponse{Items: make([]dto.DBBackupItem, 0, len(items))}
+	resp := response.ListDBBackupsResponse{Items: make([]response.DBBackupItem, 0, len(items))}
 	for _, item := range items {
-		resp.Items = append(resp.Items, dto.DBBackupItem{
+		resp.Items = append(resp.Items, response.DBBackupItem{
 			BackupID:       item.BackupID,
 			Env:            item.Env,
 			BackupType:     item.BackupType,
@@ -73,14 +80,14 @@ func (h *Handlers) ListDBBackups(c echo.Context) error {
 // @Produce json
 // @Param backup_id path string true "Backup ID"
 // @Param expires query int false "Expiry seconds (allowed: 60,300,900; default 900)"
-// @Success 200 {object} dto.PresignDBBackupResponse
+// @Success 200 {object} response.PresignDBBackupResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 404 {object} dto.ErrorResponse
 // @Failure 410 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
 // @Failure 501 {object} dto.ErrorResponse
 // @Router /db-backups/{backup_id}:presign-download [post]
-func (h *Handlers) PresignDBBackup(c echo.Context) error {
+func (h *Handler) PresignDBBackup(c echo.Context) error {
 	if h.dbBackups == nil || h.presigner == nil {
 		return c.JSON(http.StatusNotImplemented, dto.ErrorResponse{
 			Error:  "db_backups presigner not configured",
@@ -108,8 +115,8 @@ func (h *Handlers) PresignDBBackup(c echo.Context) error {
 			Status: "error",
 		})
 	}
-	expiresSec := parseInt(c.QueryParam("expires"), 900)
-	expires := clampExpires(expiresSec)
+	expiresSec := httpshared.ParseInt(c.QueryParam("expires"), 900)
+	expires := httpshared.ClampExpires(expiresSec)
 	url, err := h.presigner.PresignGetWithBucket(
 		c.Request().Context(),
 		backup.Bucket,
@@ -122,7 +129,7 @@ func (h *Handlers) PresignDBBackup(c echo.Context) error {
 			Status: "error",
 		})
 	}
-	return c.JSON(http.StatusOK, dto.PresignDBBackupResponse{
+	return c.JSON(http.StatusOK, response.PresignDBBackupResponse{
 		BackupID:         backupID,
 		URL:              url.String(),
 		ExpiresInSeconds: int64(expires),

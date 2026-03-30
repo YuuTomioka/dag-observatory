@@ -5,6 +5,8 @@ import (
 
 	marketdatausecase "dag-observatory/dag-core/internal/application/marketdata/usecase"
 	"dag-observatory/dag-core/internal/interface/http/dto"
+	"dag-observatory/dag-core/internal/interface/http/marketdata/request"
+	"dag-observatory/dag-core/internal/interface/http/marketdata/response"
 
 	"github.com/labstack/echo/v4"
 )
@@ -15,8 +17,8 @@ import (
 // @Tags marketdata
 // @Accept json
 // @Produce json
-// @Param request body dto.CreateSymbolRequest true "Create symbol request"
-// @Success 201 {object} dto.SymbolItem
+// @Param request body request.CreateSymbolRequest true "Create symbol request"
+// @Success 201 {object} response.SymbolItem
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 409 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
@@ -30,7 +32,7 @@ func (h *Handlers) CreateSymbol(c echo.Context) error {
 		})
 	}
 
-	var req dto.CreateSymbolRequest
+	var req request.CreateSymbolRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error:  "invalid request",
@@ -58,7 +60,7 @@ func (h *Handlers) CreateSymbol(c echo.Context) error {
 // @Tags marketdata
 // @Produce json
 // @Param code path string true "Symbol code"
-// @Success 200 {object} dto.SymbolItem
+// @Success 200 {object} response.SymbolItem
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 404 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
@@ -84,7 +86,7 @@ func (h *Handlers) GetSymbolByCode(c echo.Context) error {
 // @Description Returns market symbol master records
 // @Tags marketdata
 // @Produce json
-// @Success 200 {object} dto.ListSymbolsResponse
+// @Success 200 {object} response.ListSymbolsResponse
 // @Failure 500 {object} dto.ErrorResponse
 // @Failure 501 {object} dto.ErrorResponse
 // @Router /marketdata/symbols [get]
@@ -101,7 +103,7 @@ func (h *Handlers) ListSymbols(c echo.Context) error {
 		return writeMarketDataError(c, err)
 	}
 
-	resp := dto.ListSymbolsResponse{Items: make([]dto.SymbolItem, 0, len(items))}
+	resp := response.ListSymbolsResponse{Items: make([]response.SymbolItem, 0, len(items))}
 	for _, item := range items {
 		resp.Items = append(resp.Items, mapSymbolItem(item))
 	}

@@ -6,6 +6,8 @@ import (
 
 	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
 	"dag-observatory/dag-core/internal/domain/observability/semantics"
+	"dag-observatory/dag-core/internal/interface/http/dag/request"
+	"dag-observatory/dag-core/internal/interface/http/dag/response"
 	"dag-observatory/dag-core/internal/interface/http/dto"
 
 	"github.com/labstack/echo/v4"
@@ -19,14 +21,14 @@ import (
 // @Tags dag
 // @Accept json
 // @Produce json
-// @Param request body dto.DagRunRequest true "Run workflow request"
+// @Param request body request.RunRequest true "Run workflow request"
 // @Param mode query string false "Override mode when body omits it"
-// @Success 200 {object} dto.DagRunResponse
-// @Success 202 {object} dto.DagRunResponse
+// @Success 200 {object} response.RunResponse
+// @Success 202 {object} response.RunResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
 // @Router /dag/run [post]
-func (h *Handlers) DagRun(c echo.Context) error {
+func (h *Handler) DagRun(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	if h.runWF == nil {
@@ -36,7 +38,7 @@ func (h *Handlers) DagRun(c echo.Context) error {
 		})
 	}
 
-	var req dto.DagRunRequest
+	var req request.RunRequest
 	if err := c.Bind(&req); err != nil {
 		h.appLog.Warn(ctx, "dag run request bind failed",
 			slog.String("error", err.Error()),
@@ -51,9 +53,10 @@ func (h *Handlers) DagRun(c echo.Context) error {
 	}
 
 	result, err := h.runWF.Execute(ctx, usecase.RunWorkflowRequest{
-		Symbol: req.Symbol,
-		Mode:   mode,
-		Bars:   req.Bars,
+		Symbol:     req.Symbol,
+		Mode:       mode,
+		Bars:       req.Bars,
+		Marketdata: mapMarketdataInput(req.Marketdata),
 	})
 	if err != nil {
 		h.appLog.Error(ctx, "dag run failed",
@@ -84,16 +87,29 @@ func (h *Handlers) DagRun(c echo.Context) error {
 	span.SetAttributes(attrs...)
 
 	if result.EnqueueMode {
-		return c.JSON(http.StatusAccepted, dto.DagRunResponse{
+		return c.JSON(http.StatusAccepted, response.RunResponse{
 			Status: "enqueued",
 			Symbol: result.Symbol,
 			RunID:  result.RunID,
 		})
 	}
 
-	return c.JSON(http.StatusOK, dto.DagRunResponse{
+	return c.JSON(http.StatusOK, response.RunResponse{
 		Status: "completed",
 		Symbol: result.Symbol,
 		RunID:  result.RunID,
 	})
+}
+
+func mapMarketdataInput(input *request.MarketdataInput) *usecase.MarketdataRunInput {
+	if input == nil {
+		return nil
+	}
+	return &usecase.MarketdataRunInput{
+		SymbolID:      input.SymbolID,
+		SymbolCode:    input.SymbolCode,
+		TimeframeCode: input.TimeframeCode,
+		From:          input.From,
+		To:            input.To,
+	}
 }

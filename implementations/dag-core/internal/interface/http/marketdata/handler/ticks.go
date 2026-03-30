@@ -8,6 +8,8 @@ import (
 
 	"dag-observatory/dag-core/internal/domain/marketdata"
 	"dag-observatory/dag-core/internal/interface/http/dto"
+	"dag-observatory/dag-core/internal/interface/http/marketdata/request"
+	"dag-observatory/dag-core/internal/interface/http/marketdata/response"
 
 	"github.com/labstack/echo/v4"
 )
@@ -18,8 +20,8 @@ import (
 // @Tags marketdata
 // @Accept json
 // @Produce json
-// @Param request body dto.UpsertTicksBulkRequest true "Bulk tick upsert request"
-// @Success 200 {object} dto.UpsertTicksBulkResponse
+// @Param request body request.UpsertTicksBulkRequest true "Bulk tick upsert request"
+// @Success 200 {object} response.UpsertTicksBulkResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
 // @Failure 501 {object} dto.ErrorResponse
@@ -32,7 +34,7 @@ func (h *Handlers) UpsertTicksBulk(c echo.Context) error {
 		})
 	}
 
-	var req dto.UpsertTicksBulkRequest
+	var req request.UpsertTicksBulkRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error:  "invalid request",
@@ -60,7 +62,7 @@ func (h *Handlers) UpsertTicksBulk(c echo.Context) error {
 	if err := h.upsertTicks.Execute(c.Request().Context(), ticks); err != nil {
 		return writeMarketDataError(c, err)
 	}
-	return c.JSON(http.StatusOK, dto.UpsertTicksBulkResponse{Upserted: len(ticks)})
+	return c.JSON(http.StatusOK, response.UpsertTicksBulkResponse{Upserted: len(ticks)})
 }
 
 // GetLatestTickBySymbol
@@ -69,7 +71,7 @@ func (h *Handlers) UpsertTicksBulk(c echo.Context) error {
 // @Tags marketdata
 // @Produce json
 // @Param symbol_id query int true "Symbol ID"
-// @Success 200 {object} dto.TickItem
+// @Success 200 {object} response.TickItem
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 404 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
@@ -105,7 +107,7 @@ func (h *Handlers) GetLatestTickBySymbol(c echo.Context) error {
 // @Param symbol_id query int true "Symbol ID"
 // @Param from query string true "From (RFC3339Nano)"
 // @Param to query string true "To (RFC3339Nano)"
-// @Success 200 {object} dto.ListTicksResponse
+// @Success 200 {object} response.ListTicksResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
 // @Failure 501 {object} dto.ErrorResponse
@@ -152,7 +154,7 @@ func (h *Handlers) ListTicksBySymbolAndRange(c echo.Context) error {
 		return writeMarketDataError(c, err)
 	}
 
-	resp := dto.ListTicksResponse{Items: make([]dto.TickItem, 0, len(items))}
+	resp := response.ListTicksResponse{Items: make([]response.TickItem, 0, len(items))}
 	for _, item := range items {
 		resp.Items = append(resp.Items, mapTickItem(item))
 	}

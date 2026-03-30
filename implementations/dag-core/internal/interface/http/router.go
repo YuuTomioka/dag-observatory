@@ -10,8 +10,18 @@ import (
 	"dag-observatory/dag-core/internal/infrastructure/observability/applog"
 	"dag-observatory/dag-core/internal/infrastructure/observability/metrics"
 	miniostore "dag-observatory/dag-core/internal/infrastructure/storage/minio"
+	artifactshandler "dag-observatory/dag-core/internal/interface/http/artifacts/handler"
+	artifactsroute "dag-observatory/dag-core/internal/interface/http/artifacts/route"
 	ctraderhandler "dag-observatory/dag-core/internal/interface/http/ctrader/handler"
-	"dag-observatory/dag-core/internal/interface/http/handler"
+	ctraderroute "dag-observatory/dag-core/internal/interface/http/ctrader/route"
+	daghandler "dag-observatory/dag-core/internal/interface/http/dag/handler"
+	dagroute "dag-observatory/dag-core/internal/interface/http/dag/route"
+	dbbackupshandler "dag-observatory/dag-core/internal/interface/http/dbbackups/handler"
+	dbbackupsroute "dag-observatory/dag-core/internal/interface/http/dbbackups/route"
+	healthhandler "dag-observatory/dag-core/internal/interface/http/health/handler"
+	healthroute "dag-observatory/dag-core/internal/interface/http/health/route"
+	marketdatahandler "dag-observatory/dag-core/internal/interface/http/marketdata/handler"
+	marketdataroute "dag-observatory/dag-core/internal/interface/http/marketdata/route"
 
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel/trace"
@@ -33,25 +43,34 @@ type Dependencies struct {
 	UpsertTicks               *marketdatausecase.UpsertTicks
 	GetLatestTickBySymbol     *marketdatausecase.GetLatestTickBySymbol
 	ListTicksBySymbolAndRange *marketdatausecase.ListTicksBySymbolAndRange
+	BackfillTimeframeBars     *marketdatausecase.BackfillTimeframeBars
 	PostCTraderTicks          *ctraderusecase.PostTicksUsecase
 }
 
 func RegisterRoutes(e *echo.Echo, d Dependencies) {
-	h := handler.New(handler.Dependencies{
-		IntentLog:                 d.IntentLog,
-		AppLog:                    d.AppLog,
-		Tracer:                    d.Tracer,
-		Metrics:                   d.Metrics,
-		RunWorkflow:               d.RunWorkflow,
-		ArtifactsRepo:             d.ArtifactsRepo,
-		Presigner:                 d.Presigner,
-		DBBackupsRepo:             d.DBBackupsRepo,
+	hh := healthhandler.New()
+	dh := daghandler.New(daghandler.Dependencies{
+		AppLog:      d.AppLog,
+		Tracer:      d.Tracer,
+		Metrics:     d.Metrics,
+		RunWorkflow: d.RunWorkflow,
+	})
+	ah := artifactshandler.New(artifactshandler.Dependencies{
+		ArtifactsRepo: d.ArtifactsRepo,
+		Presigner:     d.Presigner,
+	})
+	bh := dbbackupshandler.New(dbbackupshandler.Dependencies{
+		DBBackupsRepo: d.DBBackupsRepo,
+		Presigner:     d.Presigner,
+	})
+	mh := marketdatahandler.New(marketdatahandler.Dependencies{
 		CreateSymbol:              d.CreateSymbol,
 		GetSymbolByCode:           d.GetSymbolByCode,
 		ListSymbols:               d.ListSymbols,
 		UpsertTicks:               d.UpsertTicks,
 		GetLatestTickBySymbol:     d.GetLatestTickBySymbol,
 		ListTicksBySymbolAndRange: d.ListTicksBySymbolAndRange,
+		BackfillTimeframeBars:     d.BackfillTimeframeBars,
 	})
 	var postTicksUsecase ctraderusecase.PostTicksUsecase
 	if d.PostCTraderTicks != nil {
@@ -59,17 +78,10 @@ func RegisterRoutes(e *echo.Echo, d Dependencies) {
 	}
 	ch := ctraderhandler.NewPostTicksHandler(postTicksUsecase)
 
-	e.GET("/healthz", h.Healthz)
-	e.POST("/dag/run", h.DagRun)
-	e.GET("/workflow-runs/:workflow_run_id/artifacts", h.ListArtifactsByWorkflow)
-	e.POST("/artifacts/:artifact_id:presign-download", h.PresignArtifact)
-	e.GET("/db-backups", h.ListDBBackups)
-	e.POST("/db-backups/:backup_id:presign-download", h.PresignDBBackup)
-	e.POST("/marketdata/symbols", h.CreateSymbol)
-	e.GET("/marketdata/symbols", h.ListSymbols)
-	e.GET("/marketdata/symbols/:code", h.GetSymbolByCode)
-	e.POST("/marketdata/ticks:upsert-bulk", h.UpsertTicksBulk)
-	e.GET("/marketdata/ticks/latest", h.GetLatestTickBySymbol)
-	e.GET("/marketdata/ticks", h.ListTicksBySymbolAndRange)
-	e.POST("/v1/ctrader/ticks", ch.PostTicks)
+	healthroute.Register(e, hh)
+	dagroute.Register(e, dh)
+	artifactsroute.Register(e, ah)
+	dbbackupsroute.Register(e, bh)
+	marketdataroute.Register(e, mh)
+	ctraderroute.Register(e, ch)
 }

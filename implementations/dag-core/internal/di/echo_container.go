@@ -69,6 +69,7 @@ func NewEchoContainer(
 	var upsertTicks *marketdatausecase.UpsertTicks
 	var getLatestTickBySymbol *marketdatausecase.GetLatestTickBySymbol
 	var listTicksBySymbolAndRange *marketdatausecase.ListTicksBySymbolAndRange
+	var backfillTimeframeBars *marketdatausecase.BackfillTimeframeBars
 	var postCTraderTicks *ctraderusecase.PostTicksUsecase
 	if marketData != nil {
 		createSymbol = marketData.CreateSymbol
@@ -77,6 +78,7 @@ func NewEchoContainer(
 		upsertTicks = marketData.UpsertTicks
 		getLatestTickBySymbol = marketData.GetLatestTickBySymbol
 		listTicksBySymbolAndRange = marketData.ListTicksBySymbolAndRange
+		backfillTimeframeBars = marketData.BackfillTimeframeBars
 		postCTraderTicks = &ctraderusecase.PostTicksUsecase{
 			UnitOfWork: marketData.UnitOfWork,
 		}
@@ -97,6 +99,7 @@ func NewEchoContainer(
 		UpsertTicks:               upsertTicks,
 		GetLatestTickBySymbol:     getLatestTickBySymbol,
 		ListTicksBySymbolAndRange: listTicksBySymbolAndRange,
+		BackfillTimeframeBars:     backfillTimeframeBars,
 		PostCTraderTicks:          postCTraderTicks,
 	})
 

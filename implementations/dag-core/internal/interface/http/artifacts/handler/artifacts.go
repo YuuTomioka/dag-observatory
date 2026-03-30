@@ -2,11 +2,12 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
+	"dag-observatory/dag-core/internal/interface/http/artifacts/response"
 	"dag-observatory/dag-core/internal/interface/http/dto"
+	httpshared "dag-observatory/dag-core/internal/interface/http/shared"
 
 	"github.com/labstack/echo/v4"
 )
@@ -24,12 +25,12 @@ const (
 // @Param workflow_run_id path string true "Workflow run ID"
 // @Param limit query int false "Max items (default 100)"
 // @Param offset query int false "Offset (default 0)"
-// @Success 200 {object} dto.ListArtifactsResponse
+// @Success 200 {object} response.ListArtifactsResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
 // @Failure 501 {object} dto.ErrorResponse
 // @Router /workflow-runs/{workflow_run_id}/artifacts [get]
-func (h *Handlers) ListArtifactsByWorkflow(c echo.Context) error {
+func (h *Handler) ListArtifactsByWorkflow(c echo.Context) error {
 	if h.artifacts == nil {
 		return c.JSON(http.StatusNotImplemented, dto.ErrorResponse{
 			Error:  "artifacts repository not configured",
@@ -43,8 +44,8 @@ func (h *Handlers) ListArtifactsByWorkflow(c echo.Context) error {
 			Status: "error",
 		})
 	}
-	limit := parseInt(c.QueryParam("limit"), defaultLimit)
-	offset := parseInt(c.QueryParam("offset"), defaultOffset)
+	limit := httpshared.ParseInt(c.QueryParam("limit"), defaultLimit)
+	offset := httpshared.ParseInt(c.QueryParam("offset"), defaultOffset)
 	items, err := h.artifacts.ListByWorkflow(c.Request().Context(), workflowRunID, limit, offset)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
@@ -52,9 +53,9 @@ func (h *Handlers) ListArtifactsByWorkflow(c echo.Context) error {
 			Status: "error",
 		})
 	}
-	resp := dto.ListArtifactsResponse{Items: make([]dto.ArtifactItem, 0, len(items))}
+	resp := response.ListArtifactsResponse{Items: make([]response.ArtifactItem, 0, len(items))}
 	for _, item := range items {
-		resp.Items = append(resp.Items, dto.ArtifactItem{
+		resp.Items = append(resp.Items, response.ArtifactItem{
 			ArtifactID:    item.ArtifactID,
 			WorkflowRunID: item.WorkflowRunID,
 			TaskID:        item.TaskID,
@@ -79,7 +80,7 @@ func (h *Handlers) ListArtifactsByWorkflow(c echo.Context) error {
 // @Param artifact_id path string true "Artifact ID"
 // @Param workflow_run_id query string true "Workflow run ID for access control"
 // @Param expires query int false "Expiry seconds (allowed: 60,300,900; default 900)"
-// @Success 200 {object} dto.PresignResponse
+// @Success 200 {object} response.PresignResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 403 {object} dto.ErrorResponse
 // @Failure 404 {object} dto.ErrorResponse
@@ -87,7 +88,7 @@ func (h *Handlers) ListArtifactsByWorkflow(c echo.Context) error {
 // @Failure 500 {object} dto.ErrorResponse
 // @Failure 501 {object} dto.ErrorResponse
 // @Router /artifacts/{artifact_id}:presign-download [post]
-func (h *Handlers) PresignArtifact(c echo.Context) error {
+func (h *Handler) PresignArtifact(c echo.Context) error {
 	if h.artifacts == nil || h.presigner == nil {
 		return c.JSON(http.StatusNotImplemented, dto.ErrorResponse{
 			Error:  "artifacts presigner not configured",
@@ -128,8 +129,8 @@ func (h *Handlers) PresignArtifact(c echo.Context) error {
 			Status: "error",
 		})
 	}
-	expiresSec := parseInt(c.QueryParam("expires"), 900)
-	expires := clampExpires(expiresSec)
+	expiresSec := httpshared.ParseInt(c.QueryParam("expires"), 900)
+	expires := httpshared.ClampExpires(expiresSec)
 	url, err := h.presigner.PresignGet(c.Request().Context(), artifact.ObjectKey, time.Duration(expires)*time.Second)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
@@ -137,29 +138,9 @@ func (h *Handlers) PresignArtifact(c echo.Context) error {
 			Status: "error",
 		})
 	}
-	return c.JSON(http.StatusOK, dto.PresignResponse{
+	return c.JSON(http.StatusOK, response.PresignResponse{
 		ArtifactID:       artifactID,
 		URL:              url.String(),
 		ExpiresInSeconds: int64(expires),
 	})
-}
-
-func parseInt(raw string, def int) int {
-	if raw == "" {
-		return def
-	}
-	v, err := strconv.Atoi(raw)
-	if err != nil {
-		return def
-	}
-	return v
-}
-
-func clampExpires(v int) int {
-	switch v {
-	case 60, 300, 900:
-		return v
-	default:
-		return 900
-	}
 }

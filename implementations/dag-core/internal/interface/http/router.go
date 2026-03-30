@@ -2,6 +2,7 @@ package http
 
 import (
 	artifactsrepository "dag-observatory/dag-core/internal/application/artifacts/repository"
+	ctraderusecase "dag-observatory/dag-core/internal/application/ctrader/usecase"
 	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
 	dbbackupsrepository "dag-observatory/dag-core/internal/application/dbbackups/repository"
 	marketdatausecase "dag-observatory/dag-core/internal/application/marketdata/usecase"
@@ -9,6 +10,7 @@ import (
 	"dag-observatory/dag-core/internal/infrastructure/observability/applog"
 	"dag-observatory/dag-core/internal/infrastructure/observability/metrics"
 	miniostore "dag-observatory/dag-core/internal/infrastructure/storage/minio"
+	ctraderhandler "dag-observatory/dag-core/internal/interface/http/ctrader/handler"
 	"dag-observatory/dag-core/internal/interface/http/handler"
 
 	"github.com/labstack/echo/v4"
@@ -31,6 +33,7 @@ type Dependencies struct {
 	UpsertTicks               *marketdatausecase.UpsertTicks
 	GetLatestTickBySymbol     *marketdatausecase.GetLatestTickBySymbol
 	ListTicksBySymbolAndRange *marketdatausecase.ListTicksBySymbolAndRange
+	PostCTraderTicks          *ctraderusecase.PostTicksUsecase
 }
 
 func RegisterRoutes(e *echo.Echo, d Dependencies) {
@@ -50,6 +53,11 @@ func RegisterRoutes(e *echo.Echo, d Dependencies) {
 		GetLatestTickBySymbol:     d.GetLatestTickBySymbol,
 		ListTicksBySymbolAndRange: d.ListTicksBySymbolAndRange,
 	})
+	var postTicksUsecase ctraderusecase.PostTicksUsecase
+	if d.PostCTraderTicks != nil {
+		postTicksUsecase = *d.PostCTraderTicks
+	}
+	ch := ctraderhandler.NewPostTicksHandler(postTicksUsecase)
 
 	e.GET("/healthz", h.Healthz)
 	e.POST("/dag/run", h.DagRun)
@@ -63,4 +71,5 @@ func RegisterRoutes(e *echo.Echo, d Dependencies) {
 	e.POST("/marketdata/ticks:upsert-bulk", h.UpsertTicksBulk)
 	e.GET("/marketdata/ticks/latest", h.GetLatestTickBySymbol)
 	e.GET("/marketdata/ticks", h.ListTicksBySymbolAndRange)
+	e.POST("/v1/ctrader/ticks", ch.PostTicks)
 }

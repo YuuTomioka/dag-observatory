@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	artifactsrepository "dag-observatory/dag-core/internal/application/artifacts/repository"
+	ctraderusecase "dag-observatory/dag-core/internal/application/ctrader/usecase"
 	dbbackupsrepository "dag-observatory/dag-core/internal/application/dbbackups/repository"
 	marketdatausecase "dag-observatory/dag-core/internal/application/marketdata/usecase"
 	"dag-observatory/dag-core/internal/infrastructure/observability/applog"
@@ -68,6 +69,7 @@ func NewEchoContainer(
 	var upsertTicks *marketdatausecase.UpsertTicks
 	var getLatestTickBySymbol *marketdatausecase.GetLatestTickBySymbol
 	var listTicksBySymbolAndRange *marketdatausecase.ListTicksBySymbolAndRange
+	var postCTraderTicks *ctraderusecase.PostTicksUsecase
 	if marketData != nil {
 		createSymbol = marketData.CreateSymbol
 		getSymbolByCode = marketData.GetSymbolByCode
@@ -75,6 +77,9 @@ func NewEchoContainer(
 		upsertTicks = marketData.UpsertTicks
 		getLatestTickBySymbol = marketData.GetLatestTickBySymbol
 		listTicksBySymbolAndRange = marketData.ListTicksBySymbolAndRange
+		postCTraderTicks = &ctraderusecase.PostTicksUsecase{
+			UnitOfWork: marketData.UnitOfWork,
+		}
 	}
 
 	httpif.RegisterRoutes(e, httpif.Dependencies{
@@ -92,6 +97,7 @@ func NewEchoContainer(
 		UpsertTicks:               upsertTicks,
 		GetLatestTickBySymbol:     getLatestTickBySymbol,
 		ListTicksBySymbolAndRange: listTicksBySymbolAndRange,
+		PostCTraderTicks:          postCTraderTicks,
 	})
 
 	return e, nil

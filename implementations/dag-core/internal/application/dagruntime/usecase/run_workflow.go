@@ -97,7 +97,10 @@ func buildRunEvent(req RunWorkflowRequest, now time.Time) (RunWorkflowResult, ev
 		runID = uuid.NewString()
 	}
 	symbol := req.Symbol
-	if symbol == "" {
+	if symbol == "" && req.Marketdata != nil && req.Marketdata.SymbolCode != "" {
+		symbol = req.Marketdata.SymbolCode
+	}
+	if symbol == "" && req.Marketdata == nil {
 		symbol = defaultSymbol
 	}
 	mode := req.Mode
@@ -106,12 +109,13 @@ func buildRunEvent(req RunWorkflowRequest, now time.Time) (RunWorkflowResult, ev
 	}
 
 	result := RunWorkflowResult{
-		RunID:    runID,
-		Symbol:   symbol,
-		Mode:     mode,
-		TaskID:   defaultTaskID,
-		TaskName: defaultTaskName,
-		Attempt:  defaultAttempt,
+		RunID:      runID,
+		Symbol:     symbol,
+		Mode:       mode,
+		Marketdata: cloneMarketdataInput(req.Marketdata),
+		TaskID:     defaultTaskID,
+		TaskName:   defaultTaskName,
+		Attempt:    defaultAttempt,
 	}
 
 	payload := map[string]any{
@@ -119,13 +123,14 @@ func buildRunEvent(req RunWorkflowRequest, now time.Time) (RunWorkflowResult, ev
 		"task_id":   defaultTaskID,
 		"attempt":   defaultAttempt,
 		"task_name": defaultTaskName,
-		"input": map[string]any{
-			"mode":   mode,
-			"symbol": symbol,
-		},
+		"input":     map[string]any{},
 		// Keep top-level keys for direct execution compatibility.
-		"mode":   mode,
-		"symbol": symbol,
+		"mode": mode,
+	}
+	payload["input"].(map[string]any)["mode"] = mode
+	if symbol != "" {
+		payload["input"].(map[string]any)["symbol"] = symbol
+		payload["symbol"] = symbol
 	}
 	if len(req.Bars) > 0 {
 		payload["input"].(map[string]any)["bars"] = req.Bars
@@ -164,6 +169,14 @@ func buildRunEvent(req RunWorkflowRequest, now time.Time) (RunWorkflowResult, ev
 	}
 
 	return result, event, partition
+}
+
+func cloneMarketdataInput(input *MarketdataRunInput) *MarketdataRunInput {
+	if input == nil {
+		return nil
+	}
+	cloned := *input
+	return &cloned
 }
 
 func toInputMap(payload any) (engine.InputMap, error) {

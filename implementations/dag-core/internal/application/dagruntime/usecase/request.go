@@ -22,6 +22,7 @@ type RunWorkflowResult struct {
 	RunID                string
 	Symbol               string
 	Mode                 string
+	Marketdata           *MarketdataRunInput
 	TaskID               string
 	TaskName             string
 	Attempt              int

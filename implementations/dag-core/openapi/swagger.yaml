@@ -1,6 +1,54 @@
 basePath: /
 definitions:
-  dto.ArtifactItem:
+  dto.ErrorResponse:
+    properties:
+      error:
+        type: string
+      run_id:
+        type: string
+      status:
+        type: string
+      symbol:
+        type: string
+    type: object
+  request.BackfillTimeframeBarsRequest:
+    type: object
+  request.CreateSymbolRequest:
+    properties:
+      base:
+        type: string
+      code:
+        type: string
+      pip_size_raw:
+        type: integer
+      price_scale:
+        type: integer
+      quote:
+        type: string
+      tick_size_raw:
+        type: integer
+    type: object
+  request.RunRequest:
+    type: object
+  request.TickItem:
+    properties:
+      ask_raw:
+        type: integer
+      bid_raw:
+        type: integer
+      symbol_id:
+        type: integer
+      time:
+        type: string
+    type: object
+  request.UpsertTicksBulkRequest:
+    properties:
+      ticks:
+        items:
+          $ref: '#/definitions/request.TickItem'
+        type: array
+    type: object
+  response.ArtifactItem:
     properties:
       artifact_id:
         type: string
@@ -26,7 +74,52 @@ definitions:
       workflow_run_id:
         type: string
     type: object
-  dto.DBBackupItem:
+  response.BackfillTimeframeBarsResponse:
+    properties:
+      bar_count:
+        type: integer
+      chunk_count:
+        type: integer
+      entrypoint:
+        type: string
+      from:
+        type: string
+      status:
+        type: string
+      symbol_id:
+        type: integer
+      timeframe_code:
+        type: string
+      to:
+        type: string
+    type: object
+  response.BackfillTimeframeBarsWorkflowResponse:
+    properties:
+      entrypoint:
+        type: string
+      marketdata:
+        $ref: '#/definitions/response.BackfillWorkflowInput'
+      run_id:
+        type: string
+      status:
+        type: string
+      symbol:
+        type: string
+    type: object
+  response.BackfillWorkflowInput:
+    properties:
+      from:
+        type: string
+      symbol_code:
+        type: string
+      symbol_id:
+        type: integer
+      timeframe_code:
+        type: string
+      to:
+        type: string
+    type: object
+  response.DBBackupItem:
     properties:
       backup_id:
         type: string
@@ -54,48 +147,48 @@ definitions:
       status:
         type: string
     type: object
-  dto.DagRunRequest:
-    properties:
-      mode:
-        type: string
-      symbol:
-        type: string
-    type: object
-  dto.DagRunResponse:
-    properties:
-      run_id:
-        type: string
-      status:
-        type: string
-      symbol:
-        type: string
-    type: object
-  dto.ErrorResponse:
-    properties:
-      error:
-        type: string
-      run_id:
-        type: string
-      status:
-        type: string
-      symbol:
-        type: string
-    type: object
-  dto.ListArtifactsResponse:
+  response.ListArtifactsResponse:
     properties:
       items:
         items:
-          $ref: '#/definitions/dto.ArtifactItem'
+          $ref: '#/definitions/response.ArtifactItem'
         type: array
     type: object
-  dto.ListDBBackupsResponse:
+  response.ListDBBackupsResponse:
     properties:
       items:
         items:
-          $ref: '#/definitions/dto.DBBackupItem'
+          $ref: '#/definitions/response.DBBackupItem'
         type: array
     type: object
-  dto.PresignDBBackupResponse:
+  response.ListSymbolsResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/response.SymbolItem'
+        type: array
+    type: object
+  response.ListTicksResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/response.TickItem'
+        type: array
+    type: object
+  response.MarketdataInput:
+    properties:
+      from:
+        type: string
+      symbol_code:
+        type: string
+      symbol_id:
+        type: integer
+      timeframe_code:
+        type: string
+      to:
+        type: string
+    type: object
+  response.PresignDBBackupResponse:
     properties:
       backup_id:
         type: string
@@ -104,7 +197,7 @@ definitions:
       url:
         type: string
     type: object
-  dto.PresignResponse:
+  response.PresignResponse:
     properties:
       artifact_id:
         type: string
@@ -112,6 +205,52 @@ definitions:
         type: integer
       url:
         type: string
+    type: object
+  response.RunResponse:
+    properties:
+      entrypoint:
+        type: string
+      marketdata:
+        $ref: '#/definitions/response.MarketdataInput'
+      run_id:
+        type: string
+      status:
+        type: string
+      symbol:
+        type: string
+    type: object
+  response.SymbolItem:
+    properties:
+      base:
+        type: string
+      code:
+        type: string
+      id:
+        type: integer
+      pip_size_raw:
+        type: integer
+      price_scale:
+        type: integer
+      quote:
+        type: string
+      tick_size_raw:
+        type: integer
+    type: object
+  response.TickItem:
+    properties:
+      ask_raw:
+        type: integer
+      bid_raw:
+        type: integer
+      symbol_id:
+        type: integer
+      time:
+        type: string
+    type: object
+  response.UpsertTicksBulkResponse:
+    properties:
+      upserted:
+        type: integer
     type: object
 info:
   contact: {}
@@ -143,7 +282,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.PresignResponse'
+            $ref: '#/definitions/response.PresignResponse'
         "400":
           description: Bad Request
           schema:
@@ -175,14 +314,15 @@ paths:
     post:
       consumes:
       - application/json
-      description: Triggers workflow execution (sync/async depending on backend)
+      description: Triggers the configured workflow using generic runtime input. Prefer
+        feature-local workflow endpoints when a dedicated endpoint exists.
       parameters:
       - description: Run workflow request
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.DagRunRequest'
+          $ref: '#/definitions/request.RunRequest'
       - description: Override mode when body omits it
         in: query
         name: mode
@@ -193,11 +333,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.DagRunResponse'
+            $ref: '#/definitions/response.RunResponse'
         "202":
           description: Accepted
           schema:
-            $ref: '#/definitions/dto.DagRunResponse'
+            $ref: '#/definitions/response.RunResponse'
         "400":
           description: Bad Request
           schema:
@@ -206,7 +346,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
-      summary: Run workflow
+      summary: Run workflow generically
       tags:
       - dag
   /db-backups:
@@ -232,7 +372,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.ListDBBackupsResponse'
+            $ref: '#/definitions/response.ListDBBackupsResponse'
         "400":
           description: Bad Request
           schema:
@@ -267,7 +407,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.PresignDBBackupResponse'
+            $ref: '#/definitions/response.PresignDBBackupResponse'
         "400":
           description: Bad Request
           schema:
@@ -305,6 +445,287 @@ paths:
       summary: Health check
       tags:
       - health
+  /marketdata/symbols:
+    get:
+      description: Returns market symbol master records
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.ListSymbolsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: List symbols
+      tags:
+      - marketdata
+    post:
+      consumes:
+      - application/json
+      description: Creates a market symbol master record
+      parameters:
+      - description: Create symbol request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/request.CreateSymbolRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/response.SymbolItem'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Create symbol
+      tags:
+      - marketdata
+  /marketdata/symbols/{code}:
+    get:
+      description: Returns symbol metadata by symbol code
+      parameters:
+      - description: Symbol code
+        in: path
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SymbolItem'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get symbol by code
+      tags:
+      - marketdata
+  /marketdata/ticks:
+    get:
+      description: Returns ticks for symbol_id in [from, to)
+      parameters:
+      - description: Symbol ID
+        in: query
+        name: symbol_id
+        required: true
+        type: integer
+      - description: From (RFC3339Nano)
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: To (RFC3339Nano)
+        in: query
+        name: to
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.ListTicksResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: List ticks by symbol and range
+      tags:
+      - marketdata
+  /marketdata/ticks/latest:
+    get:
+      description: Returns latest tick by symbol id
+      parameters:
+      - description: Symbol ID
+        in: query
+        name: symbol_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.TickItem'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get latest tick
+      tags:
+      - marketdata
+  /marketdata/ticks:upsert-bulk:
+    post:
+      consumes:
+      - application/json
+      description: Upserts multiple ticks in a single transaction
+      parameters:
+      - description: Bulk tick upsert request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/request.UpsertTicksBulkRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.UpsertTicksBulkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Bulk upsert ticks
+      tags:
+      - marketdata
+  /marketdata/timeframe-bars:backfill:
+    post:
+      consumes:
+      - application/json
+      description: Rebuilds timeframe bars immediately and returns aggregated bar
+        counts for the requested symbol and range
+      parameters:
+      - description: Backfill timeframe bars request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/request.BackfillTimeframeBarsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.BackfillTimeframeBarsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Backfill timeframe bars directly
+      tags:
+      - marketdata
+  /marketdata/timeframe-bars:backfill-workflow:
+    post:
+      consumes:
+      - application/json
+      description: Enqueues or runs the configured marketdata backfill workflow and
+        returns workflow run information instead of backfill aggregation counts
+      parameters:
+      - description: Backfill timeframe bars workflow request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/request.BackfillTimeframeBarsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.BackfillTimeframeBarsWorkflowResponse'
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/response.BackfillTimeframeBarsWorkflowResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Trigger timeframe bar backfill workflow
+      tags:
+      - marketdata
   /workflow-runs/{workflow_run_id}/artifacts:
     get:
       description: Returns artifacts associated with a workflow run id
@@ -328,7 +749,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.ListArtifactsResponse'
+            $ref: '#/definitions/response.ListArtifactsResponse'
         "400":
           description: Bad Request
           schema:

@@ -47,6 +47,13 @@ func TestDagRunHTTP(t *testing.T) {
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("expected 202, got %d", rec.Code)
 	}
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp["entrypoint"] != "workflow" {
+		t.Fatalf("expected entrypoint workflow, got %v", resp["entrypoint"])
+	}
 }
 
 func TestDagRunHTTPWithMarketdataInput(t *testing.T) {
@@ -77,5 +84,22 @@ func TestDagRunHTTPWithMarketdataInput(t *testing.T) {
 	}
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("expected 202, got %d", rec.Code)
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp["entrypoint"] != "workflow" {
+		t.Fatalf("expected entrypoint workflow, got %v", resp["entrypoint"])
+	}
+	if resp["symbol"] != "USDJPY" {
+		t.Fatalf("expected symbol USDJPY from marketdata.symbol_code, got %v", resp["symbol"])
+	}
+	marketdataResp, ok := resp["marketdata"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected marketdata response object, got %T", resp["marketdata"])
+	}
+	if marketdataResp["timeframe_code"] != "M1" {
+		t.Fatalf("expected timeframe_code M1, got %v", marketdataResp["timeframe_code"])
 	}
 }

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	dagruntimeusecase "dag-observatory/dag-core/internal/application/dagruntime/usecase"
 	marketdatausecase "dag-observatory/dag-core/internal/application/marketdata/usecase"
 )
 
@@ -12,6 +13,7 @@ type Handlers struct {
 	getLatestTickBySymbol     *marketdatausecase.GetLatestTickBySymbol
 	listTicksBySymbolAndRange *marketdatausecase.ListTicksBySymbolAndRange
 	backfillTimeframeBars     *marketdatausecase.BackfillTimeframeBars
+	runWorkflow               *dagruntimeusecase.RunWorkflow
 }
 
 type Dependencies struct {
@@ -22,6 +24,7 @@ type Dependencies struct {
 	GetLatestTickBySymbol     *marketdatausecase.GetLatestTickBySymbol
 	ListTicksBySymbolAndRange *marketdatausecase.ListTicksBySymbolAndRange
 	BackfillTimeframeBars     *marketdatausecase.BackfillTimeframeBars
+	RunWorkflow               *dagruntimeusecase.RunWorkflow
 }
 
 func New(d Dependencies) *Handlers {
@@ -33,5 +36,6 @@ func New(d Dependencies) *Handlers {
 		getLatestTickBySymbol:     d.GetLatestTickBySymbol,
 		listTicksBySymbolAndRange: d.ListTicksBySymbolAndRange,
 		backfillTimeframeBars:     d.BackfillTimeframeBars,
+		runWorkflow:               d.RunWorkflow,
 	}
 }

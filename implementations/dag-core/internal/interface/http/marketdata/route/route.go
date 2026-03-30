@@ -14,4 +14,5 @@ func Register(e *echo.Echo, h *handler.Handlers) {
 	e.GET("/marketdata/ticks/latest", h.GetLatestTickBySymbol)
 	e.GET("/marketdata/ticks", h.ListTicksBySymbolAndRange)
 	e.POST("/marketdata/timeframe-bars:backfill", h.BackfillTimeframeBars)
+	e.POST("/marketdata/timeframe-bars:backfill-workflow", h.BackfillTimeframeBarsWorkflow)
 }

@@ -16,8 +16,8 @@ import (
 )
 
 // DagRun
-// @Summary Run workflow
-// @Description Triggers workflow execution (sync/async depending on backend)
+// @Summary Run workflow generically
+// @Description Triggers the configured workflow using generic runtime input. Prefer feature-local workflow endpoints when a dedicated endpoint exists.
 // @Tags dag
 // @Accept json
 // @Produce json
@@ -88,16 +88,20 @@ func (h *Handler) DagRun(c echo.Context) error {
 
 	if result.EnqueueMode {
 		return c.JSON(http.StatusAccepted, response.RunResponse{
-			Status: "enqueued",
-			Symbol: result.Symbol,
-			RunID:  result.RunID,
+			Status:     "enqueued",
+			Entrypoint: "workflow",
+			Symbol:     result.Symbol,
+			RunID:      result.RunID,
+			Marketdata: mapMarketdataResponse(result.Marketdata),
 		})
 	}
 
 	return c.JSON(http.StatusOK, response.RunResponse{
-		Status: "completed",
-		Symbol: result.Symbol,
-		RunID:  result.RunID,
+		Status:     "completed",
+		Entrypoint: "workflow",
+		Symbol:     result.Symbol,
+		RunID:      result.RunID,
+		Marketdata: mapMarketdataResponse(result.Marketdata),
 	})
 }
 
@@ -111,5 +115,18 @@ func mapMarketdataInput(input *request.MarketdataInput) *usecase.MarketdataRunIn
 		TimeframeCode: input.TimeframeCode,
 		From:          input.From,
 		To:            input.To,
+	}
+}
+
+func mapMarketdataResponse(input *usecase.MarketdataRunInput) *response.MarketdataInput {
+	if input == nil {
+		return nil
+	}
+	return &response.MarketdataInput{
+		SymbolID:      input.SymbolID,
+		SymbolCode:    input.SymbolCode,
+		TimeframeCode: input.TimeframeCode,
+		From:          input.From.String(),
+		To:            input.To.String(),
 	}
 }

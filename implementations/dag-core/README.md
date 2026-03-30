@@ -57,7 +57,9 @@ The current Go implementation expresses the repository structure through:
 
 ## HTTP Input Notes
 
-- `POST /dag/run` accepts `symbol`, `mode`, and optional `bars`.
+- `POST /dag/run` accepts generic runtime inputs such as `symbol`, `mode`, and optional `bars`.
+- `POST /marketdata/timeframe-bars:backfill` is the direct marketdata backfill entrypoint and returns aggregation counts.
+- `POST /marketdata/timeframe-bars:backfill-workflow` is the feature-local workflow entrypoint for marketdata backfill.
 - `bars` is mapped to runtime input key `market.bars`.
 
 ## Contract Assets

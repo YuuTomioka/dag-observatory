@@ -174,6 +174,9 @@ func TestBuildRunEventWithMarketdataInput(t *testing.T) {
 	if payload["marketdata.symbol_code"] != "USDJPY" {
 		t.Fatalf("expected payload marketdata.symbol_code, got %v", payload["marketdata.symbol_code"])
 	}
+	if _, ok := payload["symbol"]; !ok {
+		t.Fatal("expected payload symbol derived from marketdata.symbol_code")
+	}
 }
 
 func TestExecuteEnqueuePayloadIsEnvelope(t *testing.T) {

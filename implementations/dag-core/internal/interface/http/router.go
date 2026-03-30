@@ -71,6 +71,7 @@ func RegisterRoutes(e *echo.Echo, d Dependencies) {
 		GetLatestTickBySymbol:     d.GetLatestTickBySymbol,
 		ListTicksBySymbolAndRange: d.ListTicksBySymbolAndRange,
 		BackfillTimeframeBars:     d.BackfillTimeframeBars,
+		RunWorkflow:               d.RunWorkflow,
 	})
 	var postTicksUsecase ctraderusecase.PostTicksUsecase
 	if d.PostCTraderTicks != nil {

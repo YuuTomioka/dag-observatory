@@ -3,16 +3,29 @@ package handler
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	dagruntimeusecase "dag-observatory/dag-core/internal/application/dagruntime/usecase"
 	apprepository "dag-observatory/dag-core/internal/application/marketdata/repository"
 	marketdatausecase "dag-observatory/dag-core/internal/application/marketdata/usecase"
+	"dag-observatory/dag-core/internal/domain/dagruntime/events"
 	"dag-observatory/dag-core/internal/domain/marketdata"
 
 	"github.com/labstack/echo/v4"
 )
+
+type marketdataRecordingEnqueuer struct {
+	last events.Event
+}
+
+func (r *marketdataRecordingEnqueuer) Enqueue(ctx context.Context, event events.Event) error {
+	_ = ctx
+	r.last = event
+	return nil
+}
 
 type fakeMarketdataRepositories struct {
 	symbols       apprepository.SymbolRepository
@@ -182,7 +195,64 @@ func TestBackfillTimeframeBarsHTTP(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp["entrypoint"] != "direct" {
+		t.Fatalf("expected entrypoint direct, got %v", resp["entrypoint"])
+	}
+	if resp["status"] != "completed" {
+		t.Fatalf("expected status completed, got %v", resp["status"])
+	}
 	if len(barRepo.bars) != 2 {
 		t.Fatalf("expected 2 upserted bars, got %d", len(barRepo.bars))
+	}
+}
+
+func TestBackfillTimeframeBarsWorkflowHTTP(t *testing.T) {
+	t.Parallel()
+
+	enqueuer := &marketdataRecordingEnqueuer{}
+	h := New(Dependencies{
+		RunWorkflow: &dagruntimeusecase.RunWorkflow{Enqueuer: enqueuer},
+	})
+
+	e := echo.New()
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/marketdata/timeframe-bars:backfill-workflow",
+		bytes.NewBufferString(`{"symbol_code":"USDJPY","timeframe_code":"M1","from":"2026-03-01T00:00:00Z","to":"2026-03-01T02:00:00Z"}`),
+	)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := h.BackfillTimeframeBarsWorkflow(c); err != nil {
+		t.Fatalf("handler error: %v", err)
+	}
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp["entrypoint"] != "workflow" {
+		t.Fatalf("expected entrypoint workflow, got %v", resp["entrypoint"])
+	}
+	if resp["status"] != "enqueued" {
+		t.Fatalf("expected status enqueued, got %v", resp["status"])
+	}
+	if resp["symbol"] != "USDJPY" {
+		t.Fatalf("expected symbol USDJPY, got %v", resp["symbol"])
+	}
+	marketdataResp, ok := resp["marketdata"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected marketdata response object, got %T", resp["marketdata"])
+	}
+	if marketdataResp["timeframe_code"] != "M1" {
+		t.Fatalf("expected timeframe_code M1, got %v", marketdataResp["timeframe_code"])
 	}
 }

@@ -44,7 +44,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.PresignResponse"
+                            "$ref": "#/definitions/response.PresignResponse"
                         }
                     },
                     "400": {
@@ -88,7 +88,7 @@
         },
         "/dag/run": {
             "post": {
-                "description": "Triggers workflow execution (sync/async depending on backend)",
+                "description": "Triggers the configured workflow using generic runtime input. Prefer feature-local workflow endpoints when a dedicated endpoint exists.",
                 "consumes": [
                     "application/json"
                 ],
@@ -98,7 +98,7 @@
                 "tags": [
                     "dag"
                 ],
-                "summary": "Run workflow",
+                "summary": "Run workflow generically",
                 "parameters": [
                     {
                         "description": "Run workflow request",
@@ -106,7 +106,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.DagRunRequest"
+                            "$ref": "#/definitions/request.RunRequest"
                         }
                     },
                     {
@@ -120,13 +120,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.DagRunResponse"
+                            "$ref": "#/definitions/response.RunResponse"
                         }
                     },
                     "202": {
                         "description": "Accepted",
                         "schema": {
-                            "$ref": "#/definitions/dto.DagRunResponse"
+                            "$ref": "#/definitions/response.RunResponse"
                         }
                     },
                     "400": {
@@ -179,7 +179,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.ListDBBackupsResponse"
+                            "$ref": "#/definitions/response.ListDBBackupsResponse"
                         }
                     },
                     "400": {
@@ -232,7 +232,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.PresignDBBackupResponse"
+                            "$ref": "#/definitions/response.PresignDBBackupResponse"
                         }
                     },
                     "400": {
@@ -289,6 +289,429 @@
                 }
             }
         },
+        "/marketdata/symbols": {
+            "get": {
+                "description": "Returns market symbol master records",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "marketdata"
+                ],
+                "summary": "List symbols",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.ListSymbolsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates a market symbol master record",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "marketdata"
+                ],
+                "summary": "Create symbol",
+                "parameters": [
+                    {
+                        "description": "Create symbol request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.CreateSymbolRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/response.SymbolItem"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/marketdata/symbols/{code}": {
+            "get": {
+                "description": "Returns symbol metadata by symbol code",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "marketdata"
+                ],
+                "summary": "Get symbol by code",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Symbol code",
+                        "name": "code",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SymbolItem"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/marketdata/ticks": {
+            "get": {
+                "description": "Returns ticks for symbol_id in [from, to)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "marketdata"
+                ],
+                "summary": "List ticks by symbol and range",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Symbol ID",
+                        "name": "symbol_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "From (RFC3339Nano)",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "To (RFC3339Nano)",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.ListTicksResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/marketdata/ticks/latest": {
+            "get": {
+                "description": "Returns latest tick by symbol id",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "marketdata"
+                ],
+                "summary": "Get latest tick",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Symbol ID",
+                        "name": "symbol_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.TickItem"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/marketdata/ticks:upsert-bulk": {
+            "post": {
+                "description": "Upserts multiple ticks in a single transaction",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "marketdata"
+                ],
+                "summary": "Bulk upsert ticks",
+                "parameters": [
+                    {
+                        "description": "Bulk tick upsert request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.UpsertTicksBulkRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.UpsertTicksBulkResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/marketdata/timeframe-bars:backfill": {
+            "post": {
+                "description": "Rebuilds timeframe bars immediately and returns aggregated bar counts for the requested symbol and range",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "marketdata"
+                ],
+                "summary": "Backfill timeframe bars directly",
+                "parameters": [
+                    {
+                        "description": "Backfill timeframe bars request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.BackfillTimeframeBarsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.BackfillTimeframeBarsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/marketdata/timeframe-bars:backfill-workflow": {
+            "post": {
+                "description": "Enqueues or runs the configured marketdata backfill workflow and returns workflow run information instead of backfill aggregation counts",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "marketdata"
+                ],
+                "summary": "Trigger timeframe bar backfill workflow",
+                "parameters": [
+                    {
+                        "description": "Backfill timeframe bars workflow request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.BackfillTimeframeBarsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.BackfillTimeframeBarsWorkflowResponse"
+                        }
+                    },
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/response.BackfillTimeframeBarsWorkflowResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/workflow-runs/{workflow_run_id}/artifacts": {
             "get": {
                 "description": "Returns artifacts associated with a workflow run id",
@@ -324,7 +747,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.ListArtifactsResponse"
+                            "$ref": "#/definitions/response.ListArtifactsResponse"
                         }
                     },
                     "400": {
@@ -350,7 +773,81 @@
         }
     },
     "definitions": {
-        "dto.ArtifactItem": {
+        "dto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "symbol": {
+                    "type": "string"
+                }
+            }
+        },
+        "request.BackfillTimeframeBarsRequest": {
+            "type": "object"
+        },
+        "request.CreateSymbolRequest": {
+            "type": "object",
+            "properties": {
+                "base": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "pip_size_raw": {
+                    "type": "integer"
+                },
+                "price_scale": {
+                    "type": "integer"
+                },
+                "quote": {
+                    "type": "string"
+                },
+                "tick_size_raw": {
+                    "type": "integer"
+                }
+            }
+        },
+        "request.RunRequest": {
+            "type": "object"
+        },
+        "request.TickItem": {
+            "type": "object",
+            "properties": {
+                "ask_raw": {
+                    "type": "integer"
+                },
+                "bid_raw": {
+                    "type": "integer"
+                },
+                "symbol_id": {
+                    "type": "integer"
+                },
+                "time": {
+                    "type": "string"
+                }
+            }
+        },
+        "request.UpsertTicksBulkRequest": {
+            "type": "object",
+            "properties": {
+                "ticks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/request.TickItem"
+                    }
+                }
+            }
+        },
+        "response.ArtifactItem": {
             "type": "object",
             "properties": {
                 "artifact_id": {
@@ -389,7 +886,76 @@
                 }
             }
         },
-        "dto.DBBackupItem": {
+        "response.BackfillTimeframeBarsResponse": {
+            "type": "object",
+            "properties": {
+                "bar_count": {
+                    "type": "integer"
+                },
+                "chunk_count": {
+                    "type": "integer"
+                },
+                "entrypoint": {
+                    "type": "string"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "symbol_id": {
+                    "type": "integer"
+                },
+                "timeframe_code": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.BackfillTimeframeBarsWorkflowResponse": {
+            "type": "object",
+            "properties": {
+                "entrypoint": {
+                    "type": "string"
+                },
+                "marketdata": {
+                    "$ref": "#/definitions/response.BackfillWorkflowInput"
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "symbol": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.BackfillWorkflowInput": {
+            "type": "object",
+            "properties": {
+                "from": {
+                    "type": "string"
+                },
+                "symbol_code": {
+                    "type": "string"
+                },
+                "symbol_id": {
+                    "type": "integer"
+                },
+                "timeframe_code": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.DBBackupItem": {
             "type": "object",
             "properties": {
                 "backup_id": {
@@ -431,71 +997,71 @@
                 }
             }
         },
-        "dto.DagRunRequest": {
-            "type": "object",
-            "properties": {
-                "mode": {
-                    "type": "string"
-                },
-                "symbol": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.DagRunResponse": {
-            "type": "object",
-            "properties": {
-                "run_id": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "symbol": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.ErrorResponse": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "type": "string"
-                },
-                "run_id": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "symbol": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.ListArtifactsResponse": {
+        "response.ListArtifactsResponse": {
             "type": "object",
             "properties": {
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/dto.ArtifactItem"
+                        "$ref": "#/definitions/response.ArtifactItem"
                     }
                 }
             }
         },
-        "dto.ListDBBackupsResponse": {
+        "response.ListDBBackupsResponse": {
             "type": "object",
             "properties": {
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/dto.DBBackupItem"
+                        "$ref": "#/definitions/response.DBBackupItem"
                     }
                 }
             }
         },
-        "dto.PresignDBBackupResponse": {
+        "response.ListSymbolsResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/response.SymbolItem"
+                    }
+                }
+            }
+        },
+        "response.ListTicksResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/response.TickItem"
+                    }
+                }
+            }
+        },
+        "response.MarketdataInput": {
+            "type": "object",
+            "properties": {
+                "from": {
+                    "type": "string"
+                },
+                "symbol_code": {
+                    "type": "string"
+                },
+                "symbol_id": {
+                    "type": "integer"
+                },
+                "timeframe_code": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.PresignDBBackupResponse": {
             "type": "object",
             "properties": {
                 "backup_id": {
@@ -509,7 +1075,7 @@
                 }
             }
         },
-        "dto.PresignResponse": {
+        "response.PresignResponse": {
             "type": "object",
             "properties": {
                 "artifact_id": {
@@ -520,6 +1086,77 @@
                 },
                 "url": {
                     "type": "string"
+                }
+            }
+        },
+        "response.RunResponse": {
+            "type": "object",
+            "properties": {
+                "entrypoint": {
+                    "type": "string"
+                },
+                "marketdata": {
+                    "$ref": "#/definitions/response.MarketdataInput"
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "symbol": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.SymbolItem": {
+            "type": "object",
+            "properties": {
+                "base": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "pip_size_raw": {
+                    "type": "integer"
+                },
+                "price_scale": {
+                    "type": "integer"
+                },
+                "quote": {
+                    "type": "string"
+                },
+                "tick_size_raw": {
+                    "type": "integer"
+                }
+            }
+        },
+        "response.TickItem": {
+            "type": "object",
+            "properties": {
+                "ask_raw": {
+                    "type": "integer"
+                },
+                "bid_raw": {
+                    "type": "integer"
+                },
+                "symbol_id": {
+                    "type": "integer"
+                },
+                "time": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.UpsertTicksBulkResponse": {
+            "type": "object",
+            "properties": {
+                "upserted": {
+                    "type": "integer"
                 }
             }
         }

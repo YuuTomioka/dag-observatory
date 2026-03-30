@@ -2,8 +2,8 @@ package request
 
 type TickRequest struct {
 	Time string `json:"time" validate:"required"`
-	Bid  int    `json:"bid" validate:"required"`
-	Ask  int    `json:"ask" validate:"required"`
+	Bid  int64  `json:"bid" validate:"required"`
+	Ask  int64  `json:"ask" validate:"required"`
 }
 
 type PostTicksRequest struct {

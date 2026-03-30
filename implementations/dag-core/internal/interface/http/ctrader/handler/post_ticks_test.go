@@ -219,6 +219,41 @@ func TestPostTicksRejectsPriceScaleMismatch(t *testing.T) {
 	}
 }
 
+func TestPostTicksRejectsTickOutsideDay(t *testing.T) {
+	tickRepo := &fakeTickRepo{}
+	uc := ctraderusecase.PostTicksUsecase{
+		UnitOfWork: fakeUnitOfWork{
+			repos: fakeRepositories{
+				symbols: fakeSymbolRepo{
+					symbol: marketdata.Symbol{ID: 7, Code: "EURUSD", PriceScale: 5},
+				},
+				ticks: tickRepo,
+			},
+		},
+	}
+
+	h := NewPostTicksHandler(uc)
+	e := echo.New()
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/ctrader/ticks",
+		bytes.NewBufferString(`{"symbol":"EURUSD","price_scale":5,"day":"2026-03-29","batch_seq":0,"ticks":[{"time":"2026-03-30T00:00:00Z","bid":1,"ask":2}]}`),
+	)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	_ = h.PostTicks(c)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if len(tickRepo.seen) != 0 {
+		t.Fatalf("expected no tick writes when tick is outside day")
+	}
+}
+
 func gzipJSON(t *testing.T, payload any) *bytes.Reader {
 	t.Helper()
 

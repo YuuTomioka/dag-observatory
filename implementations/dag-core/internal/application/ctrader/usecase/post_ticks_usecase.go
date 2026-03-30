@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	marketdatarepository "dag-observatory/dag-core/internal/application/marketdata/repository"
 	"dag-observatory/dag-core/internal/domain/marketdata"
@@ -47,6 +48,14 @@ func (u *PostTicksUsecase) Execute(ctx context.Context, req PostTicksRequest) (P
 	if req.PriceScale < 0 || req.PriceScale > 18 {
 		return PostTicksResult{}, fmt.Errorf("%w: price_scale must be between 0 and 18", marketdatarepository.ErrInvalidArgument)
 	}
+	var dayUTC time.Time
+	if strings.TrimSpace(req.Day) != "" {
+		parsedDay, err := time.Parse("2006-01-02", req.Day)
+		if err != nil {
+			return PostTicksResult{}, fmt.Errorf("%w: day must be yyyy-mm-dd", marketdatarepository.ErrInvalidArgument)
+		}
+		dayUTC = parsedDay.UTC()
+	}
 	if len(req.Ticks) == 0 {
 		return PostTicksResult{}, fmt.Errorf("%w: ticks must not be empty", marketdatarepository.ErrInvalidArgument)
 	}
@@ -74,6 +83,18 @@ func (u *PostTicksUsecase) Execute(ctx context.Context, req PostTicksRequest) (P
 		for i, item := range req.Ticks {
 			if item.Time.IsZero() {
 				return fmt.Errorf("%w: ticks[%d].time is required", marketdatarepository.ErrInvalidArgument, i)
+			}
+			if !dayUTC.IsZero() {
+				ts := item.Time.Time().UTC()
+				if ts.Year() != dayUTC.Year() || ts.Month() != dayUTC.Month() || ts.Day() != dayUTC.Day() {
+					return fmt.Errorf(
+						"%w: ticks[%d].time=%s is outside day=%s",
+						marketdatarepository.ErrInvalidArgument,
+						i,
+						item.Time.String(),
+						req.Day,
+					)
+				}
 			}
 			ticks = append(ticks, marketdata.Tick{
 				SymbolID: symbol.ID,

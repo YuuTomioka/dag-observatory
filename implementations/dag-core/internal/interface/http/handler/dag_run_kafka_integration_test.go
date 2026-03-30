@@ -46,7 +46,7 @@ func TestHTTPToKafkaEnqueue(t *testing.T) {
 		Enqueuer: producer,
 	}
 	h := New(Dependencies{
-		AppLog:     applog.New("info", "stdout", nil),
+		AppLog:      applog.New("info", "stdout", nil),
 		RunWorkflow: runWF,
 	})
 

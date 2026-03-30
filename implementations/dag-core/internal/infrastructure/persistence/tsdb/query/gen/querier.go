@@ -12,10 +12,13 @@ import (
 
 type Querier interface {
 	BulkUpsertTicks(ctx context.Context, arg BulkUpsertTicksParams) error
+	BulkUpsertTimeframeBars(ctx context.Context, arg BulkUpsertTimeframeBarsParams) error
 	CreateSymbol(ctx context.Context, arg CreateSymbolParams) (Symbol, error)
+	DeleteTimeframeBarsBySymbolTimeframeAndRange(ctx context.Context, arg DeleteTimeframeBarsBySymbolTimeframeAndRangeParams) error
 	GetArtifactByID(ctx context.Context, artifactID pgtype.UUID) (Artifact, error)
 	GetDBBackupByID(ctx context.Context, backupID pgtype.UUID) (DbBackup, error)
 	GetLatestTickBySymbol(ctx context.Context, symbolID int64) (Tick, error)
+	GetLatestTimeframeBarBySymbolAndTimeframe(ctx context.Context, arg GetLatestTimeframeBarBySymbolAndTimeframeParams) (TimeframeBar, error)
 	GetSymbolByCode(ctx context.Context, code string) (Symbol, error)
 	GetSymbolByID(ctx context.Context, id int64) (Symbol, error)
 	InsertArtifact(ctx context.Context, arg InsertArtifactParams) error
@@ -31,6 +34,7 @@ type Querier interface {
 	ListTicksByRange(ctx context.Context, arg ListTicksByRangeParams) ([]Tick, error)
 	ListTicksBySymbolAndRange(ctx context.Context, arg ListTicksBySymbolAndRangeParams) ([]Tick, error)
 	ListTicksBySymbolsAndRange(ctx context.Context, arg ListTicksBySymbolsAndRangeParams) ([]Tick, error)
+	ListTimeframeBarsBySymbolTimeframeAndRange(ctx context.Context, arg ListTimeframeBarsBySymbolTimeframeAndRangeParams) ([]TimeframeBar, error)
 	MarkOutboxEventFailed(ctx context.Context, arg MarkOutboxEventFailedParams) error
 	MarkOutboxEventPublished(ctx context.Context, arg MarkOutboxEventPublishedParams) error
 	MarkUploadSessionExpired(ctx context.Context, uploadID pgtype.UUID) error

@@ -10,10 +10,10 @@ import (
 )
 
 type kafkaEventMessage struct {
-	EventID   string                  `json:"event_id"`
-	EventTime string                  `json:"event_time"`
-	Partition string                  `json:"partition"`
-	Type      string                  `json:"type"`
+	EventID   string                   `json:"event_id"`
+	EventTime string                   `json:"event_time"`
+	Partition string                   `json:"partition"`
+	Type      string                   `json:"type"`
 	Payload   []events.PayloadEnvelope `json:"payload,omitempty"`
 }
 

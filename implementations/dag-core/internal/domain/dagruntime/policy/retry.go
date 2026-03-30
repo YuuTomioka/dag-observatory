@@ -6,4 +6,3 @@ type RetryPolicy struct {
 	MaxAttempts int
 	Backoff     time.Duration
 }
-

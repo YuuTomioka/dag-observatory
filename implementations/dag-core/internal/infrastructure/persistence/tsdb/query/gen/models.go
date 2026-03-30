@@ -109,3 +109,18 @@ type Tick struct {
 	Bid      int64              `json:"bid"`
 	Ask      int64              `json:"ask"`
 }
+
+type TimeframeBar struct {
+	SymbolID      int64              `json:"symbol_id"`
+	TimeframeCode string             `json:"timeframe_code"`
+	OpenTime      pgtype.Timestamptz `json:"open_time"`
+	CloseTime     pgtype.Timestamptz `json:"close_time"`
+	Open          int64              `json:"open"`
+	High          int64              `json:"high"`
+	Low           int64              `json:"low"`
+	Close         int64              `json:"close"`
+	Volume        int64              `json:"volume"`
+	Source        string             `json:"source"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}

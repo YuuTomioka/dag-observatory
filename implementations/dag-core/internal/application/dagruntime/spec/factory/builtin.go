@@ -9,18 +9,32 @@ import (
 
 	"dag-observatory/dag-core/internal/application/dagruntime/spec"
 	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
+	marketdatarepository "dag-observatory/dag-core/internal/application/marketdata/repository"
 	"dag-observatory/dag-core/internal/domain/dagruntime/artifact"
 	"dag-observatory/dag-core/internal/domain/dagruntime/node"
 	"dag-observatory/dag-core/internal/domain/dagruntime/state"
 )
 
+type Dependencies struct {
+	MarketDataUnitOfWork marketdatarepository.UnitOfWork
+}
+
 func NewBuiltinRegistry() (*Registry, error) {
+	return NewBuiltinRegistryWithDependencies(Dependencies{})
+}
+
+func NewBuiltinRegistryWithDependencies(deps Dependencies) (*Registry, error) {
 	registry := NewRegistry()
 	factories := []NodeFactory{
 		&HeavyCalcFactory{},
 		&SMAFactory{},
 		&CrossDetectorFactory{},
 		&SignalMapperFactory{},
+	}
+	if deps.MarketDataUnitOfWork != nil {
+		factories = append(factories, &TimeframeBarBackfillFactory{
+			UnitOfWork: deps.MarketDataUnitOfWork,
+		})
 	}
 	for _, f := range factories {
 		if err := registry.Register(f); err != nil {
@@ -350,5 +364,28 @@ func requiredInt(config map[string]any, key string) (int, error) {
 		return int(v), nil
 	default:
 		return 0, fmt.Errorf("config.%s must be integer", key)
+	}
+}
+
+func optionalInt(config map[string]any, key string, defaultValue int) int {
+	if config == nil {
+		return defaultValue
+	}
+	raw, ok := config[key]
+	if !ok {
+		return defaultValue
+	}
+	switch v := raw.(type) {
+	case int:
+		return v
+	case int64:
+		return int(v)
+	case float64:
+		if math.Trunc(v) != v {
+			return defaultValue
+		}
+		return int(v)
+	default:
+		return defaultValue
 	}
 }

@@ -10,4 +10,3 @@ type Workflow struct {
 	Inputs []artifact.AnyKey
 	Nodes  []node.Node
 }
-

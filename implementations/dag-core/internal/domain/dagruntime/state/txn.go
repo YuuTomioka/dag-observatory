@@ -38,4 +38,3 @@ func MustGet[T any](txn Txn, key Key[T]) T {
 func StageWrite[T any](txn Txn, key Key[T], value T) {
 	txn.StageWrite(key, value)
 }
-

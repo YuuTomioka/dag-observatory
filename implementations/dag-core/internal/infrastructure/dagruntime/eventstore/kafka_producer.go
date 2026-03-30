@@ -51,9 +51,9 @@ func (p *KafkaProducer) Enqueue(ctx context.Context, event events.Event) error {
 	}
 	headers := kafkaHeadersFromCarrier(spanCtx)
 	return p.writer.WriteMessages(spanCtx, kafka.Message{
-		Key:   key,
-		Value: value,
-		Time:  event.EventTime,
+		Key:     key,
+		Value:   value,
+		Time:    event.EventTime,
 		Headers: headers,
 	})
 }

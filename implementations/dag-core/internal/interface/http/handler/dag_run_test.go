@@ -30,7 +30,7 @@ func TestDagRunHTTP(t *testing.T) {
 	uc := &usecase.RunWorkflow{Enqueuer: enqueuer}
 
 	h := New(Dependencies{
-		AppLog:     applog.New("info", "stdout", nil),
+		AppLog:      applog.New("info", "stdout", nil),
 		RunWorkflow: uc,
 	})
 

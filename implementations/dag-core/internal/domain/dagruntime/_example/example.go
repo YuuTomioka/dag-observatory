@@ -21,7 +21,7 @@ var (
 
 type NodeUpper struct{}
 
-func (n *NodeUpper) Name() string { return "example.upper" }
+func (n *NodeUpper) Name() string                { return "example.upper" }
 func (n *NodeUpper) Requires() []artifact.AnyKey { return []artifact.AnyKey{KeyInput} }
 func (n *NodeUpper) Provides() []artifact.AnyKey { return []artifact.AnyKey{KeyUpper} }
 func (n *NodeUpper) Reads() []state.AnyKey       { return nil }
@@ -40,7 +40,7 @@ type NodeCount struct {
 	Fail bool
 }
 
-func (n *NodeCount) Name() string { return "example.count" }
+func (n *NodeCount) Name() string                { return "example.count" }
 func (n *NodeCount) Requires() []artifact.AnyKey { return []artifact.AnyKey{KeyUpper} }
 func (n *NodeCount) Provides() []artifact.AnyKey { return []artifact.AnyKey{KeyCount} }
 func (n *NodeCount) Reads() []state.AnyKey       { return []state.AnyKey{StateCount} }
@@ -64,7 +64,7 @@ func (n *NodeCount) Run(ctx context.Context, av artifact.View, aw artifact.Write
 
 type NodeResult struct{}
 
-func (n *NodeResult) Name() string { return "example.result" }
+func (n *NodeResult) Name() string                { return "example.result" }
 func (n *NodeResult) Requires() []artifact.AnyKey { return []artifact.AnyKey{KeyUpper, KeyCount} }
 func (n *NodeResult) Provides() []artifact.AnyKey { return []artifact.AnyKey{KeyResult} }
 func (n *NodeResult) Reads() []state.AnyKey       { return nil }

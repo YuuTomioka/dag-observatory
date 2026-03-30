@@ -24,7 +24,7 @@ type eventNode struct {
 	failRuns    int
 }
 
-func (n *eventNode) Name() string { return "event.node" }
+func (n *eventNode) Name() string                { return "event.node" }
 func (n *eventNode) Requires() []artifact.AnyKey { return nil }
 func (n *eventNode) Provides() []artifact.AnyKey { return nil }
 func (n *eventNode) Reads() []state.AnyKey       { return nil }

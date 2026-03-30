@@ -6,4 +6,3 @@ type Policy struct {
 	DefaultTimeout time.Duration
 	DefaultRetry   RetryPolicy
 }
-

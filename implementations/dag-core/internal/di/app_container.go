@@ -27,15 +27,16 @@ func NewAppContainer() (*AppContainer, error) {
 		return nil, err
 	}
 
-	compiled, err := compileDefaultWorkflow(cfg)
+	marketData, err := NewMarketDataContainer(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	compiled, err := compileDefaultWorkflow(cfg, marketData)
 	if err != nil {
 		return nil, err
 	}
 	dagRuntime, err := NewDAGRuntimeContainer(cfg, otelc, compiled)
-	if err != nil {
-		return nil, err
-	}
-	marketData, err := NewMarketDataContainer(cfg)
 	if err != nil {
 		return nil, err
 	}

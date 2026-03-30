@@ -32,7 +32,7 @@ func NewEchoContainer(
 	appLog := applog.New(cfg.AppLogLevel, cfg.AppLogOutput, otelc.AppLogger)
 
 	if dagRuntime == nil {
-		compiled, err := compileDefaultWorkflow(cfg)
+		compiled, err := compileDefaultWorkflow(cfg, marketData)
 		if err != nil {
 			return nil, fmt.Errorf("dagruntime: compile default workflow: %w", err)
 		}

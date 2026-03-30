@@ -1,0 +1,13 @@
+name: dagruntime.marketdata_timeframe_bar_backfill
+version: v1
+inputs:
+  - marketdata.symbol_code
+  - marketdata.timeframe_code
+  - marketdata.from
+  - marketdata.to
+nodes:
+  - id: backfill
+    kind: marketdata_timeframe_bar_backfill
+    config:
+      mode: replace_range
+      chunk_size_bars: 1000

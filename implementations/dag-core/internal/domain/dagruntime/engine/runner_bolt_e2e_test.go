@@ -21,7 +21,7 @@ type writeStateNode struct {
 	value int
 }
 
-func (n *writeStateNode) Name() string { return "write.state" }
+func (n *writeStateNode) Name() string                { return "write.state" }
 func (n *writeStateNode) Requires() []artifact.AnyKey { return nil }
 func (n *writeStateNode) Provides() []artifact.AnyKey { return nil }
 func (n *writeStateNode) Reads() []state.AnyKey       { return nil }
@@ -40,7 +40,7 @@ type readStateNode struct {
 	value int
 }
 
-func (n *readStateNode) Name() string { return "read.state" }
+func (n *readStateNode) Name() string                { return "read.state" }
 func (n *readStateNode) Requires() []artifact.AnyKey { return nil }
 func (n *readStateNode) Provides() []artifact.AnyKey { return nil }
 func (n *readStateNode) Reads() []state.AnyKey       { return []state.AnyKey{n.key} }

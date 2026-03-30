@@ -11,4 +11,3 @@ type Recorder interface {
 	RecordNodeResult(ctx context.Context, result NodeResult)
 	RecordCycleResult(ctx context.Context, result CycleResult)
 }
-

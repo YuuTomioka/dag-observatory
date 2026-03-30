@@ -56,7 +56,7 @@ func (u UTCTime) Compare(other UTCTime) int {
 func (u UTCTime) Before(other UTCTime) bool { return u.Time().Before(other.Time()) }
 
 // After は u が other より後かを返す。
-func (u UTCTime) After(other UTCTime) bool  { return u.Time().After(other.Time()) }
+func (u UTCTime) After(other UTCTime) bool { return u.Time().After(other.Time()) }
 
 // Equal は同一インスタントかを返す（time.Time の == ではなく Equal 判定）。
 func (u UTCTime) Equal(other UTCTime) bool { return u.Time().Equal(other.Time()) }

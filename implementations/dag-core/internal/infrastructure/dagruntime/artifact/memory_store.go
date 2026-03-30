@@ -54,4 +54,3 @@ func (s *MemoryStore) Has(key domain.AnyKey) bool {
 func (s *MemoryStore) View() domain.View {
 	return s
 }
-

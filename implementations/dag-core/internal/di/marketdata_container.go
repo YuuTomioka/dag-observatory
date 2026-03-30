@@ -8,10 +8,11 @@ import (
 )
 
 type MarketDataContainer struct {
-	Client     *tsdb.Client
-	Symbols    apprepository.SymbolRepository
-	Ticks      apprepository.TickRepository
-	UnitOfWork apprepository.UnitOfWork
+	Client        *tsdb.Client
+	Symbols       apprepository.SymbolRepository
+	Ticks         apprepository.TickRepository
+	TimeframeBars apprepository.TimeframeBarRepository
+	UnitOfWork    apprepository.UnitOfWork
 
 	CreateSymbol              *marketdatausecase.CreateSymbol
 	GetSymbolByCode           *marketdatausecase.GetSymbolByCode
@@ -19,6 +20,9 @@ type MarketDataContainer struct {
 	UpsertTicks               *marketdatausecase.UpsertTicks
 	GetLatestTickBySymbol     *marketdatausecase.GetLatestTickBySymbol
 	ListTicksBySymbolAndRange *marketdatausecase.ListTicksBySymbolAndRange
+	BackfillTimeframeBars     *marketdatausecase.BackfillTimeframeBars
+	GetLatestTimeframeBar     *marketdatausecase.GetLatestTimeframeBarBySymbolAndTimeframe
+	ListTimeframeBars         *marketdatausecase.ListTimeframeBarsBySymbolTimeframeAndRange
 }
 
 func NewMarketDataContainer(cfg Config) (*MarketDataContainer, error) {
@@ -34,10 +38,11 @@ func NewMarketDataContainer(cfg Config) (*MarketDataContainer, error) {
 	uow := marketdatarepo.NewUnitOfWork(client)
 
 	return &MarketDataContainer{
-		Client:     client,
-		Symbols:    marketdatarepo.NewSymbolRepository(client),
-		Ticks:      marketdatarepo.NewTickRepository(client),
-		UnitOfWork: uow,
+		Client:        client,
+		Symbols:       marketdatarepo.NewSymbolRepository(client),
+		Ticks:         marketdatarepo.NewTickRepository(client),
+		TimeframeBars: marketdatarepo.NewTimeframeBarRepository(client),
+		UnitOfWork:    uow,
 		CreateSymbol: &marketdatausecase.CreateSymbol{
 			UnitOfWork: uow,
 		},
@@ -54,6 +59,15 @@ func NewMarketDataContainer(cfg Config) (*MarketDataContainer, error) {
 			UnitOfWork: uow,
 		},
 		ListTicksBySymbolAndRange: &marketdatausecase.ListTicksBySymbolAndRange{
+			UnitOfWork: uow,
+		},
+		BackfillTimeframeBars: &marketdatausecase.BackfillTimeframeBars{
+			UnitOfWork: uow,
+		},
+		GetLatestTimeframeBar: &marketdatausecase.GetLatestTimeframeBarBySymbolAndTimeframe{
+			UnitOfWork: uow,
+		},
+		ListTimeframeBars: &marketdatausecase.ListTimeframeBarsBySymbolTimeframeAndRange{
 			UnitOfWork: uow,
 		},
 	}, nil

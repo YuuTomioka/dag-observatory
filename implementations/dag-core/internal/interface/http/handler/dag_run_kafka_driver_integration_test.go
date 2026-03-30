@@ -43,7 +43,7 @@ func TestHTTPToKafkaSmoke(t *testing.T) {
 
 	runWF := &usecase.RunWorkflow{Enqueuer: producer}
 	h := New(Dependencies{
-		AppLog:     applog.New("info", "stdout", nil),
+		AppLog:      applog.New("info", "stdout", nil),
 		RunWorkflow: runWF,
 	})
 

@@ -13,7 +13,6 @@ func NewNoopRecorder() *NoopRecorder {
 	return &NoopRecorder{}
 }
 
-func (r *NoopRecorder) RecordEvent(ctx context.Context, event events.Event)          {}
-func (r *NoopRecorder) RecordNodeResult(ctx context.Context, result port.NodeResult) {}
+func (r *NoopRecorder) RecordEvent(ctx context.Context, event events.Event)            {}
+func (r *NoopRecorder) RecordNodeResult(ctx context.Context, result port.NodeResult)   {}
 func (r *NoopRecorder) RecordCycleResult(ctx context.Context, result port.CycleResult) {}
-

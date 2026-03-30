@@ -19,10 +19,14 @@ import (
 type fakeRepositories struct {
 	symbols marketdatarepository.SymbolRepository
 	ticks   marketdatarepository.TickRepository
+	bars    marketdatarepository.TimeframeBarRepository
 }
 
 func (r fakeRepositories) Symbols() marketdatarepository.SymbolRepository { return r.symbols }
 func (r fakeRepositories) Ticks() marketdatarepository.TickRepository     { return r.ticks }
+func (r fakeRepositories) TimeframeBars() marketdatarepository.TimeframeBarRepository {
+	return r.bars
+}
 
 type fakeUnitOfWork struct {
 	repos marketdatarepository.Repositories
@@ -63,6 +67,40 @@ func (r fakeSymbolRepo) List(ctx context.Context) ([]marketdata.Symbol, error) {
 type fakeTickRepo struct {
 	seen []marketdata.Tick
 	err  error
+}
+
+type fakeTimeframeBarRepo struct{}
+
+func (r fakeTimeframeBarRepo) BulkUpsert(ctx context.Context, bars []marketdata.TimeframeBar) error {
+	return nil
+}
+
+func (r fakeTimeframeBarRepo) DeleteBySymbolTimeframeAndRange(
+	ctx context.Context,
+	symbolID marketdata.SymbolID,
+	timeframeCode marketdata.TimeframeCode,
+	from marketdata.UTCTime,
+	to marketdata.UTCTime,
+) error {
+	return nil
+}
+
+func (r fakeTimeframeBarRepo) GetLatestBySymbolAndTimeframe(
+	ctx context.Context,
+	symbolID marketdata.SymbolID,
+	timeframeCode marketdata.TimeframeCode,
+) (marketdata.TimeframeBar, error) {
+	return marketdata.TimeframeBar{}, nil
+}
+
+func (r fakeTimeframeBarRepo) ListBySymbolTimeframeAndRange(
+	ctx context.Context,
+	symbolID marketdata.SymbolID,
+	timeframeCode marketdata.TimeframeCode,
+	from marketdata.UTCTime,
+	to marketdata.UTCTime,
+) ([]marketdata.TimeframeBar, error) {
+	return nil, nil
 }
 
 func (r *fakeTickRepo) Insert(ctx context.Context, tick marketdata.Tick) error { return nil }

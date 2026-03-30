@@ -83,4 +83,3 @@ func DecodePayload[T any](key PayloadKey[T], payload PayloadEnvelope) (T, error)
 	}
 	return codec.Decode(payload.Data)
 }
-

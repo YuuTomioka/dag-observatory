@@ -17,4 +17,3 @@ func (c *RealClock) Now() time.Time {
 }
 
 var _ port.Clock = (*RealClock)(nil)
-

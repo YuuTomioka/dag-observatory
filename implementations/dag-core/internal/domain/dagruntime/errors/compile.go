@@ -16,4 +16,3 @@ const (
 	CompileErrUnresolvedRequire      = "unresolved_require"
 	CompileErrCycleDetected          = "cycle_detected"
 )
-

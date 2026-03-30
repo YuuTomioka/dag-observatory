@@ -3,6 +3,7 @@ package usecase
 import (
 	"dag-observatory/dag-core/internal/domain/dagruntime/artifact"
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
+	"dag-observatory/dag-core/internal/domain/marketdata"
 )
 
 var (
@@ -48,7 +49,27 @@ var (
 		StableID: "event:input.market.bars.v1",
 	}
 
-	InputKeySymbol     = artifact.Key[string]{Name: "symbol", StableID: "artifact:input.symbol.v1"}
-	InputKeyMode       = artifact.Key[string]{Name: "mode", StableID: "artifact:input.mode.v1"}
-	InputKeyMarketBars = artifact.Key[[]float64]{Name: "market.bars", StableID: "artifact:input.market.bars.v1"}
+	InputKeySymbol             = artifact.Key[string]{Name: "symbol", StableID: "artifact:input.symbol.v1"}
+	InputKeyMode               = artifact.Key[string]{Name: "mode", StableID: "artifact:input.mode.v1"}
+	InputKeyMarketBars         = artifact.Key[[]float64]{Name: "market.bars", StableID: "artifact:input.market.bars.v1"}
+	InputKeyMarketdataSymbolID = artifact.Key[int64]{
+		Name:     "marketdata.symbol_id",
+		StableID: "artifact:input.marketdata.symbol_id.v1",
+	}
+	InputKeyMarketdataSymbolCode = artifact.Key[string]{
+		Name:     "marketdata.symbol_code",
+		StableID: "artifact:input.marketdata.symbol_code.v1",
+	}
+	InputKeyMarketdataTimeframeCode = artifact.Key[string]{
+		Name:     "marketdata.timeframe_code",
+		StableID: "artifact:input.marketdata.timeframe_code.v1",
+	}
+	InputKeyMarketdataFrom = artifact.Key[marketdata.UTCTime]{
+		Name:     "marketdata.from",
+		StableID: "artifact:input.marketdata.from.v1",
+	}
+	InputKeyMarketdataTo = artifact.Key[marketdata.UTCTime]{
+		Name:     "marketdata.to",
+		StableID: "artifact:input.marketdata.to.v1",
+	}
 )

@@ -17,16 +17,20 @@ import (
 
 const defaultWorkflowSpecPath = "workflows/default.yaml"
 
-func compileDefaultWorkflow(cfg Config) (pipeline.Compiled, error) {
+func compileDefaultWorkflow(cfg Config, marketData *MarketDataContainer) (pipeline.Compiled, error) {
 	specPath := cfg.WorkflowSpecPath
 	if specPath == "" {
 		specPath = defaultWorkflowSpecPath
 	}
-	return compileWorkflowFromSpecPath(specPath)
+	return compileWorkflowFromSpecPath(specPath, marketData)
 }
 
-func compileWorkflowFromSpecPath(specPath string) (pipeline.Compiled, error) {
-	registry, err := factory.NewBuiltinRegistry()
+func compileWorkflowFromSpecPath(specPath string, marketData *MarketDataContainer) (pipeline.Compiled, error) {
+	var deps factory.Dependencies
+	if marketData != nil {
+		deps.MarketDataUnitOfWork = marketData.UnitOfWork
+	}
+	registry, err := factory.NewBuiltinRegistryWithDependencies(deps)
 	if err != nil {
 		return pipeline.Compiled{}, err
 	}
@@ -47,10 +51,15 @@ func compileWorkflowFromSpecPath(specPath string) (pipeline.Compiled, error) {
 	wf, err := adapter.ToWorkflow(
 		wfSpec,
 		map[string]artifact.AnyKey{
-			"symbol":        usecase.InputKeySymbol,
-			"mode":          usecase.InputKeyMode,
-			"market.symbol": usecase.InputKeySymbol,
-			"market.bars":   usecase.InputKeyMarketBars,
+			"symbol":                    usecase.InputKeySymbol,
+			"mode":                      usecase.InputKeyMode,
+			"market.symbol":             usecase.InputKeySymbol,
+			"market.bars":               usecase.InputKeyMarketBars,
+			"marketdata.symbol_id":      usecase.InputKeyMarketdataSymbolID,
+			"marketdata.symbol_code":    usecase.InputKeyMarketdataSymbolCode,
+			"marketdata.timeframe_code": usecase.InputKeyMarketdataTimeframeCode,
+			"marketdata.from":           usecase.InputKeyMarketdataFrom,
+			"marketdata.to":             usecase.InputKeyMarketdataTo,
 		},
 		registry,
 	)

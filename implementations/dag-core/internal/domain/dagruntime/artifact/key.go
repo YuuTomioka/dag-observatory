@@ -30,4 +30,3 @@ func (k Key[T]) String() string {
 	}
 	return fmt.Sprintf("%s:%s", k.StableID, k.Name)
 }
-

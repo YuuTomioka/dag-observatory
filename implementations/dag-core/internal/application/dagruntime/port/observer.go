@@ -30,17 +30,17 @@ type CycleResult struct {
 }
 
 type NodeInfo struct {
-	RunID    string
-	NodeName string
+	RunID       string
+	NodeName    string
 	QueueWaitMS int64
 }
 
 type NodeResult struct {
-	RunID    string
-	NodeName string
-	Duration time.Duration
-	Err      error
-	RetryCount int64
+	RunID       string
+	NodeName    string
+	Duration    time.Duration
+	Err         error
+	RetryCount  int64
 	QueueWaitMS int64
 }
 

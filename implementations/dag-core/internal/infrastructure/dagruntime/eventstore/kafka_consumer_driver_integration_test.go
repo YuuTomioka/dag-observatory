@@ -6,14 +6,14 @@ import (
 	"testing"
 	"time"
 
+	"dag-observatory/dag-core/internal/domain/dagruntime/driver"
 	"dag-observatory/dag-core/internal/domain/dagruntime/engine"
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
 	"dag-observatory/dag-core/internal/domain/dagruntime/pipeline"
 	"dag-observatory/dag-core/internal/domain/dagruntime/policy"
 	"dag-observatory/dag-core/internal/domain/dagruntime/state"
-	stateinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/state"
 	artifactinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/artifact"
-	"dag-observatory/dag-core/internal/domain/dagruntime/driver"
+	stateinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/state"
 )
 
 func TestKafkaConsumerToDriver(t *testing.T) {

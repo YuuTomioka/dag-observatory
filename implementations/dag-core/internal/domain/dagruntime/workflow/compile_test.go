@@ -16,7 +16,7 @@ type compileNode struct {
 	wr  []state.AnyKey
 }
 
-func (n *compileNode) Name() string { return "compile.node" }
+func (n *compileNode) Name() string                { return "compile.node" }
 func (n *compileNode) Requires() []artifact.AnyKey { return n.req }
 func (n *compileNode) Provides() []artifact.AnyKey { return n.pro }
 func (n *compileNode) Reads() []state.AnyKey       { return n.rd }

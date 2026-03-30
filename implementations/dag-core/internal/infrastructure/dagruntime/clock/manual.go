@@ -35,4 +35,3 @@ func (c *ManualClock) Advance(d time.Duration) {
 }
 
 var _ port.Clock = (*ManualClock)(nil)
-

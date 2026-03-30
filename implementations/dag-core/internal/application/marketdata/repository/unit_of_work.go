@@ -5,6 +5,7 @@ import "context"
 type Repositories interface {
 	Symbols() SymbolRepository
 	Ticks() TickRepository
+	TimeframeBars() TimeframeBarRepository
 }
 
 type UnitOfWork interface {

@@ -8,5 +8,5 @@ import (
 
 func Register(e *echo.Echo, h *artifactshandler.Handler) {
 	e.GET("/workflow-runs/:workflow_run_id/artifacts", h.ListArtifactsByWorkflow)
-	e.POST("/artifacts/:artifact_id:presign-download", h.PresignArtifact)
+	e.POST("/artifacts/:artifact_id\\:presign-download", h.PresignArtifact)
 }

@@ -6,8 +6,24 @@ inputs:
   - marketdata.from
   - marketdata.to
 nodes:
-  - id: backfill
-    kind: marketdata_timeframe_bar_backfill
+  - id: resolve
+    kind: marketdata_resolve_symbol
+  - id: plan
+    kind: marketdata_plan_windows
     config:
-      mode: replace_range
+      resolve_node_id: resolve
       chunk_size_bars: 1000
+  - id: load
+    kind: marketdata_load_ticks_for_chunk
+    config:
+      plan_node_id: plan
+  - id: aggregate
+    kind: marketdata_aggregate_timeframe_bars
+    config:
+      load_node_id: load
+  - id: persist
+    kind: marketdata_persist_timeframe_bars
+    config:
+      plan_node_id: plan
+      aggregate_node_id: aggregate
+      mode: replace_range

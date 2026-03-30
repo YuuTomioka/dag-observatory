@@ -77,8 +77,8 @@ func TestCompileMarketdataBackfillWorkflowFromYAML(t *testing.T) {
 	if compiled.Name != "dagruntime.marketdata_timeframe_bar_backfill" {
 		t.Fatalf("expected workflow name dagruntime.marketdata_timeframe_bar_backfill, got %q", compiled.Name)
 	}
-	if len(compiled.Nodes) != 1 {
-		t.Fatalf("expected one node, got %d", len(compiled.Nodes))
+	if len(compiled.Nodes) != 5 {
+		t.Fatalf("expected five nodes, got %d", len(compiled.Nodes))
 	}
 	if len(compiled.Inputs) != 4 {
 		t.Fatalf("expected four inputs, got %d", len(compiled.Inputs))

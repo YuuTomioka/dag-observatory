@@ -200,3 +200,51 @@ func TestBackfillTimeframeBarsReplaceRange(t *testing.T) {
 		t.Fatalf("expected first bar volume=2, got %d", got)
 	}
 }
+
+func TestBuildBackfillChunksW1AcrossBoundary(t *testing.T) {
+	t.Parallel()
+
+	from := marketdata.MustParseUTCTime("2026-03-20T22:00:00Z")
+	to := marketdata.MustParseUTCTime("2026-04-03T22:00:00Z")
+
+	chunks := buildBackfillChunks(marketdata.TimeframeW1, from, to, 1)
+	if len(chunks) != 2 {
+		t.Fatalf("expected 2 chunks, got %d", len(chunks))
+	}
+	if !chunks[0].From.Equal(from) {
+		t.Fatalf("unexpected first chunk from: got=%s want=%s", chunks[0].From, from)
+	}
+	if want := marketdata.MustParseUTCTime("2026-03-27T22:00:00Z"); !chunks[0].To.Equal(want) {
+		t.Fatalf("unexpected first chunk to: got=%s want=%s", chunks[0].To, want)
+	}
+	if want := marketdata.MustParseUTCTime("2026-03-27T22:00:00Z"); !chunks[1].From.Equal(want) {
+		t.Fatalf("unexpected second chunk from: got=%s want=%s", chunks[1].From, want)
+	}
+	if !chunks[1].To.Equal(to) {
+		t.Fatalf("unexpected second chunk to: got=%s want=%s", chunks[1].To, to)
+	}
+}
+
+func TestBuildBackfillChunksMN1AcrossBoundary(t *testing.T) {
+	t.Parallel()
+
+	from := marketdata.MustParseUTCTime("2026-02-28T22:00:00Z")
+	to := marketdata.MustParseUTCTime("2026-04-30T22:00:00Z")
+
+	chunks := buildBackfillChunks(marketdata.TimeframeMN1, from, to, 1)
+	if len(chunks) != 2 {
+		t.Fatalf("expected 2 chunks, got %d", len(chunks))
+	}
+	if !chunks[0].From.Equal(from) {
+		t.Fatalf("unexpected first chunk from: got=%s want=%s", chunks[0].From, from)
+	}
+	if want := marketdata.MustParseUTCTime("2026-03-31T22:00:00Z"); !chunks[0].To.Equal(want) {
+		t.Fatalf("unexpected first chunk to: got=%s want=%s", chunks[0].To, want)
+	}
+	if want := marketdata.MustParseUTCTime("2026-03-31T22:00:00Z"); !chunks[1].From.Equal(want) {
+		t.Fatalf("unexpected second chunk from: got=%s want=%s", chunks[1].From, want)
+	}
+	if !chunks[1].To.Equal(to) {
+		t.Fatalf("unexpected second chunk to: got=%s want=%s", chunks[1].To, to)
+	}
+}

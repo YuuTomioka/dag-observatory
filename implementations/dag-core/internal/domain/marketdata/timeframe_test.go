@@ -98,6 +98,46 @@ func TestTimeframeMN1Window_BoundaryAtFirstDay0700JST(t *testing.T) {
 	}
 }
 
+func TestTimeframeW1BackfillRange_ExpandsToWeekWindow(t *testing.T) {
+	from := MustParseUTCTime("2026-03-27T21:59:59Z") // 2026-03-28 06:59:59 JST
+	to := MustParseUTCTime("2026-04-03T22:00:00Z")   // next weekly boundary
+
+	open, close, err := TimeframeW1.BackfillRange(from, to)
+	if err != nil {
+		t.Fatalf("BackfillRange returned error: %v", err)
+	}
+
+	wantOpen := time.Date(2026, 3, 20, 22, 0, 0, 0, time.UTC)
+	wantClose := time.Date(2026, 4, 3, 22, 0, 0, 0, time.UTC)
+
+	if !open.Time().Equal(wantOpen) {
+		t.Fatalf("open mismatch: got=%s want=%s", open.Time().UTC(), wantOpen)
+	}
+	if !close.Time().Equal(wantClose) {
+		t.Fatalf("close mismatch: got=%s want=%s", close.Time().UTC(), wantClose)
+	}
+}
+
+func TestTimeframeMN1BackfillRange_ExpandsAcrossMonthBoundary(t *testing.T) {
+	from := MustParseUTCTime("2026-03-31T21:59:59Z") // 2026-04-01 06:59:59 JST
+	to := MustParseUTCTime("2026-04-01T22:00:00Z")   // next monthly window
+
+	open, close, err := TimeframeMN1.BackfillRange(from, to)
+	if err != nil {
+		t.Fatalf("BackfillRange returned error: %v", err)
+	}
+
+	wantOpen := time.Date(2026, 2, 28, 22, 0, 0, 0, time.UTC)
+	wantClose := time.Date(2026, 4, 30, 22, 0, 0, 0, time.UTC)
+
+	if !open.Time().Equal(wantOpen) {
+		t.Fatalf("open mismatch: got=%s want=%s", open.Time().UTC(), wantOpen)
+	}
+	if !close.Time().Equal(wantClose) {
+		t.Fatalf("close mismatch: got=%s want=%s", close.Time().UTC(), wantClose)
+	}
+}
+
 // TestTimeframeCodeDefPanicsOnUnknownCode は未定義コード参照時に panic することを検証する。
 func TestTimeframeCodeDefPanicsOnUnknownCode(t *testing.T) {
 	assertPanics(t, func() {

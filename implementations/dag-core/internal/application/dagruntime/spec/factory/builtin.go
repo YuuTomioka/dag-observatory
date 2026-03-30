@@ -32,9 +32,14 @@ func NewBuiltinRegistryWithDependencies(deps Dependencies) (*Registry, error) {
 		&SignalMapperFactory{},
 	}
 	if deps.MarketDataUnitOfWork != nil {
-		factories = append(factories, &TimeframeBarBackfillFactory{
-			UnitOfWork: deps.MarketDataUnitOfWork,
-		})
+		factories = append(factories,
+			&TimeframeBarBackfillFactory{UnitOfWork: deps.MarketDataUnitOfWork},
+			&ResolveSymbolFactory{UnitOfWork: deps.MarketDataUnitOfWork},
+			&PlanWindowsFactory{},
+			&LoadTicksForChunkFactory{UnitOfWork: deps.MarketDataUnitOfWork},
+			&AggregateTimeframeBarsFactory{},
+			&PersistTimeframeBarsFactory{UnitOfWork: deps.MarketDataUnitOfWork},
+		)
 	}
 	for _, f := range factories {
 		if err := registry.Register(f); err != nil {

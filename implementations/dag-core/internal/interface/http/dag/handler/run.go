@@ -17,7 +17,7 @@ import (
 
 // DagRun
 // @Summary Run workflow generically
-// @Description Triggers the configured workflow using generic runtime input. Prefer feature-local workflow endpoints when a dedicated endpoint exists.
+// @Description Triggers the configured workflow using generic runtime input. Prefer feature-local workflow endpoints when a dedicated endpoint exists and use this endpoint for runtime-level execution.
 // @Tags dag
 // @Accept json
 // @Produce json

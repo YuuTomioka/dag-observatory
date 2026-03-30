@@ -15,7 +15,7 @@ import (
 
 // BackfillTimeframeBars
 // @Summary Backfill timeframe bars directly
-// @Description Rebuilds timeframe bars immediately and returns aggregated bar counts for the requested symbol and range
+// @Description Rebuilds timeframe bars immediately and returns aggregated bar counts for the requested symbol and range. Use this when the caller needs the backfill result itself.
 // @Tags marketdata
 // @Accept json
 // @Produce json
@@ -70,7 +70,7 @@ func (h *Handlers) BackfillTimeframeBars(c echo.Context) error {
 
 // BackfillTimeframeBarsWorkflow
 // @Summary Trigger timeframe bar backfill workflow
-// @Description Enqueues or runs the configured marketdata backfill workflow and returns workflow run information instead of backfill aggregation counts
+// @Description Enqueues or runs the configured marketdata backfill workflow and returns workflow run information instead of backfill aggregation counts. Use this when the caller wants workflow execution semantics under the marketdata feature.
 // @Tags marketdata
 // @Accept json
 // @Produce json

@@ -95,7 +95,7 @@ const docTemplate = `{
         },
         "/dag/run": {
             "post": {
-                "description": "Triggers the configured workflow using generic runtime input. Prefer feature-local workflow endpoints when a dedicated endpoint exists.",
+                "description": "Triggers the configured workflow using generic runtime input. Prefer feature-local workflow endpoints when a dedicated endpoint exists and use this endpoint for runtime-level execution.",
                 "consumes": [
                     "application/json"
                 ],
@@ -605,7 +605,7 @@ const docTemplate = `{
         },
         "/marketdata/timeframe-bars:backfill": {
             "post": {
-                "description": "Rebuilds timeframe bars immediately and returns aggregated bar counts for the requested symbol and range",
+                "description": "Rebuilds timeframe bars immediately and returns aggregated bar counts for the requested symbol and range. Use this when the caller needs the backfill result itself.",
                 "consumes": [
                     "application/json"
                 ],
@@ -669,7 +669,7 @@ const docTemplate = `{
         },
         "/marketdata/timeframe-bars:backfill-workflow": {
             "post": {
-                "description": "Enqueues or runs the configured marketdata backfill workflow and returns workflow run information instead of backfill aggregation counts",
+                "description": "Enqueues or runs the configured marketdata backfill workflow and returns workflow run information instead of backfill aggregation counts. Use this when the caller wants workflow execution semantics under the marketdata feature.",
                 "consumes": [
                     "application/json"
                 ],
@@ -798,7 +798,37 @@ const docTemplate = `{
             }
         },
         "request.BackfillTimeframeBarsRequest": {
-            "type": "object"
+            "type": "object",
+            "properties": {
+                "chunk_size_bars": {
+                    "type": "integer",
+                    "example": 1000
+                },
+                "from": {
+                    "type": "string",
+                    "example": "2026-03-01T00:00:00Z"
+                },
+                "mode": {
+                    "type": "string",
+                    "example": "replace_range"
+                },
+                "symbol_code": {
+                    "type": "string",
+                    "example": "USDJPY"
+                },
+                "symbol_id": {
+                    "type": "integer",
+                    "example": 7
+                },
+                "timeframe_code": {
+                    "type": "string",
+                    "example": "M1"
+                },
+                "to": {
+                    "type": "string",
+                    "example": "2026-03-01T02:00:00Z"
+                }
+            }
         },
         "request.CreateSymbolRequest": {
             "type": "object",
@@ -823,8 +853,52 @@ const docTemplate = `{
                 }
             }
         },
+        "request.MarketdataInput": {
+            "type": "object",
+            "properties": {
+                "from": {
+                    "type": "string",
+                    "example": "2026-03-01T00:00:00Z"
+                },
+                "symbol_code": {
+                    "type": "string",
+                    "example": "USDJPY"
+                },
+                "symbol_id": {
+                    "type": "integer",
+                    "example": 7
+                },
+                "timeframe_code": {
+                    "type": "string",
+                    "example": "M1"
+                },
+                "to": {
+                    "type": "string",
+                    "example": "2026-03-01T02:00:00Z"
+                }
+            }
+        },
         "request.RunRequest": {
-            "type": "object"
+            "type": "object",
+            "properties": {
+                "bars": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "marketdata": {
+                    "$ref": "#/definitions/request.MarketdataInput"
+                },
+                "mode": {
+                    "type": "string",
+                    "example": "normal"
+                },
+                "symbol": {
+                    "type": "string",
+                    "example": "USDJPY"
+                }
+            }
         },
         "request.TickItem": {
             "type": "object",
@@ -897,28 +971,36 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "bar_count": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 120
                 },
                 "chunk_count": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 2
                 },
                 "entrypoint": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "direct"
                 },
                 "from": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-03-01T00:00:00Z"
                 },
                 "status": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "completed"
                 },
                 "symbol_id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 7
                 },
                 "timeframe_code": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "M1"
                 },
                 "to": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-03-01T02:00:00Z"
                 }
             }
         },
@@ -926,19 +1008,23 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "entrypoint": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "workflow"
                 },
                 "marketdata": {
                     "$ref": "#/definitions/response.BackfillWorkflowInput"
                 },
                 "run_id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "7c0f8eb6-99f1-4d79-bf4c-e1a7ca3e5f76"
                 },
                 "status": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "enqueued"
                 },
                 "symbol": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "USDJPY"
                 }
             }
         },
@@ -946,19 +1032,24 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "from": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-03-01T00:00:00Z"
                 },
                 "symbol_code": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "USDJPY"
                 },
                 "symbol_id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 7
                 },
                 "timeframe_code": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "M1"
                 },
                 "to": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-03-01T02:00:00Z"
                 }
             }
         },
@@ -1052,19 +1143,24 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "from": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-03-01T00:00:00Z"
                 },
                 "symbol_code": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "USDJPY"
                 },
                 "symbol_id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 7
                 },
                 "timeframe_code": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "M1"
                 },
                 "to": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2026-03-01T02:00:00Z"
                 }
             }
         },
@@ -1100,19 +1196,23 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "entrypoint": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "workflow"
                 },
                 "marketdata": {
                     "$ref": "#/definitions/response.MarketdataInput"
                 },
                 "run_id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "7c0f8eb6-99f1-4d79-bf4c-e1a7ca3e5f76"
                 },
                 "status": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "enqueued"
                 },
                 "symbol": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "USDJPY"
                 }
             }
         },

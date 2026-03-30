@@ -21,6 +21,20 @@ This scenario will describe the most representative flow of this parent reposito
 5. the runtime consumes the result events and advances state
 6. telemetry and time-series data make the run observable
 
+## HTTP Entrypoint Guidance
+
+When both feature-local and generic workflow entrypoints exist, the recommended flow is:
+
+1. use the feature-local direct endpoint when the caller needs immediate domain results
+2. use the feature-local workflow endpoint when the caller needs workflow execution under the feature namespace
+3. use the generic workflow endpoint only when no feature-local workflow entrypoint exists or when the caller is intentionally operating at the runtime level
+
+For the current marketdata timeframe-bar backfill flow this means:
+
+- `POST /marketdata/timeframe-bars:backfill` is the primary direct execution entrypoint
+- `POST /marketdata/timeframe-bars:backfill-workflow` is the primary workflow execution entrypoint
+- `POST /dag/run` is a generic runtime entrypoint and is not the recommended first choice for marketdata backfill
+
 ## Smoke Test Shape
 
 The representative scenario should be verifiable across multiple execution modes.

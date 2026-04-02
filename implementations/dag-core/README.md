@@ -44,7 +44,12 @@ The current Go implementation expresses the repository structure through:
 ## Workflow Specs (YAML)
 
 - Workflow specs are stored under `implementations/dag-core/workflows/`.
-- Current examples are `default.yaml` and `sma_cross_signal.yaml`.
+- Representative workflows:
+  - `default.yaml` (smoke-test default)
+  - `sma_cross_signal.yaml` (basic signal sample)
+  - `breakout_long_v0.yaml` (breakout v0 baseline)
+  - `breakout_long_execution_position_minimal.yaml` (submit + position snapshot minimal set)
+  - `breakout_long_v1_extended.yaml` (extended breakout pipeline)
 - The compile path is `YAML -> WorkflowSpec -> validator -> factory registry -> adapter -> workflow.Compile`.
 - Node `kind` must be registered in the builtin registry.
 - Supported spec version is currently `v1`.
@@ -52,8 +57,11 @@ The current Go implementation expresses the repository structure through:
 ## Runtime Workflow Selection
 
 - `DAGRUNTIME_WORKFLOW_SPEC_PATH` selects which workflow YAML to load at startup.
-- Default value is `workflows/default.yaml`.
-- Example: `DAGRUNTIME_WORKFLOW_SPEC_PATH=workflows/sma_cross_signal.yaml`.
+- Default value is `workflows/default.yaml` (smoke-test workflow).
+- Strategy run example:
+  - `DAGRUNTIME_WORKFLOW_SPEC_PATH=workflows/breakout_long_execution_position_minimal.yaml`
+- Extended strategy run example:
+  - `DAGRUNTIME_WORKFLOW_SPEC_PATH=workflows/breakout_long_v1_extended.yaml`
 
 ## HTTP Input Notes
 

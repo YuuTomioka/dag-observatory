@@ -1,3 +1,6 @@
+# PURPOSE:
+# - Breakout v0 baseline workflow.
+# - Focuses on signal/risk/observability flow without real market execution nodes.
 name: dagruntime.breakout_long_v0
 version: v1
 inputs:

@@ -1,3 +1,6 @@
+# NOTE:
+# - This workflow is intentionally minimal and is kept as a smoke-test default.
+# - For algotrade strategy runs, set DAGRUNTIME_WORKFLOW_SPEC_PATH to a breakout workflow.
 name: dagruntime.default
 version: v1
 inputs:

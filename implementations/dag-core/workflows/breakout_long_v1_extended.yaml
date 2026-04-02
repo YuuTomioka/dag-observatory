@@ -1,3 +1,6 @@
+# PURPOSE:
+# - Extended breakout workflow with additional filters, risk, execution, and position-management nodes.
+# - Intended for richer strategy validation beyond v0/minimal variants.
 name: dagruntime.breakout_long_v1_extended
 version: v1
 inputs:

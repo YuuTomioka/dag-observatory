@@ -1,3 +1,6 @@
+# PURPOSE:
+# - Minimal execution + position workflow for breakout long.
+# - Includes market-order submit and position snapshot load, but excludes fill confirmation in the same workflow.
 name: dagruntime.breakout_long_execution_position_minimal
 version: v1
 inputs:

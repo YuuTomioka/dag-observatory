@@ -33,6 +33,7 @@ func TestNewBuiltinRegistryRegistersKinds(t *testing.T) {
 		"feature_session_state",
 		"feature_higher_tf_trend",
 		"signal_breakout_long",
+		"signal_breakout_short",
 		"signal_exit_basic",
 		"filter_session",
 		"filter_spread",

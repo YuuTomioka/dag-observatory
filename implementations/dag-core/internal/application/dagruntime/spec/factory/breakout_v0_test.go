@@ -213,6 +213,20 @@ func TestSignalBreakoutLongFactoryBuildRequiresRangeNodeID(t *testing.T) {
 	}
 }
 
+func TestSignalBreakoutShortFactoryBuildRequiresRangeNodeID(t *testing.T) {
+	t.Parallel()
+
+	factory := &SignalBreakoutShortFactory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:     "breakout_short",
+		Kind:   "signal_breakout_short",
+		Config: map[string]any{},
+	})
+	if err == nil {
+		t.Fatal("expected validation error for missing range_node_id")
+	}
+}
+
 func TestSignalExitBasicFactoryBuildRequiresDependencies(t *testing.T) {
 	t.Parallel()
 
@@ -698,6 +712,83 @@ func TestFeatureATRRangeHighAndBreakoutRun(t *testing.T) {
 	}
 	if got := artifact.MustGet(view, signalBreakoutLongOutputKey("breakout")); !got.Triggered {
 		t.Fatal("expected breakout signal true")
+	}
+}
+
+func TestFeatureRangeLowAndBreakoutShortRun(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+
+	rangeLowNode, err := registry.Build(spec.NodeSpec{
+		ID:   "range_low",
+		Kind: "feature_range_low",
+		Config: map[string]any{
+			"window": 3,
+		},
+	})
+	if err != nil {
+		t.Fatalf("build range low: %v", err)
+	}
+	breakoutShortNode, err := registry.Build(spec.NodeSpec{
+		ID:   "breakout_short",
+		Kind: "signal_breakout_short",
+		Config: map[string]any{
+			"range_node_id": "range_low",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build breakout short: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+		{
+			Open:  marketdata.NewPriceFromRaw(1000),
+			High:  marketdata.NewPriceFromRaw(1005),
+			Low:   marketdata.NewPriceFromRaw(998),
+			Close: marketdata.NewPriceFromRaw(1002),
+		},
+		{
+			Open:  marketdata.NewPriceFromRaw(1002),
+			High:  marketdata.NewPriceFromRaw(1006),
+			Low:   marketdata.NewPriceFromRaw(1001),
+			Close: marketdata.NewPriceFromRaw(1004),
+		},
+		{
+			Open:  marketdata.NewPriceFromRaw(1004),
+			High:  marketdata.NewPriceFromRaw(1007),
+			Low:   marketdata.NewPriceFromRaw(1003),
+			Close: marketdata.NewPriceFromRaw(1005),
+		},
+		{
+			Open:  marketdata.NewPriceFromRaw(1005),
+			High:  marketdata.NewPriceFromRaw(1006),
+			Low:   marketdata.NewPriceFromRaw(990),
+			Close: marketdata.NewPriceFromRaw(992),
+		},
+	})
+
+	txn := stateinfra.NewMemoryStore().BeginTxn("test")
+	view := artifacts.View()
+	if err := rangeLowNode.Run(context.Background(), view, writer, txn); err != nil {
+		t.Fatalf("run range low: %v", err)
+	}
+	view = artifacts.View()
+	if err := breakoutShortNode.Run(context.Background(), view, writer, txn); err != nil {
+		t.Fatalf("run breakout short: %v", err)
+	}
+	view = artifacts.View()
+
+	if got := artifact.MustGet(view, featureRangeLowOutputKey("range_low")); got.Value.Raw() != 998 {
+		t.Fatalf("expected range low 998, got %d", got.Value.Raw())
+	}
+	if got := artifact.MustGet(view, signalBreakoutShortOutputKey("breakout_short")); !got.Triggered {
+		t.Fatal("expected breakout short signal true")
 	}
 }
 

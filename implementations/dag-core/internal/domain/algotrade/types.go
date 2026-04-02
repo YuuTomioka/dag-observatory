@@ -43,6 +43,11 @@ type BreakoutLongCandidate struct {
 	Triggered bool
 }
 
+// BreakoutShortCandidate is the normalized short-side signal candidate emitted by breakout nodes.
+type BreakoutShortCandidate struct {
+	Triggered bool
+}
+
 type ExitDecision struct {
 	ShouldExit bool
 	Reason     string

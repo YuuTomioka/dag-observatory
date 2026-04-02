@@ -162,6 +162,24 @@ func (f *SignalBreakoutLongFactory) Build(nodeSpec spec.NodeSpec) (node.Node, er
 	}, nil
 }
 
+type SignalBreakoutShortFactory struct{}
+
+func (f *SignalBreakoutShortFactory) Kind() string { return "signal_breakout_short" }
+
+func (f *SignalBreakoutShortFactory) Build(nodeSpec spec.NodeSpec) (node.Node, error) {
+	if err := ensureNoUnknownConfigKeys(nodeSpec.Config, []string{"range_node_id"}); err != nil {
+		return nil, fmt.Errorf("signal_breakout_short node %q: %w", nodeSpec.ID, err)
+	}
+	rangeNodeID, err := requiredString(nodeSpec.Config, "range_node_id")
+	if err != nil {
+		return nil, fmt.Errorf("signal_breakout_short node %q: %w", nodeSpec.ID, err)
+	}
+	return &signalBreakoutShortNode{
+		id:          nodeSpec.ID,
+		rangeNodeID: rangeNodeID,
+	}, nil
+}
+
 type SignalExitBasicFactory struct{}
 
 func (f *SignalExitBasicFactory) Kind() string { return "signal_exit_basic" }
@@ -945,6 +963,11 @@ type signalBreakoutLongNode struct {
 	rangeNodeID string
 }
 
+type signalBreakoutShortNode struct {
+	id          string
+	rangeNodeID string
+}
+
 func (n *signalBreakoutLongNode) Name() string { return "dagruntime.signal_breakout_long." + n.id }
 func (n *signalBreakoutLongNode) Requires() []artifact.AnyKey {
 	return []artifact.AnyKey{
@@ -972,6 +995,36 @@ func (n *signalBreakoutLongNode) Run(ctx context.Context, av artifact.View, aw a
 	lastClose := bars[len(bars)-1].Close
 	artifact.Set(aw, signalBreakoutLongOutputKey(n.id), algotrade.BreakoutLongCandidate{
 		Triggered: lastClose.Gt(rangeHigh.Value),
+	})
+	return nil
+}
+
+func (n *signalBreakoutShortNode) Name() string { return "dagruntime.signal_breakout_short." + n.id }
+func (n *signalBreakoutShortNode) Requires() []artifact.AnyKey {
+	return []artifact.AnyKey{
+		usecase.InputKeyMarketOHLCVBars,
+		featureRangeLowOutputKey(n.rangeNodeID),
+	}
+}
+func (n *signalBreakoutShortNode) Provides() []artifact.AnyKey {
+	return []artifact.AnyKey{signalBreakoutShortOutputKey(n.id)}
+}
+func (n *signalBreakoutShortNode) Reads() []state.AnyKey  { return nil }
+func (n *signalBreakoutShortNode) Writes() []state.AnyKey { return nil }
+func (n *signalBreakoutShortNode) Spec() node.ExecutionSpec {
+	return node.ExecutionSpec{Deterministic: true}
+}
+func (n *signalBreakoutShortNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = txn
+	bars := artifact.MustGet(av, usecase.InputKeyMarketOHLCVBars)
+	if len(bars) == 0 {
+		return fmt.Errorf("signal_breakout_short node %q: market.ohlcv_bars is empty", n.id)
+	}
+	rangeLow := artifact.MustGet(av, featureRangeLowOutputKey(n.rangeNodeID))
+	lastClose := bars[len(bars)-1].Close
+	artifact.Set(aw, signalBreakoutShortOutputKey(n.id), algotrade.BreakoutShortCandidate{
+		Triggered: lastClose.Lt(rangeLow.Value),
 	})
 	return nil
 }
@@ -2086,6 +2139,13 @@ func signalBreakoutLongOutputKey(nodeID string) artifact.Key[algotrade.BreakoutL
 	return artifact.Key[algotrade.BreakoutLongCandidate]{
 		Name:     fmt.Sprintf("%s.breakout_long", nodeID),
 		StableID: fmt.Sprintf("artifact:dagruntime.signal_breakout_long.%s.v1", nodeID),
+	}
+}
+
+func signalBreakoutShortOutputKey(nodeID string) artifact.Key[algotrade.BreakoutShortCandidate] {
+	return artifact.Key[algotrade.BreakoutShortCandidate]{
+		Name:     fmt.Sprintf("%s.breakout_short", nodeID),
+		StableID: fmt.Sprintf("artifact:dagruntime.signal_breakout_short.%s.v1", nodeID),
 	}
 }
 

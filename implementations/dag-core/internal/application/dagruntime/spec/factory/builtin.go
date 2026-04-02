@@ -40,6 +40,7 @@ func NewBuiltinRegistryWithDependencies(deps Dependencies) (*Registry, error) {
 		&FeatureSessionStateFactory{},
 		&FeatureHigherTFTrendFactory{},
 		&SignalBreakoutLongFactory{},
+		&SignalBreakoutShortFactory{},
 		&SignalExitBasicFactory{},
 		&FilterSessionFactory{},
 		&FilterSpreadFactory{},

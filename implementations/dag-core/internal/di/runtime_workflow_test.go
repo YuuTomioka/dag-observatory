@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -133,6 +134,24 @@ func TestCompileBreakoutExecutionPositionMinimalWorkflowFromYAML(t *testing.T) {
 	}
 }
 
+func TestCompileBreakoutLongV1ExtendedWorkflowFromYAML(t *testing.T) {
+	t.Parallel()
+
+	compiled, err := compileWorkflowFromSpecPath("workflows/breakout_long_v1_extended.yaml", nil)
+	if err != nil {
+		t.Fatalf("compile breakout_long_v1_extended workflow: %v", err)
+	}
+	if compiled.Name != "dagruntime.breakout_long_v1_extended" {
+		t.Fatalf("expected workflow name dagruntime.breakout_long_v1_extended, got %q", compiled.Name)
+	}
+	if len(compiled.Nodes) != 17 {
+		t.Fatalf("expected seventeen nodes, got %d", len(compiled.Nodes))
+	}
+	if len(compiled.Inputs) != 4 {
+		t.Fatalf("expected four inputs, got %d", len(compiled.Inputs))
+	}
+}
+
 func TestRunBreakoutLongV0WorkflowE2E(t *testing.T) {
 	t.Parallel()
 
@@ -212,6 +231,77 @@ func TestRunBreakoutLongV0WorkflowE2E(t *testing.T) {
 	}
 	if !artifactStore.Has(observeKey) {
 		t.Fatalf("expected observability artifact key %s", observeKey.String())
+	}
+}
+
+func TestCompileWorkflowRejectsSubmitAndConfirmInSameWorkflow(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "breakout_submit_confirm_same_workflow.yaml")
+	raw := []byte(`name: dagruntime.breakout_submit_confirm_same_workflow
+version: v1
+inputs:
+  - market.symbol
+  - market.ohlcv_bars
+  - market.spread_bps
+  - account.balance
+nodes:
+  - id: atr
+    kind: feature_atr
+    config:
+      window: 14
+  - id: range_high
+    kind: feature_range_high
+    config:
+      window: 20
+  - id: breakout
+    kind: signal_breakout_long
+    config:
+      range_node_id: range_high
+  - id: session_filter
+    kind: filter_session
+    config:
+      signal_node_id: breakout
+      allowed_sessions:
+        - tokyo
+        - london
+  - id: spread_filter
+    kind: filter_spread
+    config:
+      allowed_node_id: session_filter
+      max_spread_bps: 5
+  - id: sizing
+    kind: risk_position_sizing
+    config:
+      allowed_node_id: spread_filter
+      atr_node_id: atr
+      risk_rate: 0.005
+      stop_atr_multiple: 1.5
+  - id: decision
+    kind: signal_decision_mapper
+    config:
+      allowed_node_id: spread_filter
+      sizing_node_id: sizing
+  - id: market_exec
+    kind: execution_submit_market_order
+    config:
+      decision_node_id: decision
+  - id: fill_confirm
+    kind: execution_confirm_fill
+    config:
+      order_request_node_id: market_exec
+`)
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatalf("write invalid workflow yaml: %v", err)
+	}
+
+	_, err := compileWorkflowFromSpecPath(path, nil)
+	if err == nil {
+		t.Fatal("expected compile error for duplicate writer")
+	}
+	if !strings.Contains(err.Error(), "duplicate_writer") {
+		t.Fatalf("expected duplicate_writer error, got %v", err)
 	}
 }
 

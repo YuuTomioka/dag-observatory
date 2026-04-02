@@ -8,6 +8,7 @@ import (
 
 	"dag-observatory/dag-core/internal/application/dagruntime/spec"
 	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
+	"dag-observatory/dag-core/internal/domain/algotrade"
 	"dag-observatory/dag-core/internal/domain/dagruntime/artifact"
 	"dag-observatory/dag-core/internal/domain/dagruntime/node"
 	"dag-observatory/dag-core/internal/domain/dagruntime/state"
@@ -202,6 +203,42 @@ func (f *ObservabilityEmitSignalDecisionFactory) Build(nodeSpec spec.NodeSpec) (
 	}, nil
 }
 
+type ExecutionSubmitPaperOrderFactory struct{}
+
+func (f *ExecutionSubmitPaperOrderFactory) Kind() string { return "execution_submit_paper_order" }
+
+func (f *ExecutionSubmitPaperOrderFactory) Build(nodeSpec spec.NodeSpec) (node.Node, error) {
+	if err := ensureNoUnknownConfigKeys(nodeSpec.Config, []string{"decision_node_id"}); err != nil {
+		return nil, fmt.Errorf("execution_submit_paper_order node %q: %w", nodeSpec.ID, err)
+	}
+	decisionNodeID, err := requiredString(nodeSpec.Config, "decision_node_id")
+	if err != nil {
+		return nil, fmt.Errorf("execution_submit_paper_order node %q: %w", nodeSpec.ID, err)
+	}
+	return &executionSubmitPaperOrderNode{
+		id:             nodeSpec.ID,
+		decisionNodeID: decisionNodeID,
+	}, nil
+}
+
+type PositionTrackerUpdateFactory struct{}
+
+func (f *PositionTrackerUpdateFactory) Kind() string { return "position_tracker_update" }
+
+func (f *PositionTrackerUpdateFactory) Build(nodeSpec spec.NodeSpec) (node.Node, error) {
+	if err := ensureNoUnknownConfigKeys(nodeSpec.Config, []string{"execution_node_id"}); err != nil {
+		return nil, fmt.Errorf("position_tracker_update node %q: %w", nodeSpec.ID, err)
+	}
+	executionNodeID, err := requiredString(nodeSpec.Config, "execution_node_id")
+	if err != nil {
+		return nil, fmt.Errorf("position_tracker_update node %q: %w", nodeSpec.ID, err)
+	}
+	return &positionTrackerUpdateNode{
+		id:              nodeSpec.ID,
+		executionNodeID: executionNodeID,
+	}, nil
+}
+
 type featureATRNode struct {
 	id     string
 	window int
@@ -248,7 +285,7 @@ func (n *featureATRNode) Run(ctx context.Context, av artifact.View, aw artifact.
 		sumTR += tr
 	}
 	atr := marketdata.NewPriceFromRaw(sumTR / int64(window))
-	artifact.Set(aw, featureATROutputKey(n.id), atr)
+	artifact.Set(aw, featureATROutputKey(n.id), algotrade.FeatureATR{Value: atr})
 	return nil
 }
 
@@ -289,7 +326,7 @@ func (n *featureRangeHighNode) Run(ctx context.Context, av artifact.View, aw art
 			maxHigh = bar.High
 		}
 	}
-	artifact.Set(aw, featureRangeHighOutputKey(n.id), maxHigh)
+	artifact.Set(aw, featureRangeHighOutputKey(n.id), algotrade.FeatureRangeHigh{Value: maxHigh})
 	return nil
 }
 
@@ -323,24 +360,14 @@ func (n *signalBreakoutLongNode) Run(ctx context.Context, av artifact.View, aw a
 	}
 	rangeHigh := artifact.MustGet(av, featureRangeHighOutputKey(n.rangeNodeID))
 	lastClose := bars[len(bars)-1].Close
-	artifact.Set(aw, signalBreakoutLongOutputKey(n.id), lastClose.Gt(rangeHigh))
+	artifact.Set(aw, signalBreakoutLongOutputKey(n.id), algotrade.BreakoutLongCandidate{
+		Triggered: lastClose.Gt(rangeHigh.Value),
+	})
 	return nil
 }
 
-type entryFilterResult struct {
-	Allowed bool
-	Reason  string
-}
-
-type signalOrderDecision struct {
-	Action           string
-	Reason           string
-	PositionSize     float64
-	StopLossDistance marketdata.Price
-}
-
 type observabilitySignalDecision struct {
-	Action       string
+	Action       algotrade.OrderAction
 	Reason       string
 	Allowed      bool
 	PositionSize float64
@@ -370,8 +397,8 @@ func (n *filterSessionNode) Run(ctx context.Context, av artifact.View, aw artifa
 	_ = ctx
 	_ = txn
 	candidate := artifact.MustGet(av, signalBreakoutLongOutputKey(n.signalNodeID))
-	if !candidate {
-		artifact.Set(aw, entryFilterResultKey(n.id), entryFilterResult{Allowed: false, Reason: "no_signal"})
+	if !candidate.Triggered {
+		artifact.Set(aw, entryFilterResultKey(n.id), algotrade.EntryFilterResult{Allowed: false, Reason: "no_signal"})
 		return nil
 	}
 	bars := artifact.MustGet(av, usecase.InputKeyMarketOHLCVBars)
@@ -387,10 +414,10 @@ func (n *filterSessionNode) Run(ctx context.Context, av artifact.View, aw artifa
 		return fmt.Errorf("filter_session node %q: last bar has no open/close time", n.id)
 	}
 	if !isAllowedSession(ts.Time().UTC(), n.allowedSessions) {
-		artifact.Set(aw, entryFilterResultKey(n.id), entryFilterResult{Allowed: false, Reason: "session_blocked"})
+		artifact.Set(aw, entryFilterResultKey(n.id), algotrade.EntryFilterResult{Allowed: false, Reason: "session_blocked"})
 		return nil
 	}
-	artifact.Set(aw, entryFilterResultKey(n.id), entryFilterResult{Allowed: true})
+	artifact.Set(aw, entryFilterResultKey(n.id), algotrade.EntryFilterResult{Allowed: true})
 	return nil
 }
 
@@ -424,7 +451,7 @@ func (n *filterSpreadNode) Run(ctx context.Context, av artifact.View, aw artifac
 	}
 	spread := artifact.MustGet(av, usecase.InputKeyMarketSpreadBps)
 	if spread > n.maxSpreadBps {
-		artifact.Set(aw, entryFilterResultKey(n.id), entryFilterResult{Allowed: false, Reason: "spread_limit"})
+		artifact.Set(aw, entryFilterResultKey(n.id), algotrade.EntryFilterResult{Allowed: false, Reason: "spread_limit"})
 		return nil
 	}
 	artifact.Set(aw, entryFilterResultKey(n.id), current)
@@ -469,10 +496,10 @@ func (n *riskPositionSizingNode) Run(ctx context.Context, av artifact.View, aw a
 		return nil
 	}
 	atr := artifact.MustGet(av, featureATROutputKey(n.atrNodeID))
-	if atr.Raw() <= 0 {
+	if atr.Value.Raw() <= 0 {
 		return fmt.Errorf("risk_position_sizing node %q: atr must be > 0", n.id)
 	}
-	stopRaw := int64(float64(atr.Raw()) * n.stopATRMultiple)
+	stopRaw := int64(float64(atr.Value.Raw()) * n.stopATRMultiple)
 	if stopRaw <= 0 {
 		return fmt.Errorf("risk_position_sizing node %q: computed stop distance must be > 0", n.id)
 	}
@@ -516,14 +543,14 @@ func (n *signalDecisionMapperNode) Run(ctx context.Context, av artifact.View, aw
 	filtered := artifact.MustGet(av, entryFilterResultKey(n.allowedNodeID))
 	stopLossDistance := artifact.MustGet(av, riskStopLossDistanceOutputKey(n.sizingNodeID))
 	positionSize := artifact.MustGet(av, riskPositionSizeOutputKey(n.sizingNodeID))
-	decision := signalOrderDecision{
-		Action:           "hold",
+	decision := algotrade.OrderRequest{
+		Action:           algotrade.OrderActionHold,
 		Reason:           filtered.Reason,
 		PositionSize:     0,
 		StopLossDistance: marketdata.Price(0),
 	}
 	if filtered.Allowed && positionSize > 0 && stopLossDistance.Raw() > 0 {
-		decision.Action = "buy"
+		decision.Action = algotrade.OrderActionBuy
 		decision.Reason = "entry_allowed"
 		decision.PositionSize = positionSize
 		decision.StopLossDistance = stopLossDistance
@@ -559,35 +586,123 @@ func (n *observabilityEmitSignalDecisionNode) Run(ctx context.Context, av artifa
 	artifact.Set(aw, observabilitySignalDecisionOutputKey(n.id), observabilitySignalDecision{
 		Action:       decision.Action,
 		Reason:       decision.Reason,
-		Allowed:      decision.Action == "buy",
+		Allowed:      decision.Action == algotrade.OrderActionBuy,
 		PositionSize: decision.PositionSize,
 	})
 	return nil
 }
 
-func featureATROutputKey(nodeID string) artifact.Key[marketdata.Price] {
-	return artifact.Key[marketdata.Price]{
+type executionSubmitPaperOrderNode struct {
+	id             string
+	decisionNodeID string
+}
+
+func (n *executionSubmitPaperOrderNode) Name() string {
+	return "dagruntime.execution_submit_paper_order." + n.id
+}
+func (n *executionSubmitPaperOrderNode) Requires() []artifact.AnyKey {
+	return []artifact.AnyKey{signalDecisionOutputKey(n.decisionNodeID)}
+}
+func (n *executionSubmitPaperOrderNode) Provides() []artifact.AnyKey {
+	return []artifact.AnyKey{paperExecutionResultOutputKey(n.id)}
+}
+func (n *executionSubmitPaperOrderNode) Reads() []state.AnyKey  { return nil }
+func (n *executionSubmitPaperOrderNode) Writes() []state.AnyKey { return nil }
+func (n *executionSubmitPaperOrderNode) Spec() node.ExecutionSpec {
+	return node.ExecutionSpec{Deterministic: true}
+}
+
+func (n *executionSubmitPaperOrderNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = txn
+	decision := artifact.MustGet(av, signalDecisionOutputKey(n.decisionNodeID))
+	result := algotrade.PaperExecutionResult{
+		Submitted: false,
+		Action:    decision.Action,
+		Size:      0,
+		Reason:    decision.Reason,
+	}
+	if decision.Action == algotrade.OrderActionBuy && decision.PositionSize > 0 {
+		result.Submitted = true
+		result.Size = decision.PositionSize
+	}
+	artifact.Set(aw, paperExecutionResultOutputKey(n.id), result)
+	return nil
+}
+
+type positionTrackerUpdateNode struct {
+	id              string
+	executionNodeID string
+}
+
+func (n *positionTrackerUpdateNode) Name() string {
+	return "dagruntime.position_tracker_update." + n.id
+}
+func (n *positionTrackerUpdateNode) Requires() []artifact.AnyKey {
+	return []artifact.AnyKey{
+		paperExecutionResultOutputKey(n.executionNodeID),
+		usecase.InputKeyMarketOHLCVBars,
+	}
+}
+func (n *positionTrackerUpdateNode) Provides() []artifact.AnyKey {
+	return []artifact.AnyKey{positionSnapshotOutputKey(n.id)}
+}
+func (n *positionTrackerUpdateNode) Reads() []state.AnyKey  { return nil }
+func (n *positionTrackerUpdateNode) Writes() []state.AnyKey { return nil }
+func (n *positionTrackerUpdateNode) Spec() node.ExecutionSpec {
+	return node.ExecutionSpec{Deterministic: true}
+}
+
+func (n *positionTrackerUpdateNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = txn
+	execution := artifact.MustGet(av, paperExecutionResultOutputKey(n.executionNodeID))
+	bars := artifact.MustGet(av, usecase.InputKeyMarketOHLCVBars)
+	if len(bars) == 0 {
+		return fmt.Errorf("position_tracker_update node %q: market.ohlcv_bars is empty", n.id)
+	}
+	snapshot := algotrade.PositionSnapshot{
+		HasPosition: false,
+		Side:        algotrade.PositionSideFlat,
+		Size:        0,
+		EntryPrice:  marketdata.Price(0),
+	}
+	if execution.Submitted && execution.Action == algotrade.OrderActionBuy && execution.Size > 0 {
+		last := bars[len(bars)-1]
+		snapshot = algotrade.PositionSnapshot{
+			HasPosition: true,
+			Side:        algotrade.PositionSideLong,
+			Size:        execution.Size,
+			EntryPrice:  last.Close,
+		}
+	}
+	artifact.Set(aw, positionSnapshotOutputKey(n.id), snapshot)
+	return nil
+}
+
+func featureATROutputKey(nodeID string) artifact.Key[algotrade.FeatureATR] {
+	return artifact.Key[algotrade.FeatureATR]{
 		Name:     fmt.Sprintf("%s.atr", nodeID),
 		StableID: fmt.Sprintf("artifact:dagruntime.feature_atr.%s.v1", nodeID),
 	}
 }
 
-func featureRangeHighOutputKey(nodeID string) artifact.Key[marketdata.Price] {
-	return artifact.Key[marketdata.Price]{
+func featureRangeHighOutputKey(nodeID string) artifact.Key[algotrade.FeatureRangeHigh] {
+	return artifact.Key[algotrade.FeatureRangeHigh]{
 		Name:     fmt.Sprintf("%s.range_high", nodeID),
 		StableID: fmt.Sprintf("artifact:dagruntime.feature_range_high.%s.v1", nodeID),
 	}
 }
 
-func signalBreakoutLongOutputKey(nodeID string) artifact.Key[bool] {
-	return artifact.Key[bool]{
+func signalBreakoutLongOutputKey(nodeID string) artifact.Key[algotrade.BreakoutLongCandidate] {
+	return artifact.Key[algotrade.BreakoutLongCandidate]{
 		Name:     fmt.Sprintf("%s.breakout_long", nodeID),
 		StableID: fmt.Sprintf("artifact:dagruntime.signal_breakout_long.%s.v1", nodeID),
 	}
 }
 
-func entryFilterResultKey(nodeID string) artifact.Key[entryFilterResult] {
-	return artifact.Key[entryFilterResult]{
+func entryFilterResultKey(nodeID string) artifact.Key[algotrade.EntryFilterResult] {
+	return artifact.Key[algotrade.EntryFilterResult]{
 		Name:     fmt.Sprintf("%s.entry_filter_result", nodeID),
 		StableID: fmt.Sprintf("artifact:dagruntime.filter.entry.%s.v1", nodeID),
 	}
@@ -607,8 +722,8 @@ func riskPositionSizeOutputKey(nodeID string) artifact.Key[float64] {
 	}
 }
 
-func signalDecisionOutputKey(nodeID string) artifact.Key[signalOrderDecision] {
-	return artifact.Key[signalOrderDecision]{
+func signalDecisionOutputKey(nodeID string) artifact.Key[algotrade.OrderRequest] {
+	return artifact.Key[algotrade.OrderRequest]{
 		Name:     fmt.Sprintf("%s.signal_order_decision", nodeID),
 		StableID: fmt.Sprintf("artifact:dagruntime.signal.decision.%s.v1", nodeID),
 	}
@@ -618,6 +733,20 @@ func observabilitySignalDecisionOutputKey(nodeID string) artifact.Key[observabil
 	return artifact.Key[observabilitySignalDecision]{
 		Name:     fmt.Sprintf("%s.observability_signal_decision", nodeID),
 		StableID: fmt.Sprintf("artifact:dagruntime.observability.signal_decision.%s.v1", nodeID),
+	}
+}
+
+func paperExecutionResultOutputKey(nodeID string) artifact.Key[algotrade.PaperExecutionResult] {
+	return artifact.Key[algotrade.PaperExecutionResult]{
+		Name:     fmt.Sprintf("%s.paper_execution_result", nodeID),
+		StableID: fmt.Sprintf("artifact:dagruntime.execution.paper.%s.v1", nodeID),
+	}
+}
+
+func positionSnapshotOutputKey(nodeID string) artifact.Key[algotrade.PositionSnapshot] {
+	return artifact.Key[algotrade.PositionSnapshot]{
+		Name:     fmt.Sprintf("%s.position_snapshot", nodeID),
+		StableID: fmt.Sprintf("artifact:dagruntime.position.snapshot.%s.v1", nodeID),
 	}
 }
 

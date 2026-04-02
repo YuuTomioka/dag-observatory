@@ -38,6 +38,8 @@ func NewBuiltinRegistryWithDependencies(deps Dependencies) (*Registry, error) {
 		&RiskPositionSizingFactory{},
 		&SignalDecisionMapperFactory{},
 		&ObservabilityEmitSignalDecisionFactory{},
+		&ExecutionSubmitPaperOrderFactory{},
+		&PositionTrackerUpdateFactory{},
 	}
 	if deps.MarketDataUnitOfWork != nil {
 		factories = append(factories,

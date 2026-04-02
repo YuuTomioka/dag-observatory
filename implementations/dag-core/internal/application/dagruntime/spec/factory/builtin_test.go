@@ -31,6 +31,8 @@ func TestNewBuiltinRegistryRegistersKinds(t *testing.T) {
 		"risk_position_sizing",
 		"signal_decision_mapper",
 		"observability_emit_signal_decision",
+		"execution_submit_paper_order",
+		"position_tracker_update",
 	} {
 		if !registry.Has(kind) {
 			t.Fatalf("expected kind %q to be registered", kind)

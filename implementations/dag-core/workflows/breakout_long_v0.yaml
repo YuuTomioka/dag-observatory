@@ -53,3 +53,13 @@ nodes:
     kind: observability_emit_signal_decision
     config:
       decision_node_id: decision
+
+  - id: paper_exec
+    kind: execution_submit_paper_order
+    config:
+      decision_node_id: decision
+
+  - id: position
+    kind: position_tracker_update
+    config:
+      execution_node_id: paper_exec

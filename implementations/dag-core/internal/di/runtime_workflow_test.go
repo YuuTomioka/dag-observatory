@@ -2,6 +2,8 @@ package di
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -105,8 +107,8 @@ func TestCompileBreakoutLongV0WorkflowFromYAML(t *testing.T) {
 	if compiled.Name != "dagruntime.breakout_long_v0" {
 		t.Fatalf("expected workflow name dagruntime.breakout_long_v0, got %q", compiled.Name)
 	}
-	if len(compiled.Nodes) != 8 {
-		t.Fatalf("expected eight nodes, got %d", len(compiled.Nodes))
+	if len(compiled.Nodes) != 10 {
+		t.Fatalf("expected ten nodes, got %d", len(compiled.Nodes))
 	}
 	if len(compiled.Inputs) != 4 {
 		t.Fatalf("expected four inputs, got %d", len(compiled.Inputs))
@@ -192,5 +194,29 @@ func TestRunBreakoutLongV0WorkflowE2E(t *testing.T) {
 	}
 	if !artifactStore.Has(observeKey) {
 		t.Fatalf("expected observability artifact key %s", observeKey.String())
+	}
+}
+
+func TestCompileWorkflowFromYAMLDetectsConfigError(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "invalid_breakout.yaml")
+	raw := []byte(`name: dagruntime.breakout_invalid
+version: v1
+inputs:
+  - market.symbol
+  - market.ohlcv_bars
+nodes:
+  - id: atr
+    kind: feature_atr
+    config: {}
+`)
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatalf("write invalid workflow yaml: %v", err)
+	}
+
+	if _, err := compileWorkflowFromSpecPath(path, nil); err == nil {
+		t.Fatal("expected compile error for invalid feature_atr config")
 	}
 }

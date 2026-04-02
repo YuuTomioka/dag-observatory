@@ -77,6 +77,25 @@ type PaperExecutionResult struct {
 	Reason    string
 }
 
+// MarketOrderRequest represents a broker-facing market order submission request/result.
+type MarketOrderRequest struct {
+	Submitted bool
+	OrderID   string
+	Action    OrderAction
+	Size      float64
+	Reason    string
+	SourceID  string
+}
+
+// FillResult represents the normalized fill confirmation outcome.
+type FillResult struct {
+	Filled  bool
+	OrderID string
+	Action  OrderAction
+	Size    float64
+	Reason  string
+}
+
 type PositionSide string
 
 const (

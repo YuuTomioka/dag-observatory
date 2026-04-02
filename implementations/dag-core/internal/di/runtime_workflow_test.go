@@ -115,6 +115,24 @@ func TestCompileBreakoutLongV0WorkflowFromYAML(t *testing.T) {
 	}
 }
 
+func TestCompileBreakoutExecutionPositionMinimalWorkflowFromYAML(t *testing.T) {
+	t.Parallel()
+
+	compiled, err := compileWorkflowFromSpecPath("workflows/breakout_long_execution_position_minimal.yaml", nil)
+	if err != nil {
+		t.Fatalf("compile breakout_long_execution_position_minimal workflow: %v", err)
+	}
+	if compiled.Name != "dagruntime.breakout_long_execution_position_minimal" {
+		t.Fatalf("expected workflow name dagruntime.breakout_long_execution_position_minimal, got %q", compiled.Name)
+	}
+	if len(compiled.Nodes) != 9 {
+		t.Fatalf("expected nine nodes, got %d", len(compiled.Nodes))
+	}
+	if len(compiled.Inputs) != 4 {
+		t.Fatalf("expected four inputs, got %d", len(compiled.Inputs))
+	}
+}
+
 func TestRunBreakoutLongV0WorkflowE2E(t *testing.T) {
 	t.Parallel()
 

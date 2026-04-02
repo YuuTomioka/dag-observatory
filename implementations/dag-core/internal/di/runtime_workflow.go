@@ -56,6 +56,8 @@ func compileWorkflowFromSpecPath(specPath string, marketData *MarketDataContaine
 			"market.symbol":             usecase.InputKeySymbol,
 			"market.bars":               usecase.InputKeyMarketBars,
 			"market.ohlcv_bars":         usecase.InputKeyMarketOHLCVBars,
+			"market.ohlcv_bars.h1":      usecase.InputKeyMarketOHLCVBarsH1,
+			"market.tick":               usecase.InputKeyMarketTick,
 			"market.spread_bps":         usecase.InputKeyMarketSpreadBps,
 			"account.balance":           usecase.InputKeyAccountBalance,
 			"marketdata.symbol_id":      usecase.InputKeyMarketdataSymbolID,

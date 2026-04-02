@@ -263,6 +263,34 @@ func fromStringMap(values map[string]any) (engine.InputMap, error) {
 				}
 				inputs[InputKeyMarketOHLCVBars] = bars
 			}
+			if rawOHLCVBarsH1, ok := inputMap["ohlcv_bars_h1"]; ok {
+				bars, err := parseOHLCVSlice(rawOHLCVBarsH1)
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketOHLCVBarsH1] = bars
+			}
+			if rawOHLCVBarsH1, ok := inputMap["market.ohlcv_bars.h1"]; ok {
+				bars, err := parseOHLCVSlice(rawOHLCVBarsH1)
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketOHLCVBarsH1] = bars
+			}
+			if raw, ok := inputMap["tick"]; ok {
+				tick, err := parseTickValue(raw)
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketTick] = tick
+			}
+			if raw, ok := inputMap["market.tick"]; ok {
+				tick, err := parseTickValue(raw)
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketTick] = tick
+			}
 			if raw, ok := inputMap["market.spread_bps"]; ok {
 				spread, err := parseFloat64Value(raw, "market.spread_bps")
 				if err != nil {
@@ -348,6 +376,34 @@ func fromStringMap(values map[string]any) (engine.InputMap, error) {
 			return nil, err
 		}
 		inputs[InputKeyMarketOHLCVBars] = bars
+	}
+	if raw, ok := values["market_ohlcv_bars_h1"]; ok {
+		bars, err := parseOHLCVSlice(raw)
+		if err != nil {
+			return nil, err
+		}
+		inputs[InputKeyMarketOHLCVBarsH1] = bars
+	}
+	if raw, ok := values["market.ohlcv_bars.h1"]; ok {
+		bars, err := parseOHLCVSlice(raw)
+		if err != nil {
+			return nil, err
+		}
+		inputs[InputKeyMarketOHLCVBarsH1] = bars
+	}
+	if raw, ok := values["market_tick"]; ok {
+		tick, err := parseTickValue(raw)
+		if err != nil {
+			return nil, err
+		}
+		inputs[InputKeyMarketTick] = tick
+	}
+	if raw, ok := values["market.tick"]; ok {
+		tick, err := parseTickValue(raw)
+		if err != nil {
+			return nil, err
+		}
+		inputs[InputKeyMarketTick] = tick
 	}
 	if raw, ok := values["market_spread_bps"]; ok {
 		spread, err := parseFloat64Value(raw, "market_spread_bps")
@@ -460,6 +516,30 @@ func fromInputMap(inputs engine.InputMap) ([]events.PayloadEnvelope, error) {
 				return nil, fmt.Errorf("dagruntime: market_ohlcv_bars must be []marketdata.OHLCV")
 			}
 			env, err := events.EncodePayload(PayloadKeyMarketOHLCVBars, bars)
+			if err != nil {
+				return nil, err
+			}
+			envelopes = append(envelopes, env)
+			continue
+		}
+		if key.Raw() == InputKeyMarketOHLCVBarsH1.Raw() {
+			bars, ok := value.([]marketdata.OHLCV)
+			if !ok {
+				return nil, fmt.Errorf("dagruntime: market_ohlcv_bars_h1 must be []marketdata.OHLCV")
+			}
+			env, err := events.EncodePayload(PayloadKeyMarketOHLCVBarsH1, bars)
+			if err != nil {
+				return nil, err
+			}
+			envelopes = append(envelopes, env)
+			continue
+		}
+		if key.Raw() == InputKeyMarketTick.Raw() {
+			tick, ok := value.(marketdata.Tick)
+			if !ok {
+				return nil, fmt.Errorf("dagruntime: market.tick must be marketdata.Tick")
+			}
+			env, err := events.EncodePayload(PayloadKeyMarketTick, tick)
 			if err != nil {
 				return nil, err
 			}
@@ -645,6 +725,28 @@ func encodeEnvelopes(values map[string]any) ([]events.PayloadEnvelope, error) {
 		}
 		envelopes = append(envelopes, env)
 	}
+	if raw, ok := values["market_ohlcv_bars_h1"]; ok {
+		bars, err := parseOHLCVSlice(raw)
+		if err != nil {
+			return nil, err
+		}
+		env, err := events.EncodePayload(PayloadKeyMarketOHLCVBarsH1, bars)
+		if err != nil {
+			return nil, err
+		}
+		envelopes = append(envelopes, env)
+	}
+	if raw, ok := values["market_tick"]; ok {
+		tick, err := parseTickValue(raw)
+		if err != nil {
+			return nil, err
+		}
+		env, err := events.EncodePayload(PayloadKeyMarketTick, tick)
+		if err != nil {
+			return nil, err
+		}
+		envelopes = append(envelopes, env)
+	}
 	if raw, ok := values["market_spread_bps"]; ok {
 		spread, err := parseFloat64Value(raw, "market_spread_bps")
 		if err != nil {
@@ -768,6 +870,34 @@ func decodeEnvelopes(envelopes []events.PayloadEnvelope) (engine.InputMap, error
 				}
 				inputs[InputKeyMarketOHLCVBars] = bars
 			}
+			if raw, ok := value["ohlcv_bars_h1"]; ok {
+				bars, err := parseOHLCVSlice(raw)
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketOHLCVBarsH1] = bars
+			}
+			if raw, ok := value["market.ohlcv_bars.h1"]; ok {
+				bars, err := parseOHLCVSlice(raw)
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketOHLCVBarsH1] = bars
+			}
+			if raw, ok := value["tick"]; ok {
+				tick, err := parseTickValue(raw)
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketTick] = tick
+			}
+			if raw, ok := value["market.tick"]; ok {
+				tick, err := parseTickValue(raw)
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketTick] = tick
+			}
 			if raw, ok := value["market.spread_bps"]; ok {
 				spread, err := parseFloat64Value(raw, "market.spread_bps")
 				if err != nil {
@@ -849,6 +979,22 @@ func decodeEnvelopes(envelopes []events.PayloadEnvelope) (engine.InputMap, error
 				return nil, err
 			}
 			inputs[InputKeyMarketOHLCVBars] = value
+			continue
+		}
+		if env.Key == PayloadKeyMarketOHLCVBarsH1.Raw() {
+			value, err := events.DecodePayload(PayloadKeyMarketOHLCVBarsH1, env)
+			if err != nil {
+				return nil, err
+			}
+			inputs[InputKeyMarketOHLCVBarsH1] = value
+			continue
+		}
+		if env.Key == PayloadKeyMarketTick.Raw() {
+			value, err := events.DecodePayload(PayloadKeyMarketTick, env)
+			if err != nil {
+				return nil, err
+			}
+			inputs[InputKeyMarketTick] = value
 			continue
 		}
 		if env.Key == PayloadKeyMarketSpreadBps.Raw() {
@@ -1001,6 +1147,59 @@ func parseOHLCVItem(raw any) (marketdata.OHLCV, error) {
 	default:
 		return marketdata.OHLCV{}, fmt.Errorf("dagruntime: market_ohlcv_bars must contain OHLCV objects")
 	}
+}
+
+func parseTickValue(raw any) (marketdata.Tick, error) {
+	switch value := raw.(type) {
+	case marketdata.Tick:
+		return value, nil
+	case map[string]any:
+		return parseTickMap(value)
+	default:
+		return marketdata.Tick{}, fmt.Errorf("dagruntime: market_tick must be marketdata.Tick")
+	}
+}
+
+func parseTickMap(value map[string]any) (marketdata.Tick, error) {
+	get := func(keys ...string) (any, bool) {
+		for _, k := range keys {
+			if raw, ok := value[k]; ok {
+				return raw, true
+			}
+		}
+		return nil, false
+	}
+
+	var out marketdata.Tick
+	if raw, ok := get("symbol_id", "SymbolID", "symbolID"); ok {
+		symbolID, err := parseInt64Value(raw, "market_tick.symbol_id")
+		if err != nil {
+			return marketdata.Tick{}, err
+		}
+		out.SymbolID = marketdata.SymbolID(symbolID)
+	}
+	if raw, ok := get("time", "Time"); ok {
+		t, err := parseUTCTimeValue(raw, "market_tick.time")
+		if err != nil {
+			return marketdata.Tick{}, err
+		}
+		out.Time = t
+	}
+	if raw, ok := get("bid", "Bid"); ok {
+		bid, err := parsePriceValue(raw, "market_tick.bid")
+		if err != nil {
+			return marketdata.Tick{}, err
+		}
+		out.Bid = bid
+	}
+	if raw, ok := get("ask", "Ask"); ok {
+		ask, err := parsePriceValue(raw, "market_tick.ask")
+		if err != nil {
+			return marketdata.Tick{}, err
+		}
+		out.Ask = ask
+	}
+	return out, nil
 }
 
 func parseOHLCVMap(value map[string]any) (marketdata.OHLCV, error) {

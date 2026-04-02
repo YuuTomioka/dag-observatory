@@ -146,3 +146,92 @@ func TestToInputMapFromPayloadEnvelopesWithOHLCVBars(t *testing.T) {
 		t.Fatalf("expected account_balance=20000, got %v", got)
 	}
 }
+
+func TestToInputMapBridgeFromStringMapWithTickAndH1Bars(t *testing.T) {
+	payload := map[string]any{
+		"market_tick": map[string]any{
+			"symbol_id": 1,
+			"time":      "2026-04-02T00:00:00Z",
+			"bid":       1000.0,
+			"ask":       1002.0,
+		},
+		"market_ohlcv_bars_h1": []any{
+			map[string]any{
+				"open_time":  "2026-04-02T00:00:00Z",
+				"close_time": "2026-04-02T01:00:00Z",
+				"open":       990.0,
+				"high":       1010.0,
+				"low":        980.0,
+				"close":      1008.0,
+				"volume":     100.0,
+			},
+		},
+	}
+
+	inputs, err := toInputMap(payload)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	tick, ok := inputs[InputKeyMarketTick].(marketdata.Tick)
+	if !ok {
+		t.Fatalf("expected market tick to be mapped")
+	}
+	if tick.Ask.Raw() != 1002 || tick.Bid.Raw() != 1000 {
+		t.Fatalf("unexpected tick mapped: %#v", tick)
+	}
+	barsH1, ok := inputs[InputKeyMarketOHLCVBarsH1].([]marketdata.OHLCV)
+	if !ok || len(barsH1) != 1 {
+		t.Fatalf("expected market h1 bars to be mapped")
+	}
+	if barsH1[0].Close.Raw() != 1008 {
+		t.Fatalf("expected h1 close=1008, got %d", barsH1[0].Close.Raw())
+	}
+}
+
+func TestToInputMapBridgeFromPayloadEnvelopesWithTickAndH1Bars(t *testing.T) {
+	tick := marketdata.Tick{
+		SymbolID: 2,
+		Time:     marketdata.MustParseUTCTime("2026-04-02T00:00:00Z"),
+		Bid:      marketdata.NewPriceFromRaw(2000),
+		Ask:      marketdata.NewPriceFromRaw(2003),
+	}
+	h1 := []marketdata.OHLCV{
+		{
+			Opentime:  marketdata.MustParseUTCTime("2026-04-02T00:00:00Z"),
+			Closetime: marketdata.MustParseUTCTime("2026-04-02T01:00:00Z"),
+			Open:      marketdata.NewPriceFromRaw(1990),
+			High:      marketdata.NewPriceFromRaw(2010),
+			Low:       marketdata.NewPriceFromRaw(1980),
+			Close:     marketdata.NewPriceFromRaw(2008),
+		},
+	}
+	envTick, err := events.EncodePayload(PayloadKeyMarketTick, tick)
+	if err != nil {
+		t.Fatalf("encode market tick failed: %v", err)
+	}
+	envH1, err := events.EncodePayload(PayloadKeyMarketOHLCVBarsH1, h1)
+	if err != nil {
+		t.Fatalf("encode market h1 bars failed: %v", err)
+	}
+
+	inputs, err := toInputMap([]events.PayloadEnvelope{envTick, envH1})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	gotTick, ok := inputs[InputKeyMarketTick].(marketdata.Tick)
+	if !ok {
+		t.Fatalf("expected market tick from payload")
+	}
+	if gotTick.SymbolID != 2 || gotTick.Ask.Raw() != 2003 {
+		t.Fatalf("unexpected tick from payload: %#v", gotTick)
+	}
+	gotH1, ok := inputs[InputKeyMarketOHLCVBarsH1].([]marketdata.OHLCV)
+	if !ok || len(gotH1) != 1 {
+		t.Fatalf("expected market h1 bars from payload")
+	}
+	if gotH1[0].Open.Raw() != 1990 {
+		t.Fatalf("expected h1 open=1990, got %d", gotH1[0].Open.Raw())
+	}
+}

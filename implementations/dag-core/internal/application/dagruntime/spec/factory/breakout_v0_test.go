@@ -57,6 +57,54 @@ func TestFeatureRangeHighFactoryBuildRequiresWindow(t *testing.T) {
 	}
 }
 
+func TestMarketTickInputFactoryBuildRejectsUnknownConfig(t *testing.T) {
+	t.Parallel()
+
+	factory := &MarketTickInputFactory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:   "tick_input",
+		Kind: "market_tick_input",
+		Config: map[string]any{
+			"unexpected": true,
+		},
+	})
+	if err == nil {
+		t.Fatal("expected unknown config key error")
+	}
+}
+
+func TestMarketBarInputM1FactoryBuildRejectsUnknownConfig(t *testing.T) {
+	t.Parallel()
+
+	factory := &MarketBarInputM1Factory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:   "bar_m1_input",
+		Kind: "market_bar_input_m1",
+		Config: map[string]any{
+			"unexpected": true,
+		},
+	})
+	if err == nil {
+		t.Fatal("expected unknown config key error")
+	}
+}
+
+func TestMarketBarInputH1FactoryBuildRejectsUnknownConfig(t *testing.T) {
+	t.Parallel()
+
+	factory := &MarketBarInputH1Factory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:   "bar_h1_input",
+		Kind: "market_bar_input_h1",
+		Config: map[string]any{
+			"unexpected": true,
+		},
+	})
+	if err == nil {
+		t.Fatal("expected unknown config key error")
+	}
+}
+
 func TestFeatureRangeLowFactoryBuildRequiresWindow(t *testing.T) {
 	t.Parallel()
 
@@ -68,6 +116,86 @@ func TestFeatureRangeLowFactoryBuildRequiresWindow(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected validation error for missing window")
+	}
+}
+
+func TestMarketInputBridgeNodesRun(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	tickNode, err := registry.Build(spec.NodeSpec{
+		ID:   "tick_input",
+		Kind: "market_tick_input",
+	})
+	if err != nil {
+		t.Fatalf("build market_tick_input: %v", err)
+	}
+	barM1Node, err := registry.Build(spec.NodeSpec{
+		ID:   "bar_m1_input",
+		Kind: "market_bar_input_m1",
+	})
+	if err != nil {
+		t.Fatalf("build market_bar_input_m1: %v", err)
+	}
+	barH1Node, err := registry.Build(spec.NodeSpec{
+		ID:   "bar_h1_input",
+		Kind: "market_bar_input_h1",
+	})
+	if err != nil {
+		t.Fatalf("build market_bar_input_h1: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, usecase.InputKeyMarketTick, marketdata.Tick{
+		SymbolID: 1,
+		Time:     marketdata.MustParseUTCTime("2026-04-02T00:00:00Z"),
+		Bid:      marketdata.NewPriceFromRaw(1000),
+		Ask:      marketdata.NewPriceFromRaw(1002),
+	})
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+		{
+			Open:  marketdata.NewPriceFromRaw(1000),
+			High:  marketdata.NewPriceFromRaw(1005),
+			Low:   marketdata.NewPriceFromRaw(998),
+			Close: marketdata.NewPriceFromRaw(1004),
+		},
+	})
+	artifact.Set(writer, inputKeyMarketOHLCVBarsH1, []marketdata.OHLCV{
+		{
+			Open:  marketdata.NewPriceFromRaw(990),
+			High:  marketdata.NewPriceFromRaw(1010),
+			Low:   marketdata.NewPriceFromRaw(980),
+			Close: marketdata.NewPriceFromRaw(1008),
+		},
+	})
+
+	txn := stateinfra.NewMemoryStore().BeginTxn("test")
+	view := artifacts.View()
+	if err := tickNode.Run(context.Background(), view, writer, txn); err != nil {
+		t.Fatalf("run market_tick_input: %v", err)
+	}
+	view = artifacts.View()
+	if err := barM1Node.Run(context.Background(), view, writer, txn); err != nil {
+		t.Fatalf("run market_bar_input_m1: %v", err)
+	}
+	view = artifacts.View()
+	if err := barH1Node.Run(context.Background(), view, writer, txn); err != nil {
+		t.Fatalf("run market_bar_input_h1: %v", err)
+	}
+	view = artifacts.View()
+
+	if got := artifact.MustGet(view, marketTickInputOutputKey("tick_input")); got.Ask.Raw() != 1002 {
+		t.Fatalf("expected bridged tick ask=1002, got %d", got.Ask.Raw())
+	}
+	if got := artifact.MustGet(view, marketBarInputM1OutputKey("bar_m1_input")); len(got) != 1 {
+		t.Fatalf("expected bridged m1 bars len=1, got %d", len(got))
+	}
+	if got := artifact.MustGet(view, marketBarInputH1OutputKey("bar_h1_input")); len(got) != 1 {
+		t.Fatalf("expected bridged h1 bars len=1, got %d", len(got))
 	}
 }
 
@@ -184,6 +312,120 @@ func TestRiskMaxPositionsCheckFactoryBuildRequiresAllowedNodeID(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected validation error for missing allowed_node_id")
+	}
+}
+
+func TestExecutionSubmitMarketOrderFactoryBuildRequiresDecisionNodeID(t *testing.T) {
+	t.Parallel()
+
+	factory := &ExecutionSubmitMarketOrderFactory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:     "market_exec",
+		Kind:   "execution_submit_market_order",
+		Config: map[string]any{},
+	})
+	if err == nil {
+		t.Fatal("expected validation error for missing decision_node_id")
+	}
+}
+
+func TestExecutionConfirmFillFactoryBuildRequiresOrderRequestNodeID(t *testing.T) {
+	t.Parallel()
+
+	factory := &ExecutionConfirmFillFactory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:     "fill_confirm",
+		Kind:   "execution_confirm_fill",
+		Config: map[string]any{},
+	})
+	if err == nil {
+		t.Fatal("expected validation error for missing order_request_node_id")
+	}
+}
+
+func TestPositionSnapshotLoadFactoryBuildRejectsUnknownConfig(t *testing.T) {
+	t.Parallel()
+
+	factory := &PositionSnapshotLoadFactory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:   "position_load",
+		Kind: "position_snapshot_load",
+		Config: map[string]any{
+			"unexpected": true,
+		},
+	})
+	if err == nil {
+		t.Fatal("expected validation error for unknown config key")
+	}
+}
+
+func TestPositionBreakevenFactoryBuildRequiresPositionNodeID(t *testing.T) {
+	t.Parallel()
+
+	factory := &PositionBreakevenFactory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:     "breakeven",
+		Kind:   "position_breakeven",
+		Config: map[string]any{},
+	})
+	if err == nil {
+		t.Fatal("expected validation error for missing position_node_id")
+	}
+}
+
+func TestPositionTrailingStopFactoryBuildRequiresPositionNodeID(t *testing.T) {
+	t.Parallel()
+
+	factory := &PositionTrailingStopFactory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:     "trailing",
+		Kind:   "position_trailing_stop",
+		Config: map[string]any{},
+	})
+	if err == nil {
+		t.Fatal("expected validation error for missing position_node_id")
+	}
+}
+
+func TestPositionTimeoutExitFactoryBuildRequiresPositionNodeID(t *testing.T) {
+	t.Parallel()
+
+	factory := &PositionTimeoutExitFactory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:     "timeout",
+		Kind:   "position_timeout_exit",
+		Config: map[string]any{},
+	})
+	if err == nil {
+		t.Fatal("expected validation error for missing position_node_id")
+	}
+}
+
+func TestObservabilityEmitOrderDecisionFactoryBuildRequiresDecisionNodeID(t *testing.T) {
+	t.Parallel()
+
+	factory := &ObservabilityEmitOrderDecisionFactory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:     "obs_order",
+		Kind:   "observability_emit_order_decision",
+		Config: map[string]any{},
+	})
+	if err == nil {
+		t.Fatal("expected validation error for missing decision_node_id")
+	}
+}
+
+func TestObservabilityEmitPositionEventFactoryBuildRequiresPositionNodeID(t *testing.T) {
+	t.Parallel()
+
+	factory := &ObservabilityEmitPositionEventFactory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:     "obs_position",
+		Kind:   "observability_emit_position_event",
+		Config: map[string]any{},
+	})
+	if err == nil {
+		t.Fatal("expected validation error for missing position_node_id")
 	}
 }
 
@@ -724,6 +966,509 @@ func TestFilterHigherTFAlignmentRun(t *testing.T) {
 	}
 	if got.Reason != "higher_tf_alignment" {
 		t.Fatalf("expected reason=higher_tf_alignment, got %q", got.Reason)
+	}
+}
+
+func TestExecutionSubmitMarketOrderRunStagesPendingOrder(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	submitNode, err := registry.Build(spec.NodeSpec{
+		ID:   "market_exec",
+		Kind: "execution_submit_market_order",
+		Config: map[string]any{
+			"decision_node_id": "decision",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build execution_submit_market_order: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, usecase.InputKeySymbol, "USDJPY")
+	artifact.Set(writer, signalDecisionOutputKey("decision"), algotrade.OrderRequest{
+		Action:           algotrade.OrderActionBuy,
+		Reason:           "entry_allowed",
+		PositionSize:     1.25,
+		StopLossDistance: marketdata.NewPriceFromRaw(25),
+	})
+
+	txn := stateinfra.NewMemoryStore().BeginTxn("test")
+	if err := submitNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("run execution_submit_market_order: %v", err)
+	}
+
+	request := artifact.MustGet(artifacts.View(), executionMarketOrderRequestOutputKey("market_exec"))
+	if !request.Submitted {
+		t.Fatalf("expected submitted=true, got %#v", request)
+	}
+	if request.OrderID == "" {
+		t.Fatalf("expected non-empty order id, got %#v", request)
+	}
+
+	pending, ok := state.Get(txn, algotrade.StatePendingOrders)
+	if !ok {
+		t.Fatal("expected pending_orders state staged")
+	}
+	if len(pending.Items) != 1 {
+		t.Fatalf("expected one pending order, got %d", len(pending.Items))
+	}
+	if pending.Items[0].Symbol != "USDJPY" {
+		t.Fatalf("expected pending symbol USDJPY, got %q", pending.Items[0].Symbol)
+	}
+}
+
+func TestExecutionConfirmFillRunMovesPendingToOpenPosition(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	confirmNode, err := registry.Build(spec.NodeSpec{
+		ID:   "fill_confirm",
+		Kind: "execution_confirm_fill",
+		Config: map[string]any{
+			"order_request_node_id": "market_exec",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build execution_confirm_fill: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, executionMarketOrderRequestOutputKey("market_exec"), algotrade.MarketOrderRequest{
+		Submitted: true,
+		OrderID:   "market_exec-1",
+		Action:    algotrade.OrderActionBuy,
+		Size:      0.7,
+		Reason:    "submitted",
+		SourceID:  "buy:entry_allowed:0.70000000:20",
+	})
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+		{
+			Open:  marketdata.NewPriceFromRaw(1000),
+			High:  marketdata.NewPriceFromRaw(1008),
+			Low:   marketdata.NewPriceFromRaw(998),
+			Close: marketdata.NewPriceFromRaw(1006),
+		},
+	})
+
+	mem := stateinfra.NewMemoryStore()
+	txn := mem.BeginTxn("test")
+	state.StageWrite(txn, algotrade.StatePendingOrders, algotrade.PendingOrdersState{
+		Items: []algotrade.PendingOrder{
+			{
+				OrderID: "market_exec-1",
+				Symbol:  "USDJPY",
+				Request: algotrade.OrderRequest{
+					Action:           algotrade.OrderActionBuy,
+					Reason:           "entry_allowed",
+					PositionSize:     0.7,
+					StopLossDistance: marketdata.NewPriceFromRaw(20),
+				},
+				SourceID: "buy:entry_allowed:0.70000000:20",
+			},
+		},
+	})
+
+	if err := confirmNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("run execution_confirm_fill: %v", err)
+	}
+
+	result := artifact.MustGet(artifacts.View(), executionFillResultOutputKey("fill_confirm"))
+	if !result.Filled {
+		t.Fatalf("expected filled=true, got %#v", result)
+	}
+	pending := state.MustGet(txn, algotrade.StatePendingOrders)
+	if len(pending.Items) != 0 {
+		t.Fatalf("expected pending_orders empty, got %d", len(pending.Items))
+	}
+	open := state.MustGet(txn, algotrade.StateOpenPositions)
+	if len(open.Items) != 1 {
+		t.Fatalf("expected one open position, got %d", len(open.Items))
+	}
+	if !open.Items[0].Snapshot.HasPosition || open.Items[0].Snapshot.EntryPrice.Raw() != 1006 {
+		t.Fatalf("expected open long position with entry=1006, got %#v", open.Items[0].Snapshot)
+	}
+}
+
+func TestPositionSnapshotLoadRunReadsOpenPositionState(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	loadNode, err := registry.Build(spec.NodeSpec{
+		ID:   "position_load",
+		Kind: "position_snapshot_load",
+	})
+	if err != nil {
+		t.Fatalf("build position_snapshot_load: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	mem := stateinfra.NewMemoryStore()
+	txn := mem.BeginTxn("test")
+	state.StageWrite(txn, algotrade.StateOpenPositions, algotrade.OpenPositionsState{
+		Items: []algotrade.OpenPosition{
+			{
+				PositionID: "p-1",
+				Symbol:     "USDJPY",
+				Snapshot: algotrade.PositionSnapshot{
+					HasPosition: true,
+					Side:        algotrade.PositionSideLong,
+					Size:        0.6,
+					EntryPrice:  marketdata.NewPriceFromRaw(1111),
+				},
+			},
+		},
+	})
+
+	if err := loadNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("run position_snapshot_load: %v", err)
+	}
+
+	snapshot := artifact.MustGet(artifacts.View(), positionSnapshotOutputKey("position_load"))
+	if !snapshot.HasPosition || snapshot.EntryPrice.Raw() != 1111 {
+		t.Fatalf("expected snapshot from open_positions state, got %#v", snapshot)
+	}
+}
+
+func TestPositionBreakevenAndSignalExitBasicIntegration(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	breakevenNode, err := registry.Build(spec.NodeSpec{
+		ID:   "breakeven",
+		Kind: "position_breakeven",
+		Config: map[string]any{
+			"position_node_id": "position_load",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build position_breakeven: %v", err)
+	}
+	exitNode, err := registry.Build(spec.NodeSpec{
+		ID:   "exit",
+		Kind: "signal_exit_basic",
+		Config: map[string]any{
+			"position_node_id":  "position_load",
+			"stop_loss_node_id": "breakeven",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build signal_exit_basic: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, positionSnapshotOutputKey("position_load"), algotrade.PositionSnapshot{
+		HasPosition: true,
+		Side:        algotrade.PositionSideLong,
+		Size:        1.0,
+		EntryPrice:  marketdata.NewPriceFromRaw(1000),
+	})
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+		{
+			Open:  marketdata.NewPriceFromRaw(1000),
+			High:  marketdata.NewPriceFromRaw(1001),
+			Low:   marketdata.NewPriceFromRaw(995),
+			Close: marketdata.NewPriceFromRaw(998),
+		},
+	})
+
+	mem := stateinfra.NewMemoryStore()
+	txn := mem.BeginTxn("test")
+	state.StageWrite(txn, algotrade.StateOpenPositions, algotrade.OpenPositionsState{
+		Items: []algotrade.OpenPosition{
+			{
+				PositionID: "p-1",
+				Symbol:     "USDJPY",
+				Snapshot:   artifact.MustGet(artifacts.View(), positionSnapshotOutputKey("position_load")),
+			},
+		},
+	})
+
+	if err := breakevenNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("run position_breakeven: %v", err)
+	}
+	if err := exitNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("run signal_exit_basic: %v", err)
+	}
+	decision := artifact.MustGet(artifacts.View(), signalExitDecisionOutputKey("exit"))
+	if !decision.ShouldExit {
+		t.Fatalf("expected should_exit=true via breakeven stop loss, got %#v", decision)
+	}
+}
+
+func TestPositionTrailingStopRunProducesTighterDistance(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	trailingNode, err := registry.Build(spec.NodeSpec{
+		ID:   "trailing",
+		Kind: "position_trailing_stop",
+		Config: map[string]any{
+			"position_node_id": "position_load",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build position_trailing_stop: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, positionSnapshotOutputKey("position_load"), algotrade.PositionSnapshot{
+		HasPosition: true,
+		Side:        algotrade.PositionSideLong,
+		Size:        1.0,
+		EntryPrice:  marketdata.NewPriceFromRaw(1000),
+	})
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+		{
+			Open:  marketdata.NewPriceFromRaw(1000),
+			High:  marketdata.NewPriceFromRaw(1030),
+			Low:   marketdata.NewPriceFromRaw(999),
+			Close: marketdata.NewPriceFromRaw(1020),
+		},
+	})
+	mem := stateinfra.NewMemoryStore()
+	txn := mem.BeginTxn("test")
+	state.StageWrite(txn, algotrade.StateOpenPositions, algotrade.OpenPositionsState{
+		Items: []algotrade.OpenPosition{
+			{
+				PositionID: "p-1",
+				Symbol:     "USDJPY",
+				Snapshot:   artifact.MustGet(artifacts.View(), positionSnapshotOutputKey("position_load")),
+			},
+		},
+	})
+
+	if err := trailingNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("run position_trailing_stop: %v", err)
+	}
+	stopDistance := artifact.MustGet(artifacts.View(), riskStopLossDistanceOutputKey("trailing"))
+	if stopDistance.Raw() <= 1 {
+		t.Fatalf("expected trailing stop distance > 1, got %d", stopDistance.Raw())
+	}
+}
+
+func TestPositionTimeoutExitRunWithoutPosition(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	timeoutNode, err := registry.Build(spec.NodeSpec{
+		ID:   "timeout",
+		Kind: "position_timeout_exit",
+		Config: map[string]any{
+			"position_node_id": "position_load",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build position_timeout_exit: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, positionSnapshotOutputKey("position_load"), algotrade.PositionSnapshot{
+		HasPosition: false,
+		Side:        algotrade.PositionSideFlat,
+		Size:        0,
+		EntryPrice:  marketdata.Price(0),
+	})
+
+	txn := stateinfra.NewMemoryStore().BeginTxn("test")
+	if err := timeoutNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("run position_timeout_exit: %v", err)
+	}
+	got := artifact.MustGet(artifacts.View(), signalExitDecisionOutputKey("timeout"))
+	if got.ShouldExit {
+		t.Fatalf("expected should_exit=false, got %#v", got)
+	}
+	if got.Reason != "no_position" {
+		t.Fatalf("expected reason=no_position, got %q", got.Reason)
+	}
+}
+
+func TestObservabilityEmitOrderDecisionRun(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	obsNode, err := registry.Build(spec.NodeSpec{
+		ID:   "obs_order",
+		Kind: "observability_emit_order_decision",
+		Config: map[string]any{
+			"decision_node_id": "decision",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build observability_emit_order_decision: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, signalDecisionOutputKey("decision"), algotrade.OrderRequest{
+		Action:           algotrade.OrderActionBuy,
+		Reason:           "entry_allowed",
+		PositionSize:     0.9,
+		StopLossDistance: marketdata.NewPriceFromRaw(12),
+	})
+	txn := stateinfra.NewMemoryStore().BeginTxn("test")
+	if err := obsNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("run observability_emit_order_decision: %v", err)
+	}
+	got := artifact.MustGet(artifacts.View(), observabilityOrderDecisionOutputKey("obs_order"))
+	if got.Action != algotrade.OrderActionBuy || got.PositionSize <= 0 {
+		t.Fatalf("unexpected order decision observability payload: %#v", got)
+	}
+}
+
+func TestObservabilityEmitPositionEventRun(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	obsNode, err := registry.Build(spec.NodeSpec{
+		ID:   "obs_position",
+		Kind: "observability_emit_position_event",
+		Config: map[string]any{
+			"position_node_id": "position_load",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build observability_emit_position_event: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, positionSnapshotOutputKey("position_load"), algotrade.PositionSnapshot{
+		HasPosition: true,
+		Side:        algotrade.PositionSideLong,
+		Size:        0.4,
+		EntryPrice:  marketdata.NewPriceFromRaw(1000),
+	})
+	txn := stateinfra.NewMemoryStore().BeginTxn("test")
+	if err := obsNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("run observability_emit_position_event: %v", err)
+	}
+	got := artifact.MustGet(artifacts.View(), observabilityPositionEventOutputKey("obs_position"))
+	if !got.HasPosition || got.Side != algotrade.PositionSideLong || got.Size <= 0 {
+		t.Fatalf("unexpected position event observability payload: %#v", got)
+	}
+}
+
+func TestDecisionOrderPositionArtifactTraceRegression(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+
+	nodes := []spec.NodeSpec{
+		{ID: "atr", Kind: "feature_atr", Config: map[string]any{"window": 3}},
+		{ID: "range", Kind: "feature_range_high", Config: map[string]any{"window": 3}},
+		{ID: "breakout", Kind: "signal_breakout_long", Config: map[string]any{"range_node_id": "range"}},
+		{ID: "session_filter", Kind: "filter_session", Config: map[string]any{"signal_node_id": "breakout", "allowed_sessions": []string{"tokyo"}}},
+		{ID: "spread_filter", Kind: "filter_spread", Config: map[string]any{"allowed_node_id": "session_filter", "max_spread_bps": 5.0}},
+		{ID: "sizing", Kind: "risk_position_sizing", Config: map[string]any{"allowed_node_id": "spread_filter", "atr_node_id": "atr", "risk_rate": 0.01, "stop_atr_multiple": 1.5}},
+		{ID: "decision", Kind: "signal_decision_mapper", Config: map[string]any{"allowed_node_id": "spread_filter", "sizing_node_id": "sizing"}},
+		{ID: "market_exec", Kind: "execution_submit_market_order", Config: map[string]any{"decision_node_id": "decision"}},
+		{ID: "position_load", Kind: "position_snapshot_load"},
+		{ID: "obs_order", Kind: "observability_emit_order_decision", Config: map[string]any{"decision_node_id": "decision"}},
+		{ID: "obs_position", Kind: "observability_emit_position_event", Config: map[string]any{"position_node_id": "position_load"}},
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, usecase.InputKeySymbol, "USDJPY")
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+		{
+			Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
+			Closetime: marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
+			Open:      marketdata.NewPriceFromRaw(1000),
+			High:      marketdata.NewPriceFromRaw(1005),
+			Low:       marketdata.NewPriceFromRaw(998),
+			Close:     marketdata.NewPriceFromRaw(1002),
+		},
+		{
+			Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
+			Closetime: marketdata.MustParseUTCTime("2026-04-01T00:02:00Z"),
+			Open:      marketdata.NewPriceFromRaw(1002),
+			High:      marketdata.NewPriceFromRaw(1006),
+			Low:       marketdata.NewPriceFromRaw(1001),
+			Close:     marketdata.NewPriceFromRaw(1004),
+		},
+		{
+			Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:02:00Z"),
+			Closetime: marketdata.MustParseUTCTime("2026-04-01T00:03:00Z"),
+			Open:      marketdata.NewPriceFromRaw(1004),
+			High:      marketdata.NewPriceFromRaw(1007),
+			Low:       marketdata.NewPriceFromRaw(1003),
+			Close:     marketdata.NewPriceFromRaw(1005),
+		},
+		{
+			Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:03:00Z"),
+			Closetime: marketdata.MustParseUTCTime("2026-04-01T00:04:00Z"),
+			Open:      marketdata.NewPriceFromRaw(1005),
+			High:      marketdata.NewPriceFromRaw(1012),
+			Low:       marketdata.NewPriceFromRaw(1004),
+			Close:     marketdata.NewPriceFromRaw(1011),
+		},
+	})
+	artifact.Set(writer, usecase.InputKeyMarketSpreadBps, 1.2)
+	artifact.Set(writer, usecase.InputKeyAccountBalance, 10000.0)
+
+	mem := stateinfra.NewMemoryStore()
+	txn := mem.BeginTxn("test")
+	view := artifacts.View()
+	for _, nodeSpec := range nodes {
+		built, err := registry.Build(nodeSpec)
+		if err != nil {
+			t.Fatalf("build node %s: %v", nodeSpec.ID, err)
+		}
+		if err := built.Run(context.Background(), view, writer, txn); err != nil {
+			t.Fatalf("run node %s: %v", nodeSpec.ID, err)
+		}
+		view = artifacts.View()
+	}
+
+	if !artifacts.Has(signalDecisionOutputKey("decision")) {
+		t.Fatal("expected signal decision artifact")
+	}
+	if !artifacts.Has(executionMarketOrderRequestOutputKey("market_exec")) {
+		t.Fatal("expected market order request artifact")
+	}
+	if !artifacts.Has(positionSnapshotOutputKey("position_load")) {
+		t.Fatal("expected position snapshot artifact")
+	}
+	if !artifacts.Has(observabilityOrderDecisionOutputKey("obs_order")) {
+		t.Fatal("expected order decision observability artifact")
+	}
+	if !artifacts.Has(observabilityPositionEventOutputKey("obs_position")) {
+		t.Fatal("expected position event observability artifact")
 	}
 }
 

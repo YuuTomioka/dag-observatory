@@ -1,0 +1,55 @@
+name: dagruntime.breakout_long_v0
+version: v1
+inputs:
+  - market.symbol
+  - market.ohlcv_bars
+  - market.spread_bps
+  - account.balance
+nodes:
+  - id: atr
+    kind: feature_atr
+    config:
+      window: 14
+
+  - id: range_high
+    kind: feature_range_high
+    config:
+      window: 20
+
+  - id: breakout
+    kind: signal_breakout_long
+    config:
+      range_node_id: range_high
+
+  - id: session_filter
+    kind: filter_session
+    config:
+      signal_node_id: breakout
+      allowed_sessions:
+        - tokyo
+        - london
+
+  - id: spread_filter
+    kind: filter_spread
+    config:
+      allowed_node_id: session_filter
+      max_spread_bps: 5
+
+  - id: sizing
+    kind: risk_position_sizing
+    config:
+      allowed_node_id: spread_filter
+      atr_node_id: atr
+      risk_rate: 0.005
+      stop_atr_multiple: 1.5
+
+  - id: decision
+    kind: signal_decision_mapper
+    config:
+      allowed_node_id: spread_filter
+      sizing_node_id: sizing
+
+  - id: observe
+    kind: observability_emit_signal_decision
+    config:
+      decision_node_id: decision

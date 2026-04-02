@@ -30,6 +30,14 @@ func NewBuiltinRegistryWithDependencies(deps Dependencies) (*Registry, error) {
 		&SMAFactory{},
 		&CrossDetectorFactory{},
 		&SignalMapperFactory{},
+		&FeatureATRFactory{},
+		&FeatureRangeHighFactory{},
+		&SignalBreakoutLongFactory{},
+		&FilterSessionFactory{},
+		&FilterSpreadFactory{},
+		&RiskPositionSizingFactory{},
+		&SignalDecisionMapperFactory{},
+		&ObservabilityEmitSignalDecisionFactory{},
 	}
 	if deps.MarketDataUnitOfWork != nil {
 		factories = append(factories,

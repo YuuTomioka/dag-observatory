@@ -144,6 +144,50 @@ func TestBuildRunEventWithMarketBars(t *testing.T) {
 	}
 }
 
+func TestBuildRunEventWithMarketOHLCVBars(t *testing.T) {
+	req := RunWorkflowRequest{
+		RunID:  "ohlcv-run",
+		Symbol: "USDJPY",
+		Mode:   "normal",
+		OHLCVBars: []marketdata.OHLCV{
+			{
+				Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
+				Closetime: marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
+				Open:      marketdata.NewPriceFromRaw(1000),
+				High:      marketdata.NewPriceFromRaw(1010),
+				Low:       marketdata.NewPriceFromRaw(995),
+				Close:     marketdata.NewPriceFromRaw(1005),
+				Volume:    marketdata.Volume(12),
+			},
+		},
+		SpreadBps:      3.4,
+		AccountBalance: 15000,
+	}
+	now := time.Date(2026, 3, 29, 9, 35, 0, 0, time.UTC)
+	_, event, _ := buildRunEvent(req, now)
+
+	payload, ok := event.Payload.(map[string]any)
+	if !ok {
+		t.Fatalf("expected payload map, got %T", event.Payload)
+	}
+	if _, ok := payload["market_ohlcv_bars"]; !ok {
+		t.Fatal("expected market_ohlcv_bars in payload")
+	}
+	input, ok := payload["input"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected input map, got %T", payload["input"])
+	}
+	if _, ok := input["ohlcv_bars"]; !ok {
+		t.Fatal("expected ohlcv_bars in input payload")
+	}
+	if got, ok := payload["market_spread_bps"]; !ok || got != 3.4 {
+		t.Fatalf("expected market_spread_bps=3.4, got %v", got)
+	}
+	if got, ok := payload["account_balance"]; !ok || got != 15000.0 {
+		t.Fatalf("expected account_balance=15000, got %v", got)
+	}
+}
+
 func TestBuildRunEventWithMarketdataInput(t *testing.T) {
 	req := RunWorkflowRequest{
 		RunID: "marketdata-run",

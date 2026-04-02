@@ -18,7 +18,20 @@ func TestNewBuiltinRegistryRegistersKinds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new builtin registry: %v", err)
 	}
-	for _, kind := range []string{"heavy_calc", "sma", "cross_detector", "signal_mapper"} {
+	for _, kind := range []string{
+		"heavy_calc",
+		"sma",
+		"cross_detector",
+		"signal_mapper",
+		"feature_atr",
+		"feature_range_high",
+		"signal_breakout_long",
+		"filter_session",
+		"filter_spread",
+		"risk_position_sizing",
+		"signal_decision_mapper",
+		"observability_emit_signal_decision",
+	} {
 		if !registry.Has(kind) {
 			t.Fatalf("expected kind %q to be registered", kind)
 		}

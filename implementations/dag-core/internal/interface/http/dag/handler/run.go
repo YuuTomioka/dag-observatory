@@ -53,10 +53,13 @@ func (h *Handler) DagRun(c echo.Context) error {
 	}
 
 	result, err := h.runWF.Execute(ctx, usecase.RunWorkflowRequest{
-		Symbol:     req.Symbol,
-		Mode:       mode,
-		Bars:       req.Bars,
-		Marketdata: mapMarketdataInput(req.Marketdata),
+		Symbol:         req.Symbol,
+		Mode:           mode,
+		Bars:           req.Bars,
+		OHLCVBars:      req.OHLCVBars,
+		SpreadBps:      req.SpreadBps,
+		AccountBalance: req.AccountBalance,
+		Marketdata:     mapMarketdataInput(req.Marketdata),
 	})
 	if err != nil {
 		h.appLog.Error(ctx, "dag run failed",

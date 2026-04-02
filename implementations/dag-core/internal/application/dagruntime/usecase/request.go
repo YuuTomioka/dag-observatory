@@ -11,11 +11,14 @@ type MarketdataRunInput struct {
 }
 
 type RunWorkflowRequest struct {
-	Symbol     string
-	Mode       string
-	Bars       []float64
-	Marketdata *MarketdataRunInput
-	RunID      string
+	Symbol         string
+	Mode           string
+	Bars           []float64
+	OHLCVBars      []marketdata.OHLCV
+	SpreadBps      float64
+	AccountBalance float64
+	Marketdata     *MarketdataRunInput
+	RunID          string
 }
 
 type RunWorkflowResult struct {

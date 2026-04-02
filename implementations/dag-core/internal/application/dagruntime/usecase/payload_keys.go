@@ -48,6 +48,18 @@ var (
 		Name:     "market_bars",
 		StableID: "event:input.market.bars.v1",
 	}
+	PayloadKeyMarketOHLCVBars = events.PayloadKey[[]marketdata.OHLCV]{
+		Name:     "market_ohlcv_bars",
+		StableID: "event:input.market.ohlcv_bars.v1",
+	}
+	PayloadKeyMarketSpreadBps = events.PayloadKey[float64]{
+		Name:     "market_spread_bps",
+		StableID: "event:input.market.spread_bps.v1",
+	}
+	PayloadKeyAccountBalance = events.PayloadKey[float64]{
+		Name:     "account_balance",
+		StableID: "event:input.account.balance.v1",
+	}
 	PayloadKeyMarketdataSymbolID = events.PayloadKey[int64]{
 		Name:     "marketdata.symbol_id",
 		StableID: "event:input.marketdata.symbol_id.v1",
@@ -72,6 +84,9 @@ var (
 	InputKeySymbol             = artifact.Key[string]{Name: "symbol", StableID: "artifact:input.symbol.v1"}
 	InputKeyMode               = artifact.Key[string]{Name: "mode", StableID: "artifact:input.mode.v1"}
 	InputKeyMarketBars         = artifact.Key[[]float64]{Name: "market.bars", StableID: "artifact:input.market.bars.v1"}
+	InputKeyMarketOHLCVBars    = artifact.Key[[]marketdata.OHLCV]{Name: "market.ohlcv_bars", StableID: "artifact:input.market.ohlcv_bars.v1"}
+	InputKeyMarketSpreadBps    = artifact.Key[float64]{Name: "market.spread_bps", StableID: "artifact:input.market.spread_bps.v1"}
+	InputKeyAccountBalance     = artifact.Key[float64]{Name: "account.balance", StableID: "artifact:input.account.balance.v1"}
 	InputKeyMarketdataSymbolID = artifact.Key[int64]{
 		Name:     "marketdata.symbol_id",
 		StableID: "artifact:input.marketdata.symbol_id.v1",

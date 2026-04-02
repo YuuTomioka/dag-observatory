@@ -1,0 +1,722 @@
+package factory
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"time"
+
+	"dag-observatory/dag-core/internal/application/dagruntime/spec"
+	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
+	"dag-observatory/dag-core/internal/domain/dagruntime/artifact"
+	"dag-observatory/dag-core/internal/domain/dagruntime/node"
+	"dag-observatory/dag-core/internal/domain/dagruntime/state"
+	"dag-observatory/dag-core/internal/domain/marketdata"
+)
+
+type FeatureATRFactory struct{}
+
+func (f *FeatureATRFactory) Kind() string { return "feature_atr" }
+
+func (f *FeatureATRFactory) Build(nodeSpec spec.NodeSpec) (node.Node, error) {
+	if err := ensureNoUnknownConfigKeys(nodeSpec.Config, []string{"window"}); err != nil {
+		return nil, fmt.Errorf("feature_atr node %q: %w", nodeSpec.ID, err)
+	}
+	window, err := requiredInt(nodeSpec.Config, "window")
+	if err != nil {
+		return nil, fmt.Errorf("feature_atr node %q: %w", nodeSpec.ID, err)
+	}
+	if window <= 0 {
+		return nil, fmt.Errorf("feature_atr node %q: config.window must be > 0", nodeSpec.ID)
+	}
+	return &featureATRNode{
+		id:     nodeSpec.ID,
+		window: window,
+	}, nil
+}
+
+type FeatureRangeHighFactory struct{}
+
+func (f *FeatureRangeHighFactory) Kind() string { return "feature_range_high" }
+
+func (f *FeatureRangeHighFactory) Build(nodeSpec spec.NodeSpec) (node.Node, error) {
+	if err := ensureNoUnknownConfigKeys(nodeSpec.Config, []string{"window"}); err != nil {
+		return nil, fmt.Errorf("feature_range_high node %q: %w", nodeSpec.ID, err)
+	}
+	window, err := requiredInt(nodeSpec.Config, "window")
+	if err != nil {
+		return nil, fmt.Errorf("feature_range_high node %q: %w", nodeSpec.ID, err)
+	}
+	if window <= 0 {
+		return nil, fmt.Errorf("feature_range_high node %q: config.window must be > 0", nodeSpec.ID)
+	}
+	return &featureRangeHighNode{
+		id:     nodeSpec.ID,
+		window: window,
+	}, nil
+}
+
+type SignalBreakoutLongFactory struct{}
+
+func (f *SignalBreakoutLongFactory) Kind() string { return "signal_breakout_long" }
+
+func (f *SignalBreakoutLongFactory) Build(nodeSpec spec.NodeSpec) (node.Node, error) {
+	if err := ensureNoUnknownConfigKeys(nodeSpec.Config, []string{"range_node_id"}); err != nil {
+		return nil, fmt.Errorf("signal_breakout_long node %q: %w", nodeSpec.ID, err)
+	}
+	rangeNodeID, err := requiredString(nodeSpec.Config, "range_node_id")
+	if err != nil {
+		return nil, fmt.Errorf("signal_breakout_long node %q: %w", nodeSpec.ID, err)
+	}
+	return &signalBreakoutLongNode{
+		id:          nodeSpec.ID,
+		rangeNodeID: rangeNodeID,
+	}, nil
+}
+
+type FilterSessionFactory struct{}
+
+func (f *FilterSessionFactory) Kind() string { return "filter_session" }
+
+func (f *FilterSessionFactory) Build(nodeSpec spec.NodeSpec) (node.Node, error) {
+	if err := ensureNoUnknownConfigKeys(nodeSpec.Config, []string{"signal_node_id", "allowed_sessions"}); err != nil {
+		return nil, fmt.Errorf("filter_session node %q: %w", nodeSpec.ID, err)
+	}
+	signalNodeID, err := requiredString(nodeSpec.Config, "signal_node_id")
+	if err != nil {
+		return nil, fmt.Errorf("filter_session node %q: %w", nodeSpec.ID, err)
+	}
+	sessions := optionalStringSlice(nodeSpec.Config, "allowed_sessions", []string{"tokyo", "london", "newyork"})
+	if len(sessions) == 0 {
+		return nil, fmt.Errorf("filter_session node %q: config.allowed_sessions must not be empty", nodeSpec.ID)
+	}
+	return &filterSessionNode{
+		id:              nodeSpec.ID,
+		signalNodeID:    signalNodeID,
+		allowedSessions: sessions,
+	}, nil
+}
+
+type FilterSpreadFactory struct{}
+
+func (f *FilterSpreadFactory) Kind() string { return "filter_spread" }
+
+func (f *FilterSpreadFactory) Build(nodeSpec spec.NodeSpec) (node.Node, error) {
+	if err := ensureNoUnknownConfigKeys(nodeSpec.Config, []string{"allowed_node_id", "max_spread_bps"}); err != nil {
+		return nil, fmt.Errorf("filter_spread node %q: %w", nodeSpec.ID, err)
+	}
+	allowedNodeID, err := requiredString(nodeSpec.Config, "allowed_node_id")
+	if err != nil {
+		return nil, fmt.Errorf("filter_spread node %q: %w", nodeSpec.ID, err)
+	}
+	maxSpreadBps, err := requiredFloat(nodeSpec.Config, "max_spread_bps")
+	if err != nil {
+		return nil, fmt.Errorf("filter_spread node %q: %w", nodeSpec.ID, err)
+	}
+	if maxSpreadBps <= 0 {
+		return nil, fmt.Errorf("filter_spread node %q: config.max_spread_bps must be > 0", nodeSpec.ID)
+	}
+	return &filterSpreadNode{
+		id:            nodeSpec.ID,
+		allowedNodeID: allowedNodeID,
+		maxSpreadBps:  maxSpreadBps,
+	}, nil
+}
+
+type RiskPositionSizingFactory struct{}
+
+func (f *RiskPositionSizingFactory) Kind() string { return "risk_position_sizing" }
+
+func (f *RiskPositionSizingFactory) Build(nodeSpec spec.NodeSpec) (node.Node, error) {
+	if err := ensureNoUnknownConfigKeys(nodeSpec.Config, []string{"allowed_node_id", "atr_node_id", "risk_rate", "stop_atr_multiple"}); err != nil {
+		return nil, fmt.Errorf("risk_position_sizing node %q: %w", nodeSpec.ID, err)
+	}
+	allowedNodeID, err := requiredString(nodeSpec.Config, "allowed_node_id")
+	if err != nil {
+		return nil, fmt.Errorf("risk_position_sizing node %q: %w", nodeSpec.ID, err)
+	}
+	atrNodeID, err := requiredString(nodeSpec.Config, "atr_node_id")
+	if err != nil {
+		return nil, fmt.Errorf("risk_position_sizing node %q: %w", nodeSpec.ID, err)
+	}
+	riskRate, err := requiredFloat(nodeSpec.Config, "risk_rate")
+	if err != nil {
+		return nil, fmt.Errorf("risk_position_sizing node %q: %w", nodeSpec.ID, err)
+	}
+	if riskRate <= 0 || riskRate > 1 {
+		return nil, fmt.Errorf("risk_position_sizing node %q: config.risk_rate must be in (0,1]", nodeSpec.ID)
+	}
+	stopATRMultiple := optionalFloat(nodeSpec.Config, "stop_atr_multiple", 1.5)
+	if stopATRMultiple <= 0 {
+		return nil, fmt.Errorf("risk_position_sizing node %q: config.stop_atr_multiple must be > 0", nodeSpec.ID)
+	}
+	return &riskPositionSizingNode{
+		id:              nodeSpec.ID,
+		allowedNodeID:   allowedNodeID,
+		atrNodeID:       atrNodeID,
+		riskRate:        riskRate,
+		stopATRMultiple: stopATRMultiple,
+	}, nil
+}
+
+type SignalDecisionMapperFactory struct{}
+
+func (f *SignalDecisionMapperFactory) Kind() string { return "signal_decision_mapper" }
+
+func (f *SignalDecisionMapperFactory) Build(nodeSpec spec.NodeSpec) (node.Node, error) {
+	if err := ensureNoUnknownConfigKeys(nodeSpec.Config, []string{"allowed_node_id", "sizing_node_id"}); err != nil {
+		return nil, fmt.Errorf("signal_decision_mapper node %q: %w", nodeSpec.ID, err)
+	}
+	allowedNodeID, err := requiredString(nodeSpec.Config, "allowed_node_id")
+	if err != nil {
+		return nil, fmt.Errorf("signal_decision_mapper node %q: %w", nodeSpec.ID, err)
+	}
+	sizingNodeID, err := requiredString(nodeSpec.Config, "sizing_node_id")
+	if err != nil {
+		return nil, fmt.Errorf("signal_decision_mapper node %q: %w", nodeSpec.ID, err)
+	}
+	return &signalDecisionMapperNode{
+		id:            nodeSpec.ID,
+		allowedNodeID: allowedNodeID,
+		sizingNodeID:  sizingNodeID,
+	}, nil
+}
+
+type ObservabilityEmitSignalDecisionFactory struct{}
+
+func (f *ObservabilityEmitSignalDecisionFactory) Kind() string {
+	return "observability_emit_signal_decision"
+}
+
+func (f *ObservabilityEmitSignalDecisionFactory) Build(nodeSpec spec.NodeSpec) (node.Node, error) {
+	if err := ensureNoUnknownConfigKeys(nodeSpec.Config, []string{"decision_node_id"}); err != nil {
+		return nil, fmt.Errorf("observability_emit_signal_decision node %q: %w", nodeSpec.ID, err)
+	}
+	decisionNodeID, err := requiredString(nodeSpec.Config, "decision_node_id")
+	if err != nil {
+		return nil, fmt.Errorf("observability_emit_signal_decision node %q: %w", nodeSpec.ID, err)
+	}
+	return &observabilityEmitSignalDecisionNode{
+		id:             nodeSpec.ID,
+		decisionNodeID: decisionNodeID,
+	}, nil
+}
+
+type featureATRNode struct {
+	id     string
+	window int
+}
+
+func (n *featureATRNode) Name() string { return "dagruntime.feature_atr." + n.id }
+func (n *featureATRNode) Requires() []artifact.AnyKey {
+	return []artifact.AnyKey{usecase.InputKeyMarketOHLCVBars}
+}
+func (n *featureATRNode) Provides() []artifact.AnyKey {
+	return []artifact.AnyKey{featureATROutputKey(n.id)}
+}
+func (n *featureATRNode) Reads() []state.AnyKey    { return nil }
+func (n *featureATRNode) Writes() []state.AnyKey   { return nil }
+func (n *featureATRNode) Spec() node.ExecutionSpec { return node.ExecutionSpec{Deterministic: true} }
+
+func (n *featureATRNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = txn
+	bars := artifact.MustGet(av, usecase.InputKeyMarketOHLCVBars)
+	if len(bars) == 0 {
+		return fmt.Errorf("feature_atr node %q: market.ohlcv_bars is empty", n.id)
+	}
+	window := n.window
+	if window > len(bars) {
+		window = len(bars)
+	}
+	start := len(bars) - window
+	sumTR := int64(0)
+	for i := start; i < len(bars); i++ {
+		bar := bars[i]
+		tr := bar.High.Sub(bar.Low).Abs().Raw()
+		if i > 0 {
+			prevClose := bars[i-1].Close
+			d1 := bar.High.Sub(prevClose).Abs().Raw()
+			d2 := bar.Low.Sub(prevClose).Abs().Raw()
+			if d1 > tr {
+				tr = d1
+			}
+			if d2 > tr {
+				tr = d2
+			}
+		}
+		sumTR += tr
+	}
+	atr := marketdata.NewPriceFromRaw(sumTR / int64(window))
+	artifact.Set(aw, featureATROutputKey(n.id), atr)
+	return nil
+}
+
+type featureRangeHighNode struct {
+	id     string
+	window int
+}
+
+func (n *featureRangeHighNode) Name() string { return "dagruntime.feature_range_high." + n.id }
+func (n *featureRangeHighNode) Requires() []artifact.AnyKey {
+	return []artifact.AnyKey{usecase.InputKeyMarketOHLCVBars}
+}
+func (n *featureRangeHighNode) Provides() []artifact.AnyKey {
+	return []artifact.AnyKey{featureRangeHighOutputKey(n.id)}
+}
+func (n *featureRangeHighNode) Reads() []state.AnyKey  { return nil }
+func (n *featureRangeHighNode) Writes() []state.AnyKey { return nil }
+func (n *featureRangeHighNode) Spec() node.ExecutionSpec {
+	return node.ExecutionSpec{Deterministic: true}
+}
+
+func (n *featureRangeHighNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = txn
+	bars := artifact.MustGet(av, usecase.InputKeyMarketOHLCVBars)
+	if len(bars) < 2 {
+		return fmt.Errorf("feature_range_high node %q: market.ohlcv_bars requires at least 2 bars", n.id)
+	}
+	previousBars := bars[:len(bars)-1]
+	window := n.window
+	if window > len(previousBars) {
+		window = len(previousBars)
+	}
+	start := len(previousBars) - window
+	maxHigh := previousBars[start].High
+	for _, bar := range previousBars[start+1:] {
+		if bar.High.Gt(maxHigh) {
+			maxHigh = bar.High
+		}
+	}
+	artifact.Set(aw, featureRangeHighOutputKey(n.id), maxHigh)
+	return nil
+}
+
+type signalBreakoutLongNode struct {
+	id          string
+	rangeNodeID string
+}
+
+func (n *signalBreakoutLongNode) Name() string { return "dagruntime.signal_breakout_long." + n.id }
+func (n *signalBreakoutLongNode) Requires() []artifact.AnyKey {
+	return []artifact.AnyKey{
+		usecase.InputKeyMarketOHLCVBars,
+		featureRangeHighOutputKey(n.rangeNodeID),
+	}
+}
+func (n *signalBreakoutLongNode) Provides() []artifact.AnyKey {
+	return []artifact.AnyKey{signalBreakoutLongOutputKey(n.id)}
+}
+func (n *signalBreakoutLongNode) Reads() []state.AnyKey  { return nil }
+func (n *signalBreakoutLongNode) Writes() []state.AnyKey { return nil }
+func (n *signalBreakoutLongNode) Spec() node.ExecutionSpec {
+	return node.ExecutionSpec{Deterministic: true}
+}
+
+func (n *signalBreakoutLongNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = txn
+	bars := artifact.MustGet(av, usecase.InputKeyMarketOHLCVBars)
+	if len(bars) == 0 {
+		return fmt.Errorf("signal_breakout_long node %q: market.ohlcv_bars is empty", n.id)
+	}
+	rangeHigh := artifact.MustGet(av, featureRangeHighOutputKey(n.rangeNodeID))
+	lastClose := bars[len(bars)-1].Close
+	artifact.Set(aw, signalBreakoutLongOutputKey(n.id), lastClose.Gt(rangeHigh))
+	return nil
+}
+
+type entryFilterResult struct {
+	Allowed bool
+	Reason  string
+}
+
+type signalOrderDecision struct {
+	Action           string
+	Reason           string
+	PositionSize     float64
+	StopLossDistance marketdata.Price
+}
+
+type observabilitySignalDecision struct {
+	Action       string
+	Reason       string
+	Allowed      bool
+	PositionSize float64
+}
+
+type filterSessionNode struct {
+	id              string
+	signalNodeID    string
+	allowedSessions []string
+}
+
+func (n *filterSessionNode) Name() string { return "dagruntime.filter_session." + n.id }
+func (n *filterSessionNode) Requires() []artifact.AnyKey {
+	return []artifact.AnyKey{
+		signalBreakoutLongOutputKey(n.signalNodeID),
+		usecase.InputKeyMarketOHLCVBars,
+	}
+}
+func (n *filterSessionNode) Provides() []artifact.AnyKey {
+	return []artifact.AnyKey{entryFilterResultKey(n.id)}
+}
+func (n *filterSessionNode) Reads() []state.AnyKey    { return nil }
+func (n *filterSessionNode) Writes() []state.AnyKey   { return nil }
+func (n *filterSessionNode) Spec() node.ExecutionSpec { return node.ExecutionSpec{Deterministic: true} }
+
+func (n *filterSessionNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = txn
+	candidate := artifact.MustGet(av, signalBreakoutLongOutputKey(n.signalNodeID))
+	if !candidate {
+		artifact.Set(aw, entryFilterResultKey(n.id), entryFilterResult{Allowed: false, Reason: "no_signal"})
+		return nil
+	}
+	bars := artifact.MustGet(av, usecase.InputKeyMarketOHLCVBars)
+	if len(bars) == 0 {
+		return fmt.Errorf("filter_session node %q: market.ohlcv_bars is empty", n.id)
+	}
+	last := bars[len(bars)-1]
+	ts := last.Closetime
+	if ts.IsZero() {
+		ts = last.Opentime
+	}
+	if ts.IsZero() {
+		return fmt.Errorf("filter_session node %q: last bar has no open/close time", n.id)
+	}
+	if !isAllowedSession(ts.Time().UTC(), n.allowedSessions) {
+		artifact.Set(aw, entryFilterResultKey(n.id), entryFilterResult{Allowed: false, Reason: "session_blocked"})
+		return nil
+	}
+	artifact.Set(aw, entryFilterResultKey(n.id), entryFilterResult{Allowed: true})
+	return nil
+}
+
+type filterSpreadNode struct {
+	id            string
+	allowedNodeID string
+	maxSpreadBps  float64
+}
+
+func (n *filterSpreadNode) Name() string { return "dagruntime.filter_spread." + n.id }
+func (n *filterSpreadNode) Requires() []artifact.AnyKey {
+	return []artifact.AnyKey{
+		entryFilterResultKey(n.allowedNodeID),
+		usecase.InputKeyMarketSpreadBps,
+	}
+}
+func (n *filterSpreadNode) Provides() []artifact.AnyKey {
+	return []artifact.AnyKey{entryFilterResultKey(n.id)}
+}
+func (n *filterSpreadNode) Reads() []state.AnyKey    { return nil }
+func (n *filterSpreadNode) Writes() []state.AnyKey   { return nil }
+func (n *filterSpreadNode) Spec() node.ExecutionSpec { return node.ExecutionSpec{Deterministic: true} }
+
+func (n *filterSpreadNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = txn
+	current := artifact.MustGet(av, entryFilterResultKey(n.allowedNodeID))
+	if !current.Allowed {
+		artifact.Set(aw, entryFilterResultKey(n.id), current)
+		return nil
+	}
+	spread := artifact.MustGet(av, usecase.InputKeyMarketSpreadBps)
+	if spread > n.maxSpreadBps {
+		artifact.Set(aw, entryFilterResultKey(n.id), entryFilterResult{Allowed: false, Reason: "spread_limit"})
+		return nil
+	}
+	artifact.Set(aw, entryFilterResultKey(n.id), current)
+	return nil
+}
+
+type riskPositionSizingNode struct {
+	id              string
+	allowedNodeID   string
+	atrNodeID       string
+	riskRate        float64
+	stopATRMultiple float64
+}
+
+func (n *riskPositionSizingNode) Name() string { return "dagruntime.risk_position_sizing." + n.id }
+func (n *riskPositionSizingNode) Requires() []artifact.AnyKey {
+	return []artifact.AnyKey{
+		entryFilterResultKey(n.allowedNodeID),
+		featureATROutputKey(n.atrNodeID),
+		usecase.InputKeyAccountBalance,
+	}
+}
+func (n *riskPositionSizingNode) Provides() []artifact.AnyKey {
+	return []artifact.AnyKey{
+		riskStopLossDistanceOutputKey(n.id),
+		riskPositionSizeOutputKey(n.id),
+	}
+}
+func (n *riskPositionSizingNode) Reads() []state.AnyKey  { return nil }
+func (n *riskPositionSizingNode) Writes() []state.AnyKey { return nil }
+func (n *riskPositionSizingNode) Spec() node.ExecutionSpec {
+	return node.ExecutionSpec{Deterministic: true}
+}
+
+func (n *riskPositionSizingNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = txn
+	filtered := artifact.MustGet(av, entryFilterResultKey(n.allowedNodeID))
+	if !filtered.Allowed {
+		artifact.Set(aw, riskStopLossDistanceOutputKey(n.id), marketdata.Price(0))
+		artifact.Set(aw, riskPositionSizeOutputKey(n.id), 0.0)
+		return nil
+	}
+	atr := artifact.MustGet(av, featureATROutputKey(n.atrNodeID))
+	if atr.Raw() <= 0 {
+		return fmt.Errorf("risk_position_sizing node %q: atr must be > 0", n.id)
+	}
+	stopRaw := int64(float64(atr.Raw()) * n.stopATRMultiple)
+	if stopRaw <= 0 {
+		return fmt.Errorf("risk_position_sizing node %q: computed stop distance must be > 0", n.id)
+	}
+	accountBalance := artifact.MustGet(av, usecase.InputKeyAccountBalance)
+	if accountBalance <= 0 {
+		return fmt.Errorf("risk_position_sizing node %q: account.balance must be > 0", n.id)
+	}
+	riskAmount := accountBalance * n.riskRate
+	positionSize := riskAmount / float64(stopRaw)
+	artifact.Set(aw, riskStopLossDistanceOutputKey(n.id), marketdata.NewPriceFromRaw(stopRaw))
+	artifact.Set(aw, riskPositionSizeOutputKey(n.id), positionSize)
+	return nil
+}
+
+type signalDecisionMapperNode struct {
+	id            string
+	allowedNodeID string
+	sizingNodeID  string
+}
+
+func (n *signalDecisionMapperNode) Name() string { return "dagruntime.signal_decision_mapper." + n.id }
+func (n *signalDecisionMapperNode) Requires() []artifact.AnyKey {
+	return []artifact.AnyKey{
+		entryFilterResultKey(n.allowedNodeID),
+		riskStopLossDistanceOutputKey(n.sizingNodeID),
+		riskPositionSizeOutputKey(n.sizingNodeID),
+	}
+}
+func (n *signalDecisionMapperNode) Provides() []artifact.AnyKey {
+	return []artifact.AnyKey{signalDecisionOutputKey(n.id)}
+}
+func (n *signalDecisionMapperNode) Reads() []state.AnyKey  { return nil }
+func (n *signalDecisionMapperNode) Writes() []state.AnyKey { return nil }
+func (n *signalDecisionMapperNode) Spec() node.ExecutionSpec {
+	return node.ExecutionSpec{Deterministic: true}
+}
+
+func (n *signalDecisionMapperNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = txn
+	filtered := artifact.MustGet(av, entryFilterResultKey(n.allowedNodeID))
+	stopLossDistance := artifact.MustGet(av, riskStopLossDistanceOutputKey(n.sizingNodeID))
+	positionSize := artifact.MustGet(av, riskPositionSizeOutputKey(n.sizingNodeID))
+	decision := signalOrderDecision{
+		Action:           "hold",
+		Reason:           filtered.Reason,
+		PositionSize:     0,
+		StopLossDistance: marketdata.Price(0),
+	}
+	if filtered.Allowed && positionSize > 0 && stopLossDistance.Raw() > 0 {
+		decision.Action = "buy"
+		decision.Reason = "entry_allowed"
+		decision.PositionSize = positionSize
+		decision.StopLossDistance = stopLossDistance
+	}
+	artifact.Set(aw, signalDecisionOutputKey(n.id), decision)
+	return nil
+}
+
+type observabilityEmitSignalDecisionNode struct {
+	id             string
+	decisionNodeID string
+}
+
+func (n *observabilityEmitSignalDecisionNode) Name() string {
+	return "dagruntime.observability_emit_signal_decision." + n.id
+}
+func (n *observabilityEmitSignalDecisionNode) Requires() []artifact.AnyKey {
+	return []artifact.AnyKey{signalDecisionOutputKey(n.decisionNodeID)}
+}
+func (n *observabilityEmitSignalDecisionNode) Provides() []artifact.AnyKey {
+	return []artifact.AnyKey{observabilitySignalDecisionOutputKey(n.id)}
+}
+func (n *observabilityEmitSignalDecisionNode) Reads() []state.AnyKey  { return nil }
+func (n *observabilityEmitSignalDecisionNode) Writes() []state.AnyKey { return nil }
+func (n *observabilityEmitSignalDecisionNode) Spec() node.ExecutionSpec {
+	return node.ExecutionSpec{Deterministic: true}
+}
+
+func (n *observabilityEmitSignalDecisionNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = txn
+	decision := artifact.MustGet(av, signalDecisionOutputKey(n.decisionNodeID))
+	artifact.Set(aw, observabilitySignalDecisionOutputKey(n.id), observabilitySignalDecision{
+		Action:       decision.Action,
+		Reason:       decision.Reason,
+		Allowed:      decision.Action == "buy",
+		PositionSize: decision.PositionSize,
+	})
+	return nil
+}
+
+func featureATROutputKey(nodeID string) artifact.Key[marketdata.Price] {
+	return artifact.Key[marketdata.Price]{
+		Name:     fmt.Sprintf("%s.atr", nodeID),
+		StableID: fmt.Sprintf("artifact:dagruntime.feature_atr.%s.v1", nodeID),
+	}
+}
+
+func featureRangeHighOutputKey(nodeID string) artifact.Key[marketdata.Price] {
+	return artifact.Key[marketdata.Price]{
+		Name:     fmt.Sprintf("%s.range_high", nodeID),
+		StableID: fmt.Sprintf("artifact:dagruntime.feature_range_high.%s.v1", nodeID),
+	}
+}
+
+func signalBreakoutLongOutputKey(nodeID string) artifact.Key[bool] {
+	return artifact.Key[bool]{
+		Name:     fmt.Sprintf("%s.breakout_long", nodeID),
+		StableID: fmt.Sprintf("artifact:dagruntime.signal_breakout_long.%s.v1", nodeID),
+	}
+}
+
+func entryFilterResultKey(nodeID string) artifact.Key[entryFilterResult] {
+	return artifact.Key[entryFilterResult]{
+		Name:     fmt.Sprintf("%s.entry_filter_result", nodeID),
+		StableID: fmt.Sprintf("artifact:dagruntime.filter.entry.%s.v1", nodeID),
+	}
+}
+
+func riskStopLossDistanceOutputKey(nodeID string) artifact.Key[marketdata.Price] {
+	return artifact.Key[marketdata.Price]{
+		Name:     fmt.Sprintf("%s.stop_loss_distance", nodeID),
+		StableID: fmt.Sprintf("artifact:dagruntime.risk.stop_loss_distance.%s.v1", nodeID),
+	}
+}
+
+func riskPositionSizeOutputKey(nodeID string) artifact.Key[float64] {
+	return artifact.Key[float64]{
+		Name:     fmt.Sprintf("%s.position_size", nodeID),
+		StableID: fmt.Sprintf("artifact:dagruntime.risk.position_size.%s.v1", nodeID),
+	}
+}
+
+func signalDecisionOutputKey(nodeID string) artifact.Key[signalOrderDecision] {
+	return artifact.Key[signalOrderDecision]{
+		Name:     fmt.Sprintf("%s.signal_order_decision", nodeID),
+		StableID: fmt.Sprintf("artifact:dagruntime.signal.decision.%s.v1", nodeID),
+	}
+}
+
+func observabilitySignalDecisionOutputKey(nodeID string) artifact.Key[observabilitySignalDecision] {
+	return artifact.Key[observabilitySignalDecision]{
+		Name:     fmt.Sprintf("%s.observability_signal_decision", nodeID),
+		StableID: fmt.Sprintf("artifact:dagruntime.observability.signal_decision.%s.v1", nodeID),
+	}
+}
+
+func requiredFloat(config map[string]any, key string) (float64, error) {
+	if config == nil {
+		return 0, fmt.Errorf("config.%s is required", key)
+	}
+	raw, ok := config[key]
+	if !ok {
+		return 0, fmt.Errorf("config.%s is required", key)
+	}
+	return parseFloatConfig(raw, key)
+}
+
+func optionalFloat(config map[string]any, key string, defaultValue float64) float64 {
+	if config == nil {
+		return defaultValue
+	}
+	raw, ok := config[key]
+	if !ok {
+		return defaultValue
+	}
+	value, err := parseFloatConfig(raw, key)
+	if err != nil {
+		return defaultValue
+	}
+	return value
+}
+
+func parseFloatConfig(raw any, key string) (float64, error) {
+	switch v := raw.(type) {
+	case float64:
+		return v, nil
+	case float32:
+		return float64(v), nil
+	case int:
+		return float64(v), nil
+	case int64:
+		return float64(v), nil
+	default:
+		return 0, fmt.Errorf("config.%s must be number", key)
+	}
+}
+
+func optionalStringSlice(config map[string]any, key string, defaultValue []string) []string {
+	if config == nil {
+		return defaultValue
+	}
+	raw, ok := config[key]
+	if !ok {
+		return defaultValue
+	}
+	switch v := raw.(type) {
+	case []string:
+		return normalizeSessions(v)
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			s, ok := item.(string)
+			if !ok {
+				return defaultValue
+			}
+			out = append(out, s)
+		}
+		return normalizeSessions(out)
+	default:
+		return defaultValue
+	}
+}
+
+func normalizeSessions(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		trimmed := strings.TrimSpace(strings.ToLower(s))
+		if trimmed == "" {
+			continue
+		}
+		out = append(out, trimmed)
+	}
+	return out
+}
+
+func isAllowedSession(t time.Time, sessions []string) bool {
+	hour := t.Hour()
+	for _, s := range sessions {
+		switch s {
+		case "tokyo":
+			if hour >= 0 && hour < 9 {
+				return true
+			}
+		case "london":
+			if hour >= 7 && hour < 16 {
+				return true
+			}
+		case "newyork":
+			if hour >= 13 && hour < 22 {
+				return true
+			}
+		}
+	}
+	return false
+}

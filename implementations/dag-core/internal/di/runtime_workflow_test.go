@@ -3,8 +3,18 @@ package di
 import (
 	"context"
 	"testing"
+	"time"
 
+	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
 	"dag-observatory/dag-core/internal/application/marketdata/repository"
+	"dag-observatory/dag-core/internal/domain/dagruntime/artifact"
+	"dag-observatory/dag-core/internal/domain/dagruntime/engine"
+	"dag-observatory/dag-core/internal/domain/dagruntime/events"
+	"dag-observatory/dag-core/internal/domain/dagruntime/policy"
+	"dag-observatory/dag-core/internal/domain/dagruntime/state"
+	"dag-observatory/dag-core/internal/domain/marketdata"
+	artifactinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/artifact"
+	stateinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/state"
 )
 
 type fakeCompileUnitOfWork struct{}
@@ -82,5 +92,105 @@ func TestCompileMarketdataBackfillWorkflowFromYAML(t *testing.T) {
 	}
 	if len(compiled.Inputs) != 4 {
 		t.Fatalf("expected four inputs, got %d", len(compiled.Inputs))
+	}
+}
+
+func TestCompileBreakoutLongV0WorkflowFromYAML(t *testing.T) {
+	t.Parallel()
+
+	compiled, err := compileWorkflowFromSpecPath("workflows/breakout_long_v0.yaml", nil)
+	if err != nil {
+		t.Fatalf("compile breakout_long_v0 workflow: %v", err)
+	}
+	if compiled.Name != "dagruntime.breakout_long_v0" {
+		t.Fatalf("expected workflow name dagruntime.breakout_long_v0, got %q", compiled.Name)
+	}
+	if len(compiled.Nodes) != 8 {
+		t.Fatalf("expected eight nodes, got %d", len(compiled.Nodes))
+	}
+	if len(compiled.Inputs) != 4 {
+		t.Fatalf("expected four inputs, got %d", len(compiled.Inputs))
+	}
+}
+
+func TestRunBreakoutLongV0WorkflowE2E(t *testing.T) {
+	t.Parallel()
+
+	compiled, err := compileWorkflowFromSpecPath("workflows/breakout_long_v0.yaml", nil)
+	if err != nil {
+		t.Fatalf("compile breakout_long_v0 workflow: %v", err)
+	}
+
+	artifactStore := artifactinfra.NewMemoryStore()
+	runner := &engine.Runner{
+		ArtifactStore: artifactStore,
+		StateStore:    stateinfra.NewMemoryStore(),
+		Policy:        policy.Policy{},
+	}
+
+	inputs := engine.InputMap{
+		usecase.InputKeySymbol: "USDJPY",
+		usecase.InputKeyMarketOHLCVBars: []marketdata.OHLCV{
+			{
+				Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
+				Closetime: marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
+				Open:      marketdata.NewPriceFromRaw(1000),
+				High:      marketdata.NewPriceFromRaw(1005),
+				Low:       marketdata.NewPriceFromRaw(998),
+				Close:     marketdata.NewPriceFromRaw(1002),
+			},
+			{
+				Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
+				Closetime: marketdata.MustParseUTCTime("2026-04-01T00:02:00Z"),
+				Open:      marketdata.NewPriceFromRaw(1002),
+				High:      marketdata.NewPriceFromRaw(1006),
+				Low:       marketdata.NewPriceFromRaw(1001),
+				Close:     marketdata.NewPriceFromRaw(1004),
+			},
+			{
+				Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:02:00Z"),
+				Closetime: marketdata.MustParseUTCTime("2026-04-01T00:03:00Z"),
+				Open:      marketdata.NewPriceFromRaw(1004),
+				High:      marketdata.NewPriceFromRaw(1007),
+				Low:       marketdata.NewPriceFromRaw(1003),
+				Close:     marketdata.NewPriceFromRaw(1005),
+			},
+			{
+				Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:03:00Z"),
+				Closetime: marketdata.MustParseUTCTime("2026-04-01T00:04:00Z"),
+				Open:      marketdata.NewPriceFromRaw(1005),
+				High:      marketdata.NewPriceFromRaw(1012),
+				Low:       marketdata.NewPriceFromRaw(1004),
+				Close:     marketdata.NewPriceFromRaw(1011),
+			},
+		},
+		usecase.InputKeyMarketSpreadBps: 1.2,
+		usecase.InputKeyAccountBalance:  10000.0,
+	}
+
+	event := events.Event{
+		EventID:   "breakout-v0-e2e",
+		EventTime: time.Now().UTC(),
+		Partition: state.Partition("breakout-v0-e2e"),
+		Type:      "task.requested",
+		Payload:   nil,
+	}
+	if err := runner.RunCycle(context.Background(), compiled, inputs, event.Partition, event); err != nil {
+		t.Fatalf("run breakout_long_v0 workflow: %v", err)
+	}
+
+	decisionKey := artifact.Key[any]{
+		Name:     "decision.signal_order_decision",
+		StableID: "artifact:dagruntime.signal.decision.decision.v1",
+	}
+	observeKey := artifact.Key[any]{
+		Name:     "observe.observability_signal_decision",
+		StableID: "artifact:dagruntime.observability.signal_decision.observe.v1",
+	}
+	if !artifactStore.Has(decisionKey) {
+		t.Fatalf("expected decision artifact key %s", decisionKey.String())
+	}
+	if !artifactStore.Has(observeKey) {
+		t.Fatalf("expected observability artifact key %s", observeKey.String())
 	}
 }

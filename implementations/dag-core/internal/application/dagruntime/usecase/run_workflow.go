@@ -136,6 +136,18 @@ func buildRunEvent(req RunWorkflowRequest, now time.Time) (RunWorkflowResult, ev
 		payload["input"].(map[string]any)["bars"] = req.Bars
 		payload["market_bars"] = req.Bars
 	}
+	if len(req.OHLCVBars) > 0 {
+		payload["input"].(map[string]any)["ohlcv_bars"] = req.OHLCVBars
+		payload["market_ohlcv_bars"] = req.OHLCVBars
+	}
+	if req.SpreadBps > 0 {
+		payload["input"].(map[string]any)["market.spread_bps"] = req.SpreadBps
+		payload["market_spread_bps"] = req.SpreadBps
+	}
+	if req.AccountBalance > 0 {
+		payload["input"].(map[string]any)["account.balance"] = req.AccountBalance
+		payload["account_balance"] = req.AccountBalance
+	}
 	if req.Marketdata != nil {
 		if req.Marketdata.SymbolID > 0 {
 			payload["input"].(map[string]any)["marketdata.symbol_id"] = req.Marketdata.SymbolID
@@ -237,6 +249,34 @@ func fromStringMap(values map[string]any) (engine.InputMap, error) {
 				}
 				inputs[InputKeyMarketBars] = bars
 			}
+			if rawOHLCVBars, ok := inputMap["ohlcv_bars"]; ok {
+				bars, err := parseOHLCVSlice(rawOHLCVBars)
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketOHLCVBars] = bars
+			}
+			if rawOHLCVBars, ok := inputMap["market.ohlcv_bars"]; ok {
+				bars, err := parseOHLCVSlice(rawOHLCVBars)
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketOHLCVBars] = bars
+			}
+			if raw, ok := inputMap["market.spread_bps"]; ok {
+				spread, err := parseFloat64Value(raw, "market.spread_bps")
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketSpreadBps] = spread
+			}
+			if raw, ok := inputMap["account.balance"]; ok {
+				balance, err := parseFloat64Value(raw, "account.balance")
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyAccountBalance] = balance
+			}
 			if raw, ok := inputMap["marketdata.symbol_id"]; ok {
 				symbolID, err := parseInt64Value(raw, "marketdata.symbol_id")
 				if err != nil {
@@ -294,6 +334,48 @@ func fromStringMap(values map[string]any) (engine.InputMap, error) {
 			return nil, err
 		}
 		inputs[InputKeyMarketBars] = bars
+	}
+	if raw, ok := values["market_ohlcv_bars"]; ok {
+		bars, err := parseOHLCVSlice(raw)
+		if err != nil {
+			return nil, err
+		}
+		inputs[InputKeyMarketOHLCVBars] = bars
+	}
+	if raw, ok := values["market.ohlcv_bars"]; ok {
+		bars, err := parseOHLCVSlice(raw)
+		if err != nil {
+			return nil, err
+		}
+		inputs[InputKeyMarketOHLCVBars] = bars
+	}
+	if raw, ok := values["market_spread_bps"]; ok {
+		spread, err := parseFloat64Value(raw, "market_spread_bps")
+		if err != nil {
+			return nil, err
+		}
+		inputs[InputKeyMarketSpreadBps] = spread
+	}
+	if raw, ok := values["market.spread_bps"]; ok {
+		spread, err := parseFloat64Value(raw, "market.spread_bps")
+		if err != nil {
+			return nil, err
+		}
+		inputs[InputKeyMarketSpreadBps] = spread
+	}
+	if raw, ok := values["account_balance"]; ok {
+		balance, err := parseFloat64Value(raw, "account_balance")
+		if err != nil {
+			return nil, err
+		}
+		inputs[InputKeyAccountBalance] = balance
+	}
+	if raw, ok := values["account.balance"]; ok {
+		balance, err := parseFloat64Value(raw, "account.balance")
+		if err != nil {
+			return nil, err
+		}
+		inputs[InputKeyAccountBalance] = balance
 	}
 	if raw, ok := values["marketdata.symbol_id"]; ok {
 		symbolID, err := parseInt64Value(raw, "marketdata.symbol_id")
@@ -366,6 +448,42 @@ func fromInputMap(inputs engine.InputMap) ([]events.PayloadEnvelope, error) {
 				return nil, fmt.Errorf("dagruntime: market_bars must be []float64")
 			}
 			env, err := events.EncodePayload(PayloadKeyMarketBars, bars)
+			if err != nil {
+				return nil, err
+			}
+			envelopes = append(envelopes, env)
+			continue
+		}
+		if key.Raw() == InputKeyMarketOHLCVBars.Raw() {
+			bars, ok := value.([]marketdata.OHLCV)
+			if !ok {
+				return nil, fmt.Errorf("dagruntime: market_ohlcv_bars must be []marketdata.OHLCV")
+			}
+			env, err := events.EncodePayload(PayloadKeyMarketOHLCVBars, bars)
+			if err != nil {
+				return nil, err
+			}
+			envelopes = append(envelopes, env)
+			continue
+		}
+		if key.Raw() == InputKeyMarketSpreadBps.Raw() {
+			spread, ok := value.(float64)
+			if !ok {
+				return nil, fmt.Errorf("dagruntime: market.spread_bps must be number")
+			}
+			env, err := events.EncodePayload(PayloadKeyMarketSpreadBps, spread)
+			if err != nil {
+				return nil, err
+			}
+			envelopes = append(envelopes, env)
+			continue
+		}
+		if key.Raw() == InputKeyAccountBalance.Raw() {
+			balance, ok := value.(float64)
+			if !ok {
+				return nil, fmt.Errorf("dagruntime: account.balance must be number")
+			}
+			env, err := events.EncodePayload(PayloadKeyAccountBalance, balance)
 			if err != nil {
 				return nil, err
 			}
@@ -516,6 +634,39 @@ func encodeEnvelopes(values map[string]any) ([]events.PayloadEnvelope, error) {
 		}
 		envelopes = append(envelopes, env)
 	}
+	if raw, ok := values["market_ohlcv_bars"]; ok {
+		bars, err := parseOHLCVSlice(raw)
+		if err != nil {
+			return nil, err
+		}
+		env, err := events.EncodePayload(PayloadKeyMarketOHLCVBars, bars)
+		if err != nil {
+			return nil, err
+		}
+		envelopes = append(envelopes, env)
+	}
+	if raw, ok := values["market_spread_bps"]; ok {
+		spread, err := parseFloat64Value(raw, "market_spread_bps")
+		if err != nil {
+			return nil, err
+		}
+		env, err := events.EncodePayload(PayloadKeyMarketSpreadBps, spread)
+		if err != nil {
+			return nil, err
+		}
+		envelopes = append(envelopes, env)
+	}
+	if raw, ok := values["account_balance"]; ok {
+		balance, err := parseFloat64Value(raw, "account_balance")
+		if err != nil {
+			return nil, err
+		}
+		env, err := events.EncodePayload(PayloadKeyAccountBalance, balance)
+		if err != nil {
+			return nil, err
+		}
+		envelopes = append(envelopes, env)
+	}
 	if raw, ok := values["marketdata.symbol_id"]; ok {
 		symbolID, err := parseInt64Value(raw, "marketdata.symbol_id")
 		if err != nil {
@@ -603,6 +754,34 @@ func decodeEnvelopes(envelopes []events.PayloadEnvelope) (engine.InputMap, error
 				}
 				inputs[InputKeyMarketBars] = bars
 			}
+			if raw, ok := value["ohlcv_bars"]; ok {
+				bars, err := parseOHLCVSlice(raw)
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketOHLCVBars] = bars
+			}
+			if raw, ok := value["market.ohlcv_bars"]; ok {
+				bars, err := parseOHLCVSlice(raw)
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketOHLCVBars] = bars
+			}
+			if raw, ok := value["market.spread_bps"]; ok {
+				spread, err := parseFloat64Value(raw, "market.spread_bps")
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyMarketSpreadBps] = spread
+			}
+			if raw, ok := value["account.balance"]; ok {
+				balance, err := parseFloat64Value(raw, "account.balance")
+				if err != nil {
+					return nil, err
+				}
+				inputs[InputKeyAccountBalance] = balance
+			}
 			if raw, ok := value["marketdata.symbol_id"]; ok {
 				symbolID, err := parseInt64Value(raw, "marketdata.symbol_id")
 				if err != nil {
@@ -662,6 +841,30 @@ func decodeEnvelopes(envelopes []events.PayloadEnvelope) (engine.InputMap, error
 				return nil, err
 			}
 			inputs[InputKeyMarketBars] = value
+			continue
+		}
+		if env.Key == PayloadKeyMarketOHLCVBars.Raw() {
+			value, err := events.DecodePayload(PayloadKeyMarketOHLCVBars, env)
+			if err != nil {
+				return nil, err
+			}
+			inputs[InputKeyMarketOHLCVBars] = value
+			continue
+		}
+		if env.Key == PayloadKeyMarketSpreadBps.Raw() {
+			value, err := events.DecodePayload(PayloadKeyMarketSpreadBps, env)
+			if err != nil {
+				return nil, err
+			}
+			inputs[InputKeyMarketSpreadBps] = value
+			continue
+		}
+		if env.Key == PayloadKeyAccountBalance.Raw() {
+			value, err := events.DecodePayload(PayloadKeyAccountBalance, env)
+			if err != nil {
+				return nil, err
+			}
+			inputs[InputKeyAccountBalance] = value
 			continue
 		}
 		if env.Key == PayloadKeyMarketdataSymbolID.Raw() {
@@ -752,5 +955,143 @@ func parseFloat64Slice(raw any) ([]float64, error) {
 		return bars, nil
 	default:
 		return nil, fmt.Errorf("dagruntime: market_bars must be []float64")
+	}
+}
+
+func parseFloat64Value(raw any, name string) (float64, error) {
+	switch value := raw.(type) {
+	case float64:
+		return value, nil
+	case float32:
+		return float64(value), nil
+	case int:
+		return float64(value), nil
+	case int64:
+		return float64(value), nil
+	default:
+		return 0, fmt.Errorf("dagruntime: %s must be number", name)
+	}
+}
+
+func parseOHLCVSlice(raw any) ([]marketdata.OHLCV, error) {
+	switch value := raw.(type) {
+	case []marketdata.OHLCV:
+		return value, nil
+	case []any:
+		bars := make([]marketdata.OHLCV, 0, len(value))
+		for _, item := range value {
+			bar, err := parseOHLCVItem(item)
+			if err != nil {
+				return nil, err
+			}
+			bars = append(bars, bar)
+		}
+		return bars, nil
+	default:
+		return nil, fmt.Errorf("dagruntime: market_ohlcv_bars must be []marketdata.OHLCV")
+	}
+}
+
+func parseOHLCVItem(raw any) (marketdata.OHLCV, error) {
+	switch value := raw.(type) {
+	case marketdata.OHLCV:
+		return value, nil
+	case map[string]any:
+		return parseOHLCVMap(value)
+	default:
+		return marketdata.OHLCV{}, fmt.Errorf("dagruntime: market_ohlcv_bars must contain OHLCV objects")
+	}
+}
+
+func parseOHLCVMap(value map[string]any) (marketdata.OHLCV, error) {
+	get := func(keys ...string) (any, bool) {
+		for _, k := range keys {
+			if raw, ok := value[k]; ok {
+				return raw, true
+			}
+		}
+		return nil, false
+	}
+
+	var out marketdata.OHLCV
+	if raw, ok := get("open_time", "Opentime", "opentime"); ok {
+		t, err := parseUTCTimeValue(raw, "market_ohlcv_bars.open_time")
+		if err != nil {
+			return marketdata.OHLCV{}, err
+		}
+		out.Opentime = t
+	}
+	if raw, ok := get("close_time", "Closetime", "closetime"); ok {
+		t, err := parseUTCTimeValue(raw, "market_ohlcv_bars.close_time")
+		if err != nil {
+			return marketdata.OHLCV{}, err
+		}
+		out.Closetime = t
+	}
+	if raw, ok := get("open", "Open"); ok {
+		price, err := parsePriceValue(raw, "market_ohlcv_bars.open")
+		if err != nil {
+			return marketdata.OHLCV{}, err
+		}
+		out.Open = price
+	}
+	if raw, ok := get("high", "High"); ok {
+		price, err := parsePriceValue(raw, "market_ohlcv_bars.high")
+		if err != nil {
+			return marketdata.OHLCV{}, err
+		}
+		out.High = price
+	}
+	if raw, ok := get("low", "Low"); ok {
+		price, err := parsePriceValue(raw, "market_ohlcv_bars.low")
+		if err != nil {
+			return marketdata.OHLCV{}, err
+		}
+		out.Low = price
+	}
+	if raw, ok := get("close", "Close"); ok {
+		price, err := parsePriceValue(raw, "market_ohlcv_bars.close")
+		if err != nil {
+			return marketdata.OHLCV{}, err
+		}
+		out.Close = price
+	}
+	if raw, ok := get("volume", "Volume"); ok {
+		volume, err := parseVolumeValue(raw, "market_ohlcv_bars.volume")
+		if err != nil {
+			return marketdata.OHLCV{}, err
+		}
+		out.Volume = volume
+	}
+	return out, nil
+}
+
+func parsePriceValue(raw any, name string) (marketdata.Price, error) {
+	switch value := raw.(type) {
+	case marketdata.Price:
+		return value, nil
+	case int64:
+		return marketdata.NewPriceFromRaw(value), nil
+	case int:
+		return marketdata.NewPriceFromRaw(int64(value)), nil
+	case float64:
+		return marketdata.NewPriceFromRaw(int64(value)), nil
+	default:
+		return 0, fmt.Errorf("dagruntime: %s must be price number", name)
+	}
+}
+
+func parseVolumeValue(raw any, name string) (marketdata.Volume, error) {
+	switch value := raw.(type) {
+	case marketdata.Volume:
+		return value, nil
+	case int64:
+		return marketdata.Volume(value), nil
+	case int:
+		return marketdata.Volume(value), nil
+	case float64:
+		return marketdata.Volume(int64(value)), nil
+	default:
+		return 0, fmt.Errorf("dagruntime: %s must be volume number", name)
 	}
 }

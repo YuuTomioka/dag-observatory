@@ -15,9 +15,37 @@ type FeatureRangeHigh struct {
 	Value marketdata.Price
 }
 
+type FeatureRangeLow struct {
+	Value marketdata.Price
+}
+
+type FeatureSpread struct {
+	Bps float64
+}
+
+type FeatureSessionState struct {
+	Session string
+}
+
+type FeatureHigherTFTrend struct {
+	Direction string
+}
+
+type EconomicEvent struct {
+	Name     string
+	Severity string
+	StartsAt string
+	EndsAt   string
+}
+
 // BreakoutLongCandidate is the normalized signal candidate emitted by breakout nodes.
 type BreakoutLongCandidate struct {
 	Triggered bool
+}
+
+type ExitDecision struct {
+	ShouldExit bool
+	Reason     string
 }
 
 type EntryFilterResult struct {

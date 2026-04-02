@@ -57,6 +57,20 @@ func TestFeatureRangeHighFactoryBuildRequiresWindow(t *testing.T) {
 	}
 }
 
+func TestFeatureRangeLowFactoryBuildRequiresWindow(t *testing.T) {
+	t.Parallel()
+
+	factory := &FeatureRangeLowFactory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:     "range_low",
+		Kind:   "feature_range_low",
+		Config: map[string]any{},
+	})
+	if err == nil {
+		t.Fatal("expected validation error for missing window")
+	}
+}
+
 func TestSignalBreakoutLongFactoryBuildRequiresRangeNodeID(t *testing.T) {
 	t.Parallel()
 
@@ -68,6 +82,20 @@ func TestSignalBreakoutLongFactoryBuildRequiresRangeNodeID(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected validation error for missing range_node_id")
+	}
+}
+
+func TestSignalExitBasicFactoryBuildRequiresDependencies(t *testing.T) {
+	t.Parallel()
+
+	factory := &SignalExitBasicFactory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:     "exit",
+		Kind:   "signal_exit_basic",
+		Config: map[string]any{"position_node_id": "position"},
+	})
+	if err == nil {
+		t.Fatal("expected validation error for missing stop_loss_node_id")
 	}
 }
 
@@ -84,6 +112,240 @@ func TestFilterSpreadFactoryBuildRequiresMaxSpreadBps(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected validation error for missing max_spread_bps")
+	}
+}
+
+func TestFilterDailyLossLimitFactoryBuildRequiresAllowedNodeID(t *testing.T) {
+	t.Parallel()
+
+	factory := &FilterDailyLossLimitFactory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:     "daily_loss_filter",
+		Kind:   "filter_daily_loss_limit",
+		Config: map[string]any{},
+	})
+	if err == nil {
+		t.Fatal("expected validation error for missing allowed_node_id")
+	}
+}
+
+func TestFilterEconomicEventFactoryBuildRequiresAllowedNodeID(t *testing.T) {
+	t.Parallel()
+
+	factory := &FilterEconomicEventFactory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:     "econ_filter",
+		Kind:   "filter_economic_event",
+		Config: map[string]any{},
+	})
+	if err == nil {
+		t.Fatal("expected validation error for missing allowed_node_id")
+	}
+}
+
+func TestRiskStopLossFromATRFactoryBuildRequiresATRNodeID(t *testing.T) {
+	t.Parallel()
+
+	factory := &RiskStopLossFromATRFactory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:     "sl_from_atr",
+		Kind:   "risk_stop_loss_from_atr",
+		Config: map[string]any{},
+	})
+	if err == nil {
+		t.Fatal("expected validation error for missing atr_node_id")
+	}
+}
+
+func TestRiskTakeProfitFromRRFactoryBuildRequiresStopLossNodeID(t *testing.T) {
+	t.Parallel()
+
+	factory := &RiskTakeProfitFromRRFactory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:   "tp_from_rr",
+		Kind: "risk_take_profit_from_rr",
+		Config: map[string]any{
+			"rr_ratio": 2.0,
+		},
+	})
+	if err == nil {
+		t.Fatal("expected validation error for missing stop_loss_node_id")
+	}
+}
+
+func TestRiskMaxPositionsCheckFactoryBuildRequiresAllowedNodeID(t *testing.T) {
+	t.Parallel()
+
+	factory := &RiskMaxPositionsCheckFactory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:     "max_positions",
+		Kind:   "risk_max_positions_check",
+		Config: map[string]any{},
+	})
+	if err == nil {
+		t.Fatal("expected validation error for missing allowed_node_id")
+	}
+}
+
+func TestFilterHigherTFAlignmentFactoryBuildRequiresDependencies(t *testing.T) {
+	t.Parallel()
+
+	factory := &FilterHigherTFAlignmentFactory{}
+	_, err := factory.Build(spec.NodeSpec{
+		ID:   "htf_filter",
+		Kind: "filter_higher_tf_alignment",
+		Config: map[string]any{
+			"allowed_node_id": "session_filter",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected validation error for missing trend_node_id")
+	}
+}
+
+func TestSignalExitBasicRun(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	exitNode, err := registry.Build(spec.NodeSpec{
+		ID:   "exit",
+		Kind: "signal_exit_basic",
+		Config: map[string]any{
+			"position_node_id":  "position",
+			"stop_loss_node_id": "sizing",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build exit node: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, positionSnapshotOutputKey("position"), algotrade.PositionSnapshot{
+		HasPosition: true,
+		Side:        algotrade.PositionSideLong,
+		Size:        1.0,
+		EntryPrice:  marketdata.NewPriceFromRaw(1000),
+	})
+	artifact.Set(writer, riskStopLossDistanceOutputKey("sizing"), marketdata.NewPriceFromRaw(50))
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+		{
+			Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
+			Closetime: marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
+			Open:      marketdata.NewPriceFromRaw(980),
+			High:      marketdata.NewPriceFromRaw(982),
+			Low:       marketdata.NewPriceFromRaw(948),
+			Close:     marketdata.NewPriceFromRaw(949),
+		},
+	})
+
+	txn := stateinfra.NewMemoryStore().BeginTxn("test")
+	view := artifacts.View()
+	if err := exitNode.Run(context.Background(), view, writer, txn); err != nil {
+		t.Fatalf("run exit node: %v", err)
+	}
+	view = artifacts.View()
+	exitDecision := artifact.MustGet(view, signalExitDecisionOutputKey("exit"))
+	if !exitDecision.ShouldExit {
+		t.Fatalf("expected should_exit=true, got %#v", exitDecision)
+	}
+	if exitDecision.Reason != "stop_loss_hit" {
+		t.Fatalf("expected reason=stop_loss_hit, got %q", exitDecision.Reason)
+	}
+}
+
+func TestFeatureSpreadAndSessionStateRun(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	spreadNode, err := registry.Build(spec.NodeSpec{
+		ID:   "spread",
+		Kind: "feature_spread",
+	})
+	if err != nil {
+		t.Fatalf("build spread: %v", err)
+	}
+	sessionNode, err := registry.Build(spec.NodeSpec{
+		ID:   "session",
+		Kind: "feature_session_state",
+	})
+	if err != nil {
+		t.Fatalf("build session state: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, usecase.InputKeyMarketSpreadBps, 1.8)
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+		{
+			Opentime:  marketdata.MustParseUTCTime("2026-04-01T07:00:00Z"),
+			Closetime: marketdata.MustParseUTCTime("2026-04-01T07:01:00Z"),
+			Open:      marketdata.NewPriceFromRaw(1000),
+			High:      marketdata.NewPriceFromRaw(1005),
+			Low:       marketdata.NewPriceFromRaw(999),
+			Close:     marketdata.NewPriceFromRaw(1002),
+		},
+	})
+
+	txn := stateinfra.NewMemoryStore().BeginTxn("test")
+	view := artifacts.View()
+	if err := spreadNode.Run(context.Background(), view, writer, txn); err != nil {
+		t.Fatalf("run spread: %v", err)
+	}
+	view = artifacts.View()
+	if err := sessionNode.Run(context.Background(), view, writer, txn); err != nil {
+		t.Fatalf("run session state: %v", err)
+	}
+	view = artifacts.View()
+
+	if got := artifact.MustGet(view, featureSpreadOutputKey("spread")); got.Bps != 1.8 {
+		t.Fatalf("expected spread=1.8, got %f", got.Bps)
+	}
+	if got := artifact.MustGet(view, featureSessionStateOutputKey("session")); got.Session != "tokyo" {
+		t.Fatalf("expected session=tokyo, got %s", got.Session)
+	}
+}
+
+func TestFeatureHigherTFTrendRun(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	nodeBuilt, err := registry.Build(spec.NodeSpec{
+		ID:   "htf",
+		Kind: "feature_higher_tf_trend",
+	})
+	if err != nil {
+		t.Fatalf("build htf trend: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, inputKeyMarketOHLCVBarsH1, []marketdata.OHLCV{
+		{
+			Open:  marketdata.NewPriceFromRaw(1000),
+			Close: marketdata.NewPriceFromRaw(1002),
+		},
+		{
+			Open:  marketdata.NewPriceFromRaw(1002),
+			Close: marketdata.NewPriceFromRaw(1010),
+		},
+	})
+	txn := stateinfra.NewMemoryStore().BeginTxn("test")
+	if err := nodeBuilt.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("run htf trend: %v", err)
+	}
+	got := artifact.MustGet(artifacts.View(), featureHigherTFTrendOutputKey("htf"))
+	if got.Direction != "up" {
+		t.Fatalf("expected direction=up, got %s", got.Direction)
 	}
 }
 
@@ -114,6 +376,16 @@ func TestFeatureATRRangeHighAndBreakoutRun(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("build range high: %v", err)
+	}
+	rangeLowNode, err := registry.Build(spec.NodeSpec{
+		ID:   "range_low",
+		Kind: "feature_range_low",
+		Config: map[string]any{
+			"window": 3,
+		},
+	})
+	if err != nil {
+		t.Fatalf("build range low: %v", err)
 	}
 	breakoutNode, err := registry.Build(spec.NodeSpec{
 		ID:   "breakout",
@@ -165,6 +437,10 @@ func TestFeatureATRRangeHighAndBreakoutRun(t *testing.T) {
 		t.Fatalf("run range high: %v", err)
 	}
 	view = artifacts.View()
+	if err := rangeLowNode.Run(context.Background(), view, writer, txn); err != nil {
+		t.Fatalf("run range low: %v", err)
+	}
+	view = artifacts.View()
 	if err := breakoutNode.Run(context.Background(), view, writer, txn); err != nil {
 		t.Fatalf("run breakout: %v", err)
 	}
@@ -175,8 +451,279 @@ func TestFeatureATRRangeHighAndBreakoutRun(t *testing.T) {
 	if got := artifact.MustGet(view, featureRangeHighOutputKey("range")); got.Value.Raw() != 1007 {
 		t.Fatalf("expected range high 1007, got %d", got.Value.Raw())
 	}
+	if got := artifact.MustGet(view, featureRangeLowOutputKey("range_low")); got.Value.Raw() != 998 {
+		t.Fatalf("expected range low 998, got %d", got.Value.Raw())
+	}
 	if got := artifact.MustGet(view, signalBreakoutLongOutputKey("breakout")); !got.Triggered {
 		t.Fatal("expected breakout signal true")
+	}
+}
+
+func TestRiskStopLossAndTakeProfitRun(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	atrNode, err := registry.Build(spec.NodeSpec{
+		ID:   "atr",
+		Kind: "feature_atr",
+		Config: map[string]any{
+			"window": 3,
+		},
+	})
+	if err != nil {
+		t.Fatalf("build atr: %v", err)
+	}
+	slNode, err := registry.Build(spec.NodeSpec{
+		ID:   "sl_from_atr",
+		Kind: "risk_stop_loss_from_atr",
+		Config: map[string]any{
+			"atr_node_id":  "atr",
+			"atr_multiple": 1.5,
+		},
+	})
+	if err != nil {
+		t.Fatalf("build sl_from_atr: %v", err)
+	}
+	tpNode, err := registry.Build(spec.NodeSpec{
+		ID:   "tp_from_rr",
+		Kind: "risk_take_profit_from_rr",
+		Config: map[string]any{
+			"stop_loss_node_id": "sl_from_atr",
+			"rr_ratio":          2.0,
+		},
+	})
+	if err != nil {
+		t.Fatalf("build tp_from_rr: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+		{
+			Open:  marketdata.NewPriceFromRaw(1000),
+			High:  marketdata.NewPriceFromRaw(1005),
+			Low:   marketdata.NewPriceFromRaw(998),
+			Close: marketdata.NewPriceFromRaw(1002),
+		},
+		{
+			Open:  marketdata.NewPriceFromRaw(1002),
+			High:  marketdata.NewPriceFromRaw(1006),
+			Low:   marketdata.NewPriceFromRaw(1001),
+			Close: marketdata.NewPriceFromRaw(1004),
+		},
+		{
+			Open:  marketdata.NewPriceFromRaw(1004),
+			High:  marketdata.NewPriceFromRaw(1007),
+			Low:   marketdata.NewPriceFromRaw(1003),
+			Close: marketdata.NewPriceFromRaw(1005),
+		},
+		{
+			Open:  marketdata.NewPriceFromRaw(1005),
+			High:  marketdata.NewPriceFromRaw(1012),
+			Low:   marketdata.NewPriceFromRaw(1004),
+			Close: marketdata.NewPriceFromRaw(1011),
+		},
+	})
+
+	txn := stateinfra.NewMemoryStore().BeginTxn("test")
+	view := artifacts.View()
+	if err := atrNode.Run(context.Background(), view, writer, txn); err != nil {
+		t.Fatalf("run atr: %v", err)
+	}
+	view = artifacts.View()
+	if err := slNode.Run(context.Background(), view, writer, txn); err != nil {
+		t.Fatalf("run sl_from_atr: %v", err)
+	}
+	view = artifacts.View()
+	if err := tpNode.Run(context.Background(), view, writer, txn); err != nil {
+		t.Fatalf("run tp_from_rr: %v", err)
+	}
+	view = artifacts.View()
+
+	sl := artifact.MustGet(view, riskStopLossDistanceOutputKey("sl_from_atr"))
+	if sl.Raw() <= 0 {
+		t.Fatalf("expected stop loss distance > 0, got %d", sl.Raw())
+	}
+	tp := artifact.MustGet(view, riskTakeProfitDistanceOutputKey("tp_from_rr"))
+	if tp.Raw() != sl.Raw()*2 {
+		t.Fatalf("expected take profit distance = 2x stop loss, got sl=%d tp=%d", sl.Raw(), tp.Raw())
+	}
+}
+
+func TestFilterDailyLossLimitRun(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	filterNode, err := registry.Build(spec.NodeSpec{
+		ID:   "daily_loss_filter",
+		Kind: "filter_daily_loss_limit",
+		Config: map[string]any{
+			"allowed_node_id": "session_filter",
+			"max_daily_loss":  100.0,
+		},
+	})
+	if err != nil {
+		t.Fatalf("build filter_daily_loss_limit: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, entryFilterResultKey("session_filter"), algotrade.EntryFilterResult{
+		Allowed: true,
+	})
+
+	mem := stateinfra.NewMemoryStore()
+	txn := mem.BeginTxn("test")
+	state.StageWrite(txn, algotrade.StateDailyPnL, algotrade.DailyPnLState{
+		TradingDay:   "2026-04-01",
+		RealizedPnL:  -120,
+		LossLimitHit: false,
+	})
+
+	view := artifacts.View()
+	if err := filterNode.Run(context.Background(), view, writer, txn); err != nil {
+		t.Fatalf("run filter_daily_loss_limit: %v", err)
+	}
+	got := artifact.MustGet(artifacts.View(), entryFilterResultKey("daily_loss_filter"))
+	if got.Allowed {
+		t.Fatalf("expected allowed=false, got %#v", got)
+	}
+	if got.Reason != "daily_loss_limit" {
+		t.Fatalf("expected reason=daily_loss_limit, got %q", got.Reason)
+	}
+}
+
+func TestFilterEconomicEventRun(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	filterNode, err := registry.Build(spec.NodeSpec{
+		ID:   "econ_filter",
+		Kind: "filter_economic_event",
+		Config: map[string]any{
+			"allowed_node_id": "session_filter",
+			"block_severity":  "high",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build filter_economic_event: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, entryFilterResultKey("session_filter"), algotrade.EntryFilterResult{Allowed: true})
+	artifact.Set(writer, inputKeyEconomicEvents, []algotrade.EconomicEvent{
+		{Name: "CPI", Severity: "high"},
+	})
+
+	txn := stateinfra.NewMemoryStore().BeginTxn("test")
+	if err := filterNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("run filter_economic_event: %v", err)
+	}
+	got := artifact.MustGet(artifacts.View(), entryFilterResultKey("econ_filter"))
+	if got.Allowed {
+		t.Fatalf("expected allowed=false, got %#v", got)
+	}
+	if got.Reason != "economic_event" {
+		t.Fatalf("expected reason=economic_event, got %q", got.Reason)
+	}
+}
+
+func TestRiskMaxPositionsCheckRun(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	checkNode, err := registry.Build(spec.NodeSpec{
+		ID:   "max_positions",
+		Kind: "risk_max_positions_check",
+		Config: map[string]any{
+			"allowed_node_id": "session_filter",
+			"max_positions":   1,
+		},
+	})
+	if err != nil {
+		t.Fatalf("build risk_max_positions_check: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, entryFilterResultKey("session_filter"), algotrade.EntryFilterResult{
+		Allowed: true,
+	})
+
+	mem := stateinfra.NewMemoryStore()
+	txn := mem.BeginTxn("test")
+	state.StageWrite(txn, algotrade.StateOpenPositions, algotrade.OpenPositionsState{
+		Items: []algotrade.OpenPosition{
+			{
+				PositionID: "p1",
+				Symbol:     "USDJPY",
+			},
+		},
+	})
+
+	view := artifacts.View()
+	if err := checkNode.Run(context.Background(), view, writer, txn); err != nil {
+		t.Fatalf("run risk_max_positions_check: %v", err)
+	}
+	got := artifact.MustGet(artifacts.View(), entryFilterResultKey("max_positions"))
+	if got.Allowed {
+		t.Fatalf("expected allowed=false, got %#v", got)
+	}
+	if got.Reason != "max_positions" {
+		t.Fatalf("expected reason=max_positions, got %q", got.Reason)
+	}
+}
+
+func TestFilterHigherTFAlignmentRun(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	filterNode, err := registry.Build(spec.NodeSpec{
+		ID:   "htf_filter",
+		Kind: "filter_higher_tf_alignment",
+		Config: map[string]any{
+			"allowed_node_id":    "session_filter",
+			"trend_node_id":      "htf",
+			"required_direction": "up",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build filter_higher_tf_alignment: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, entryFilterResultKey("session_filter"), algotrade.EntryFilterResult{Allowed: true})
+	artifact.Set(writer, featureHigherTFTrendOutputKey("htf"), algotrade.FeatureHigherTFTrend{
+		Direction: "down",
+	})
+
+	txn := stateinfra.NewMemoryStore().BeginTxn("test")
+	if err := filterNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("run filter_higher_tf_alignment: %v", err)
+	}
+	got := artifact.MustGet(artifacts.View(), entryFilterResultKey("htf_filter"))
+	if got.Allowed {
+		t.Fatalf("expected allowed=false, got %#v", got)
+	}
+	if got.Reason != "higher_tf_alignment" {
+		t.Fatalf("expected reason=higher_tf_alignment, got %q", got.Reason)
 	}
 }
 

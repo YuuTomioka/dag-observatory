@@ -3,8 +3,9 @@ SHELL := /usr/bin/env bash
 
 GO_DIR := implementations/dag-core
 SCRIPTS_DIR := scripts
+TSDB_URL ?= postgres://dag:dag@timescaledb:5432/dag?sslmode=disable
 
-.PHONY: help dev-up dev-down go-mod-tidy go-mod-download go-fmt go-vet go-test go-build openapi grpc-gen graphql-gen grpc-ci contracts-check sqlc-gen tsdb-schema-lint tsdb-query-lint
+.PHONY: help dev-up dev-down go-mod-tidy go-mod-download go-fmt go-vet go-test go-build openapi grpc-gen graphql-gen grpc-ci contracts-check sqlc-gen tsdb-schema-lint tsdb-query-lint tsdb-migrate tsdb-seed
 
 help:
 	@printf "Targets:\n"
@@ -24,6 +25,8 @@ help:
 	@printf "  sqlc-gen        Generate sqlc code from data/tsdb/query\n"
 	@printf "  tsdb-schema-lint Validate migrate/seed filenames under data/tsdb/schema\n"
 	@printf "  tsdb-query-lint Validate query filenames under data/tsdb/query\n"
+	@printf "  tsdb-migrate    Apply SQL in data/tsdb/schema/migrate via migrator container\n"
+	@printf "  tsdb-seed       Apply SQL in data/tsdb/schema/seed via migrator container\n"
 
 dev-up:
 	@bash $(SCRIPTS_DIR)/dev_up.sh
@@ -78,3 +81,9 @@ tsdb-schema-lint:
 
 tsdb-query-lint:
 	@bash $(SCRIPTS_DIR)/tsdb/lint_queries.sh
+
+tsdb-migrate:
+	@TSDB_URL="$(TSDB_URL)" docker compose -f deployments/compose/docker-compose.migrator.yml run --rm tsdb-migrator
+
+tsdb-seed:
+	@TSDB_URL="$(TSDB_URL)" MIGRATIONS_DIR=data/tsdb/schema/seed docker compose -f deployments/compose/docker-compose.migrator.yml run --rm -e MIGRATIONS_DIR tsdb-migrator

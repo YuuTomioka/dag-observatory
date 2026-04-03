@@ -25,7 +25,7 @@ services:
   dag-core-api:
     build:
       # Build from the Go module root so Dockerfile.dev can COPY go.mod/go.sum.
-      context: ../../implementations/dag-core
+      context: ${REPO_ROOT:-../..}/implementations/dag-core
       dockerfile: cmd/api/Dockerfile.dev
     environment:
       - HTTP_PORT=8080
@@ -49,7 +49,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ../../implementations/dag-core:/app
+      - ${REPO_ROOT:-../..}/implementations/dag-core:/app
       - dag-core-data:/data
     depends_on:
       - timescaledb
@@ -62,7 +62,7 @@ services:
 
   worker-py:
     build:
-      context: ../../implementations/worker-py
+      context: ${REPO_ROOT:-../..}/implementations/worker-py
       dockerfile: docker/Dockerfile
     environment:
       - KAFKA_BROKERS=redpanda:9092
@@ -89,7 +89,7 @@ services:
 
   worker-py-outbox:
     build:
-      context: ../../implementations/worker-py
+      context: ${REPO_ROOT:-../..}/implementations/worker-py
       dockerfile: docker/Dockerfile
     command: ["worker-py-outbox"]
     environment:
@@ -112,7 +112,7 @@ services:
 
   worker-py-gc:
     build:
-      context: ../../implementations/worker-py
+      context: ${REPO_ROOT:-../..}/implementations/worker-py
       dockerfile: docker/Dockerfile
     command: ["worker-py-gc"]
     environment:

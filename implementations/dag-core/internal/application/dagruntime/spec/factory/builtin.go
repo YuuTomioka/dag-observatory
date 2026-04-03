@@ -25,57 +25,14 @@ func NewBuiltinRegistry() (*Registry, error) {
 
 func NewBuiltinRegistryWithDependencies(deps Dependencies) (*Registry, error) {
 	registry := NewRegistry()
-	factories := []NodeFactory{
-		&HeavyCalcFactory{},
-		&SMAFactory{},
-		&CrossDetectorFactory{},
-		&SignalMapperFactory{},
-		&MarketTickInputFactory{},
-		&MarketBarInputM1Factory{},
-		&MarketBarInputH1Factory{},
-		&FeatureATRFactory{},
-		&FeatureRangeHighFactory{},
-		&FeatureRangeLowFactory{},
-		&FeatureSpreadFactory{},
-		&FeatureSessionStateFactory{},
-		&FeatureHigherTFTrendFactory{},
-		&SignalBreakoutLongFactory{},
-		&SignalBreakoutShortFactory{},
-		&SignalExitBasicFactory{},
-		&FilterSessionFactory{},
-		&FilterSpreadFactory{},
-		&FilterEconomicEventFactory{},
-		&FilterHigherTFAlignmentFactory{},
-		&FilterDailyLossLimitFactory{},
-		&RiskPositionSizingFactory{},
-		&RiskMaxPositionsCheckFactory{},
-		&RiskStopLossFromATRFactory{},
-		&RiskTakeProfitFromRRFactory{},
-		&SignalDecisionMapperFactory{},
-		&ObservabilityEmitSignalDecisionFactory{},
-		&ObservabilityEmitOrderDecisionFactory{},
-		&ObservabilityEmitPositionEventFactory{},
-		&ExecutionSubmitPaperOrderFactory{},
-		&ExecutionSubmitMarketOrderFactory{},
-		&ExecutionConfirmFillFactory{},
-		&PositionSnapshotLoadFactory{},
-		&PositionBreakevenFactory{},
-		&PositionTrailingStopFactory{},
-		&PositionTimeoutExitFactory{},
-		&PositionTrackerUpdateFactory{},
-	}
-	if deps.MarketDataUnitOfWork != nil {
-		factories = append(factories,
-			&TimeframeBarBackfillFactory{UnitOfWork: deps.MarketDataUnitOfWork},
-			&ResolveSymbolFactory{UnitOfWork: deps.MarketDataUnitOfWork},
-			&PlanWindowsFactory{},
-			&LoadTicksForChunkFactory{UnitOfWork: deps.MarketDataUnitOfWork},
-			&AggregateTimeframeBarsFactory{},
-			&PersistTimeframeBarsFactory{UnitOfWork: deps.MarketDataUnitOfWork},
-		)
-	}
-	for _, f := range factories {
-		if err := registry.Register(f); err != nil {
+	for _, register := range []func(*Registry, Dependencies) error{
+		registerStrategyFactories,
+		registerObservabilityFactories,
+		registerExecutionFactories,
+		registerPositionFactories,
+		registerMarketdataFactories,
+	} {
+		if err := register(registry, deps); err != nil {
 			return nil, err
 		}
 	}

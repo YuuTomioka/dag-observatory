@@ -22,6 +22,7 @@ Workflow は以下の順で実行可能な `pipeline.Compiled` に変換され�
 主な配線ポイント:
 
 - エントリ: `internal/di/runtime_workflow.go`
+- compile 集約: `internal/application/dagruntime/spec/compiler/`
 - spec 型: `internal/application/dagruntime/spec/spec.go`
 - kind 登録: `internal/application/dagruntime/spec/factory/builtin.go`
 
@@ -48,7 +49,7 @@ nodes:
 
 ## 4. inputs の解決ルール
 
-`inputs` に書いた文字列は `internal/di/runtime_workflow.go` の入力マップで `artifact.Key` に変換されます。未登録名はコンパイル失敗します。
+`inputs` に書いた文字列は `internal/application/dagruntime/spec/inputmap/default.go` の入力マップで `artifact.Key` に変換されます。未登録名はコンパイル失敗します。
 
 現状の代表キー:
 
@@ -79,7 +80,7 @@ nodes:
 
 1. `workflows/<name>.yaml` を追加する
 2. `name` は `dagruntime.<domain>_<purpose>` 形式で命名する
-3. `inputs` は `runtime_workflow.go` の入力マップにあるキーのみ使う
+3. `inputs` は `spec/inputmap/default.go` の入力マップにあるキーのみ使う
 4. `nodes` の `kind/config` を既存 factory 仕様に合わせる
 5. `internal/di/runtime_workflow_test.go` に compile テストを追加する
 6. 必要なら E2E 相当の runner テストを追加する
@@ -105,7 +106,7 @@ nodes:
 - `DAGRUNTIME_WORKFLOW_SPEC_PATH=workflows/marketdata_timeframe_bar_backfill.yaml`
 - `DAGRUNTIME_WORKFLOW_SPEC_PATH=workflows/breakout_long_v1_extended.yaml`
 
-パス解決は `internal/di/runtime_workflow.go` の `resolveWorkflowSpecPath` が行います。
+パス解決は `internal/application/dagruntime/spec/compiler/resolver.go` が行います。
 
 ## 8. 典型的な失敗と確認ポイント
 

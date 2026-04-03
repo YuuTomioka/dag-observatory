@@ -2,66 +2,125 @@
 
 ## Purpose
 
-This scenario will describe the most representative flow of this parent repository.
+This document defines the repository's representative end-to-end validation flow.
 
-## Candidate Scenario
+The scenario is intentionally concrete enough to run as a smoke test, while remaining reusable for derivative projects.
 
-- trigger a DAG execution
-- emit and propagate execution events
-- execute asynchronous work
-- record time-series data
-- observe the run through telemetry
+## Representative As-Is Scenario
 
-## Scenario Outline
+The current representative flow is **marketdata timeframe-bar backfill with workflow execution**:
 
-1. an external request or clock input starts a run
-2. the API converts the input into runtime events
+1. a caller submits a backfill request
+2. the API translates the request into runtime events
 3. task requests are published for asynchronous execution
-4. the worker processes the task and publishes result events
-5. the runtime consumes the result events and advances state
-6. telemetry and time-series data make the run observable
+4. worker-side processing emits result events
+5. runtime consumes result events and advances state
+6. telemetry and time-series records make run progress observable
 
-## HTTP Entrypoint Guidance
+This scenario validates both execution correctness and cross-signal observability.
 
-When both feature-local and generic workflow entrypoints exist, the recommended flow is:
+## Entrypoint Priority
 
-1. use the feature-local direct endpoint when the caller needs immediate domain results
-2. use the feature-local workflow endpoint when the caller needs workflow execution under the feature namespace
-3. use the generic workflow endpoint only when no feature-local workflow entrypoint exists or when the caller is intentionally operating at the runtime level
+When both feature-local and generic runtime entrypoints exist, use this order:
 
-For the current marketdata timeframe-bar backfill flow this means:
+1. feature-local direct endpoint for immediate domain results
+2. feature-local workflow endpoint for namespaced workflow execution
+3. generic runtime endpoint only when feature-local workflow entrypoints are unavailable or runtime-level operation is intentional
 
-- `POST /marketdata/timeframe-bars:backfill` is the primary direct execution entrypoint
-- `POST /marketdata/timeframe-bars:backfill-workflow` is the primary workflow execution entrypoint
-- `POST /dag/run` is a generic runtime entrypoint and is not the recommended first choice for marketdata backfill
+For marketdata timeframe-bar backfill:
 
-## Smoke Test Shape
+- primary direct entrypoint: `POST /marketdata/timeframe-bars:backfill`
+- primary workflow entrypoint: `POST /marketdata/timeframe-bars:backfill-workflow`
+- generic runtime entrypoint (fallback): `POST /dag/run`
 
-The representative scenario should be verifiable across multiple execution modes.
+## Precondition Checklist
 
-Recommended request modes:
+Before running the scenario:
+
+- local stack is up (`make dev-up`)
+- migration and schema setup are complete (`data/tsdb/README.md`)
+- API and worker services are healthy
+- observability services (collector, Loki, Tempo, Grafana) are reachable
+
+## Validation Flow
+
+### Step 1. Submit workflow backfill request
+
+Use `POST /marketdata/timeframe-bars:backfill-workflow` with a bounded time range and explicit mode.
+
+Expected immediate outcome:
+
+- response includes a run identifier
+- request is accepted without synchronous heavy processing
+
+### Step 2. Confirm asynchronous task/event progression
+
+Confirm that task request and result events progress through the runtime model.
+
+Representative event progression:
+
+- `task.requested`
+- `task.completed` or `task.failed`
+
+Expected outcome:
+
+- run state advances consistently with consumed result events
+
+### Step 3. Confirm data-side effects
+
+Verify that expected timeframe-bar outputs are written for the requested symbol/timeframe/range.
+
+Expected outcome:
+
+- durable records exist in the time-series store
+- write shape matches requested mode semantics
+
+### Step 4. Confirm observability correlation
+
+Verify cross-signal correlation by run and trace context.
+
+Expected checks:
+
+- intent logs are searchable by event type and `dag.run_id`
+- traces can be reached from log correlation fields (`trace_id`, `span_id`)
+- errors/timeouts surface as explicit failure semantics in traces and logs
+- relevant HTTP and runtime metrics increase
+
+### Step 5. Confirm artifact/outbox consistency when applicable
+
+For workflows that emit artifacts:
+
+- artifact metadata is written after worker-side completion
+- outbox publication follows database confirmation
+- presigned retrieval flow is available when artifact storage is enabled
+
+## Smoke Test Modes
+
+The representative scenario should cover multiple execution outcomes over time:
 
 - success path
 - failure path
 - timeout path
 - skip path
 
-Recommended checks:
+If a mode is not currently reproducible in a stable automated way, record that gap in task-level notes under `governance/tasks/` and keep this scenario document as the stable target shape.
 
-- logs can be searched by event type
-- logs can be searched by `dag.run_id`
-- traces can be found by `trace_id`
-- error cases surface error status in traces
-- HTTP and DAG metrics increase as expected
+## Acceptance Checklist
 
-The purpose of this scenario is not only to prove execution, but also to prove cross-signal observability consistency.
+A representative run is considered validated when all are true:
 
-Additional end-to-end checks may include:
+- recommended entrypoint priority is followed
+- asynchronous task/event flow is observable end-to-end
+- data-side effects are confirmed for the requested range
+- logs/traces/metrics are mutually correlatable by run context
+- failure semantics are explicit and searchable
 
-- artifact metadata is written after worker execution
-- outbox publication completes after database confirmation
-- presigned access flow is available for stored artifacts when relevant
+## Maintenance Rule
 
-## Migration Notes
+Update this document when one of the following changes:
 
-This document is the durable home for the repository's representative end-to-end validation scenario.
+- recommended entry flow
+- representative repository use case
+- operational validation steps
+
+Repository-level structural changes still belong first in `blueprint/` and policy changes in `governance/policies/`.

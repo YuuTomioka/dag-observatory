@@ -44,6 +44,7 @@ The current Go implementation expresses the repository structure through:
 ## Workflow Specs (YAML)
 
 - Workflow specs are stored under `implementations/dag-core/workflows/`.
+- Developer guide for workflow design and extension: `implementations/dag-core/workflows/README.md` (Japanese).
 - Representative workflows:
   - `default.yaml` (smoke-test default)
   - `sma_cross_signal.yaml` (basic signal sample)

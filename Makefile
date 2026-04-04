@@ -5,7 +5,7 @@ GO_DIR := implementations/dag-core
 SCRIPTS_DIR := scripts
 TSDB_URL ?= postgres://dag:dag@timescaledb:5432/dag?sslmode=disable
 
-.PHONY: help dev-up dev-down go-mod-tidy go-mod-download go-fmt go-vet go-test go-build openapi grpc-gen graphql-gen grpc-ci contracts-check sqlc-gen tsdb-schema-lint tsdb-query-lint tsdb-migrate tsdb-seed
+.PHONY: help dev-up dev-down go-mod-tidy go-mod-download go-fmt go-vet go-test go-build openapi grpc-gen graphql-gen grpc-ci contracts-check sqlc-gen tsdb-schema-lint tsdb-query-lint tsdb-migrate tsdb-seed tsdb-drop-all
 
 help:
 	@printf "Targets:\n"
@@ -27,6 +27,7 @@ help:
 	@printf "  tsdb-query-lint Validate query filenames under data/tsdb/query\n"
 	@printf "  tsdb-migrate    Apply SQL in data/tsdb/schema/migrate via migrator container\n"
 	@printf "  tsdb-seed       Apply SQL in data/tsdb/schema/seed via migrator container\n"
+	@printf "  tsdb-drop-all   Drop all TSDB objects in public schema (requires CONFIRM=YES)\n"
 
 dev-up:
 	@bash $(SCRIPTS_DIR)/dev_up.sh
@@ -87,3 +88,10 @@ tsdb-migrate:
 
 tsdb-seed:
 	@TSDB_URL="$(TSDB_URL)" MIGRATIONS_DIR=data/tsdb/schema/seed docker compose -f deployments/compose/docker-compose.migrator.yml run --rm -e MIGRATIONS_DIR tsdb-migrator
+
+tsdb-drop-all:
+	@if [ "$(CONFIRM)" != "YES" ]; then \
+		echo "Refusing to drop DB objects. Re-run with: make tsdb-drop-all CONFIRM=YES"; \
+		exit 1; \
+	fi
+	@docker exec compose-timescaledb-1 psql -U dag -d dag -v ON_ERROR_STOP=1 -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"

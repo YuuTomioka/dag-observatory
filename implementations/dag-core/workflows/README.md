@@ -8,6 +8,16 @@
 - 実行ロジック本体は `internal/application/dagruntime/spec/factory/` 側の NodeFactory/Node 実装が担います。
 - このディレクトリは「定義（宣言）」の責務に限定し、実行コードは持ちません。
 
+## 1.1 現在の配置方針（2026-04 時点）
+
+- 現在は `implementations/dag-core/workflows/` 直下に YAML を配置するフラット構成を採用しています。
+- `workflows/smoke` / `workflows/marketdata` / `workflows/strategy` のようなサブディレクトリ分割は、workflow 数増加時の条件付き対応です。
+- 分割トリガーの目安:
+  - workflow ファイル数増加で探索コストが上がる
+  - ドメイン別レビュー導線が不明瞭になる
+  - 新規追加時に命名/配置の迷いが継続的に発生する
+- 現段階では `DAGRUNTIME_WORKFLOW_SPEC_PATH=workflows/<name>.yaml` を前提に運用します。
+
 ## 2. Workflow 起点の依存関係
 
 Workflow は以下の順で実行可能な `pipeline.Compiled` に変換されます。

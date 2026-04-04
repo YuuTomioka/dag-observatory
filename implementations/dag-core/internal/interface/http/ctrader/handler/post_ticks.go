@@ -46,10 +46,10 @@ func (h *PostTicksHandler) PostTicks(c echo.Context) error {
 
 	ticks := make([]usecasepkg.TickInput, 0, len(req.Ticks))
 	for i, item := range req.Ticks {
-		parsedTime, err := time.Parse(time.RFC3339Nano, item.Time)
+		parsedTime, err := parseTickTime(item.Time)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-				Error:  "ticks[" + strconvItoa(i) + "].time must be RFC3339Nano",
+				Error:  "ticks[" + strconvItoa(i) + "].time must be RFC3339Nano or 'yyyy-mm-dd hh:mm:ss[.fraction] +/-hhmm'",
 				Status: "error",
 			})
 		}
@@ -80,6 +80,33 @@ func (h *PostTicksHandler) PostTicks(c echo.Context) error {
 		RequestID: req.RequestID,
 		BatchSeq:  req.BatchSeq,
 	})
+}
+
+func parseTickTime(raw string) (time.Time, error) {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return time.Time{}, errors.New("empty time")
+	}
+	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
+		return t, nil
+	}
+
+	legacyLayouts := []string{
+		"2006-01-02 15:04:05.999999999 -0700",
+		"2006-01-02 15:04:05 -0700",
+	}
+	var lastErr error
+	for _, layout := range legacyLayouts {
+		t, err := time.Parse(layout, s)
+		if err == nil {
+			return t, nil
+		}
+		lastErr = err
+	}
+	if lastErr != nil {
+		return time.Time{}, lastErr
+	}
+	return time.Time{}, errors.New("invalid time format")
 }
 
 func decodePostTicksRequest(c echo.Context, req *request.PostTicksRequest) error {

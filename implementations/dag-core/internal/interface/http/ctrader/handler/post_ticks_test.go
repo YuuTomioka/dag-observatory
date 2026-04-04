@@ -205,6 +205,44 @@ func TestPostTicksRejectsBadTime(t *testing.T) {
 	}
 }
 
+func TestPostTicksAcceptsLegacyTimeFormat(t *testing.T) {
+	tickRepo := &fakeTickRepo{}
+	uc := ctraderusecase.PostTicksUsecase{
+		UnitOfWork: fakeUnitOfWork{
+			repos: fakeRepositories{
+				symbols: fakeSymbolRepo{
+					symbol: marketdata.Symbol{ID: 7, Code: "EURUSD", PriceScale: 5},
+				},
+				ticks: tickRepo,
+			},
+		},
+	}
+
+	h := NewPostTicksHandler(uc)
+	e := echo.New()
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/ctrader/ticks",
+		bytes.NewBufferString(`{"symbol":"EURUSD","price_scale":5,"batch_seq":0,"ticks":[{"time":"2025-12-02 07:12:09.506 +0900","bid":108765,"ask":108777}]}`),
+	)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	_ = h.PostTicks(c)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if len(tickRepo.seen) != 1 {
+		t.Fatalf("expected 1 upserted tick, got %d", len(tickRepo.seen))
+	}
+	if got := tickRepo.seen[0].Time.String(); got != "2025-12-01T22:12:09.506Z" {
+		t.Fatalf("expected utc normalized time, got %s", got)
+	}
+}
+
 func TestPostTicksRejectsUnsupportedEncoding(t *testing.T) {
 	h := NewPostTicksHandler(ctraderusecase.PostTicksUsecase{})
 	e := echo.New()

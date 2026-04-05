@@ -8,5 +8,9 @@ func registerPositionFactories(registry *Registry, deps Dependencies) error {
 		&PositionTrailingStopFactory{},
 		&PositionTimeoutExitFactory{},
 		&PositionTrackerUpdateFactory{},
+		&PositionCloseToClosedTradeFactory{},
+		&ClosedTradeStoreFactory{},
+		&DailyPnLUpdateFactory{},
+		&OpenPositionCloseFactory{},
 	)
 }

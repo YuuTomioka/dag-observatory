@@ -163,6 +163,235 @@ func TestPositionSnapshotLoadRunReadsOpenPositionState(t *testing.T) {
 	}
 }
 
+func TestPositionCloseToClosedTradeRunProducesClosedTrade(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	closeNode, err := registry.Build(spec.NodeSpec{
+		ID:   "close_trade",
+		Kind: "position_close_to_closed_trade",
+		Config: map[string]any{
+			"position_node_id": "position_load",
+			"exit_node_id":     "exit",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build position_close_to_closed_trade: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, positionSnapshotOutputKey("position_load"), algotrade.PositionSnapshot{
+		HasPosition: true,
+		Side:        algotrade.PositionSideLong,
+		Size:        1.0,
+		EntryPrice:  marketdata.NewPriceFromRaw(1000),
+	})
+	artifact.Set(writer, signalExitDecisionOutputKey("exit"), algotrade.ExitDecision{
+		ShouldExit: true,
+		Reason:     "stop_loss_hit",
+	})
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+		{
+			Opentime:  marketdata.MustParseUTCTime("2026-04-05T00:59:00Z"),
+			Closetime: marketdata.MustParseUTCTime("2026-04-05T01:00:00Z"),
+			Open:      marketdata.NewPriceFromRaw(995),
+			High:      marketdata.NewPriceFromRaw(1000),
+			Low:       marketdata.NewPriceFromRaw(979),
+			Close:     marketdata.NewPriceFromRaw(980),
+		},
+	})
+
+	mem := stateinfra.NewMemoryStore()
+	txn := mem.BeginTxn("test")
+	state.StageWrite(txn, algotrade.StateOpenPositions, algotrade.OpenPositionsState{
+		Items: []algotrade.OpenPosition{
+			{
+				PositionID:      "pos:exec:intent:1",
+				IntentID:        "intent:1",
+				ExecutionID:     "exec:intent:1:1",
+				Symbol:          "USDJPY",
+				Side:            algotrade.PositionSideLong,
+				Size:            1.0,
+				EntryPrice:      marketdata.NewPriceFromRaw(1000),
+				EntryTime:       marketdata.MustParseUTCTime("2026-04-05T00:00:00Z"),
+				EntryReason:     "entry_allowed",
+				StrategyID:      "breakout",
+				WorkflowName:    "dagruntime.breakout_long_v1_extended",
+				WorkflowVersion: "v1",
+				ParameterSetID:  "p1",
+				Snapshot: algotrade.PositionSnapshot{
+					HasPosition: true,
+					Side:        algotrade.PositionSideLong,
+					Size:        1.0,
+					EntryPrice:  marketdata.NewPriceFromRaw(1000),
+				},
+			},
+		},
+	})
+
+	if err := closeNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("run position_close_to_closed_trade: %v", err)
+	}
+
+	trade := artifact.MustGet(artifacts.View(), closedTradeOutputKey("close_trade"))
+	if trade.TradeID != "trade:intent:1:1" || trade.IntentID != "intent:1" {
+		t.Fatalf("expected closed trade identity, got %#v", trade)
+	}
+	if trade.ExitReason != "stop_loss_hit" || trade.ExitPrice.Raw() != 980 {
+		t.Fatalf("expected exit fields to be set, got %#v", trade)
+	}
+	if trade.NetPnL != -20 {
+		t.Fatalf("expected net pnl -20, got %#v", trade)
+	}
+	if trade.WorkflowName != "dagruntime.breakout_long_v1_extended" || trade.ParameterSetID != "p1" {
+		t.Fatalf("expected workflow context propagation, got %#v", trade)
+	}
+}
+
+func TestClosedTradeStoreRunAppendsStateOnce(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	storeNode, err := registry.Build(spec.NodeSpec{
+		ID:   "closed_store",
+		Kind: "closed_trade_store",
+		Config: map[string]any{
+			"trade_node_id": "close_trade",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build closed_trade_store: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, closedTradeOutputKey("close_trade"), algotrade.ClosedTrade{
+		TradeID:         "trade:intent:1:1",
+		IntentID:        "intent:1",
+		PositionID:      "pos:exec:intent:1",
+		Symbol:          "USDJPY",
+		Side:            algotrade.PositionSideLong,
+		Size:            1.0,
+		EntryTime:       marketdata.MustParseUTCTime("2026-04-05T00:00:00Z"),
+		ExitTime:        marketdata.MustParseUTCTime("2026-04-05T01:00:00Z"),
+		EntryPrice:      marketdata.NewPriceFromRaw(1000),
+		ExitPrice:       marketdata.NewPriceFromRaw(980),
+		NetPnL:          -20,
+		ExitReason:      "stop_loss_hit",
+		HoldingDuration: "1h0m0s",
+	})
+
+	mem := stateinfra.NewMemoryStore()
+	txn := mem.BeginTxn("test")
+	if err := storeNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("first run closed_trade_store: %v", err)
+	}
+	if err := storeNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("second run closed_trade_store: %v", err)
+	}
+
+	closedTrades := state.MustGet(txn, algotrade.StateClosedTrades)
+	if len(closedTrades.Items) != 1 {
+		t.Fatalf("expected one closed trade stored, got %#v", closedTrades)
+	}
+	if closedTrades.Items[0].TradeID != "trade:intent:1:1" {
+		t.Fatalf("expected stored trade identity, got %#v", closedTrades.Items[0])
+	}
+}
+
+func TestDailyPnLUpdateRunAccumulatesNetPnLByExitDay(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	updateNode, err := registry.Build(spec.NodeSpec{
+		ID:   "daily_pnl",
+		Kind: "daily_pnl_update",
+		Config: map[string]any{
+			"trade_node_id": "close_trade",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build daily_pnl_update: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, closedTradeOutputKey("close_trade"), algotrade.ClosedTrade{
+		TradeID:   "trade:intent:1:1",
+		IntentID:  "intent:1",
+		ExitTime:  marketdata.MustParseUTCTime("2026-04-05T01:00:00Z"),
+		GrossPnL:  -20,
+		NetPnL:    -20,
+		ExitPrice: marketdata.NewPriceFromRaw(980),
+	})
+
+	mem := stateinfra.NewMemoryStore()
+	txn := mem.BeginTxn("test")
+	if err := updateNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("first run daily_pnl_update: %v", err)
+	}
+
+	daily := state.MustGet(txn, algotrade.StateDailyPnL)
+	if daily.TradingDay != "2026-04-05" || daily.RealizedPnL != -20 {
+		t.Fatalf("expected realized pnl update, got %#v", daily)
+	}
+}
+
+func TestOpenPositionCloseRunRemovesClosedPosition(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	closeNode, err := registry.Build(spec.NodeSpec{
+		ID:   "position_close",
+		Kind: "open_position_close",
+		Config: map[string]any{
+			"trade_node_id": "close_trade",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build open_position_close: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, closedTradeOutputKey("close_trade"), algotrade.ClosedTrade{
+		TradeID:    "trade:intent:1:1",
+		IntentID:   "intent:1",
+		PositionID: "pos:exec:intent:1",
+	})
+
+	mem := stateinfra.NewMemoryStore()
+	txn := mem.BeginTxn("test")
+	state.StageWrite(txn, algotrade.StateOpenPositions, algotrade.OpenPositionsState{
+		Items: []algotrade.OpenPosition{
+			{PositionID: "pos:exec:intent:1", Symbol: "USDJPY"},
+			{PositionID: "pos:exec:intent:2", Symbol: "EURUSD"},
+		},
+	})
+
+	if err := closeNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("run open_position_close: %v", err)
+	}
+
+	openPositions := state.MustGet(txn, algotrade.StateOpenPositions)
+	if len(openPositions.Items) != 1 || openPositions.Items[0].PositionID != "pos:exec:intent:2" {
+		t.Fatalf("expected closed position removal, got %#v", openPositions)
+	}
+}
+
 func TestPositionTimeoutExitFactoryBuildRequiresPositionNodeID(t *testing.T) {
 	t.Parallel()
 

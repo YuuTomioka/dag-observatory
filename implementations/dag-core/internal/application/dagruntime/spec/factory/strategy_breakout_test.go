@@ -22,6 +22,9 @@ func TestBreakoutArtifactStableIDsRegression(t *testing.T) {
 	if got := signalDecisionOutputKey("decision").Raw().StableID; got != "artifact:dagruntime.signal.decision.decision.v1" {
 		t.Fatalf("unexpected signal decision stable id: %s", got)
 	}
+	if got := tradeIntentOutputKey("decision").Raw().StableID; got != "artifact:dagruntime.trade_intent.decision.v1" {
+		t.Fatalf("unexpected trade intent stable id: %s", got)
+	}
 	if got := positionSnapshotOutputKey("position").Raw().StableID; got != "artifact:dagruntime.position.snapshot.position.v1" {
 		t.Fatalf("unexpected position snapshot stable id: %s", got)
 	}
@@ -50,6 +53,7 @@ func TestBreakoutFilterAndRiskRun(t *testing.T) {
 
 	artifacts := artifactinfra.NewMemoryStore()
 	writer := artifacts
+	artifact.Set(writer, usecase.InputKeySymbol, "USDJPY")
 	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
 		{
 			Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
@@ -110,15 +114,21 @@ func TestBreakoutFilterAndRiskRun(t *testing.T) {
 	if got := artifact.MustGet(view, riskPositionSizeOutputKey("sizing")); got <= 0 {
 		t.Fatalf("expected position size > 0, got %f", got)
 	}
-	decision := artifact.MustGet(view, signalDecisionOutputKey("decision"))
-	if decision.Action != "buy" {
-		t.Fatalf("expected action=buy, got %q", decision.Action)
+	intent := artifact.MustGet(view, tradeIntentOutputKey("decision"))
+	if intent.Action != algotrade.OrderActionBuy {
+		t.Fatalf("expected action=buy, got %q", intent.Action)
 	}
-	if decision.PositionSize <= 0 {
-		t.Fatalf("expected decision position_size > 0, got %f", decision.PositionSize)
+	if intent.Symbol != "USDJPY" || intent.IntentID == "" {
+		t.Fatalf("expected trade intent identity, got %#v", intent)
+	}
+	if intent.PositionSize <= 0 {
+		t.Fatalf("expected trade intent position_size > 0, got %f", intent.PositionSize)
+	}
+	if intent.InitialStopLoss.Raw() <= 0 {
+		t.Fatalf("expected trade intent stop loss > 0, got %#v", intent)
 	}
 	obs := artifact.MustGet(view, observabilitySignalDecisionOutputKey("obs"))
-	if !obs.Allowed {
+	if !obs.Allowed || obs.IntentID != intent.IntentID || obs.Symbol != "USDJPY" {
 		t.Fatalf("expected observability allowed=true, got %#v", obs)
 	}
 	execResult := artifact.MustGet(view, paperExecutionResultOutputKey("paper_exec"))
@@ -135,6 +145,55 @@ func TestBreakoutFilterAndRiskRun(t *testing.T) {
 	riskAmount := 10000.0 * 0.01
 	if got := position.Size * float64(artifact.MustGet(view, riskStopLossDistanceOutputKey("sizing")).Raw()); got > riskAmount+1e-9 {
 		t.Fatalf("expected risk-constrained sizing, got exposure=%f risk_amount=%f", got, riskAmount)
+	}
+}
+
+func TestSignalDecisionMapperKeepsRejectReasonInTradeIntent(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+
+	decisionNode, err := registry.Build(spec.NodeSpec{
+		ID:   "decision",
+		Kind: "signal_decision_mapper",
+		Config: map[string]any{
+			"allowed_node_id": "spread_filter",
+			"sizing_node_id":  "sizing",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build decision: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, usecase.InputKeySymbol, "USDJPY")
+	artifact.Set(writer, entryFilterResultKey("spread_filter"), algotrade.EntryFilterResult{
+		Allowed: false,
+		Reason:  "spread_limit",
+	})
+	artifact.Set(writer, riskStopLossDistanceOutputKey("sizing"), marketdata.Price(0))
+	artifact.Set(writer, riskPositionSizeOutputKey("sizing"), 0.0)
+
+	txn := stateinfra.NewMemoryStore().BeginTxn("test")
+	if err := decisionNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("run decision: %v", err)
+	}
+
+	intent := artifact.MustGet(artifacts.View(), tradeIntentOutputKey("decision"))
+	if intent.Action != algotrade.OrderActionHold || intent.Reason != "spread_limit" {
+		t.Fatalf("expected hold intent with reject reason, got %#v", intent)
+	}
+	if intent.Symbol != "USDJPY" {
+		t.Fatalf("expected symbol propagation, got %#v", intent)
+	}
+
+	compat := artifact.MustGet(artifacts.View(), signalDecisionOutputKey("decision"))
+	if compat.Action != algotrade.OrderActionHold || compat.Reason != "spread_limit" {
+		t.Fatalf("expected compatibility order request to keep reject reason, got %#v", compat)
 	}
 }
 

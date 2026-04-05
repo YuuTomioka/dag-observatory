@@ -96,6 +96,83 @@ func (f *PositionTrackerUpdateFactory) Build(nodeSpec spec.NodeSpec) (node.Node,
 	}, nil
 }
 
+type PositionCloseToClosedTradeFactory struct{}
+
+func (f *PositionCloseToClosedTradeFactory) Kind() string { return "position_close_to_closed_trade" }
+
+func (f *PositionCloseToClosedTradeFactory) Build(nodeSpec spec.NodeSpec) (node.Node, error) {
+	if err := ensureNoUnknownConfigKeys(nodeSpec.Config, []string{"position_node_id", "exit_node_id"}); err != nil {
+		return nil, fmt.Errorf("position_close_to_closed_trade node %q: %w", nodeSpec.ID, err)
+	}
+	positionNodeID, err := requiredString(nodeSpec.Config, "position_node_id")
+	if err != nil {
+		return nil, fmt.Errorf("position_close_to_closed_trade node %q: %w", nodeSpec.ID, err)
+	}
+	exitNodeID, err := requiredString(nodeSpec.Config, "exit_node_id")
+	if err != nil {
+		return nil, fmt.Errorf("position_close_to_closed_trade node %q: %w", nodeSpec.ID, err)
+	}
+	return &positionCloseToClosedTradeNode{
+		id:             nodeSpec.ID,
+		positionNodeID: positionNodeID,
+		exitNodeID:     exitNodeID,
+	}, nil
+}
+
+type ClosedTradeStoreFactory struct{}
+
+func (f *ClosedTradeStoreFactory) Kind() string { return "closed_trade_store" }
+
+func (f *ClosedTradeStoreFactory) Build(nodeSpec spec.NodeSpec) (node.Node, error) {
+	if err := ensureNoUnknownConfigKeys(nodeSpec.Config, []string{"trade_node_id"}); err != nil {
+		return nil, fmt.Errorf("closed_trade_store node %q: %w", nodeSpec.ID, err)
+	}
+	tradeNodeID, err := requiredString(nodeSpec.Config, "trade_node_id")
+	if err != nil {
+		return nil, fmt.Errorf("closed_trade_store node %q: %w", nodeSpec.ID, err)
+	}
+	return &closedTradeStoreNode{
+		id:          nodeSpec.ID,
+		tradeNodeID: tradeNodeID,
+	}, nil
+}
+
+type DailyPnLUpdateFactory struct{}
+
+func (f *DailyPnLUpdateFactory) Kind() string { return "daily_pnl_update" }
+
+func (f *DailyPnLUpdateFactory) Build(nodeSpec spec.NodeSpec) (node.Node, error) {
+	if err := ensureNoUnknownConfigKeys(nodeSpec.Config, []string{"trade_node_id"}); err != nil {
+		return nil, fmt.Errorf("daily_pnl_update node %q: %w", nodeSpec.ID, err)
+	}
+	tradeNodeID, err := requiredString(nodeSpec.Config, "trade_node_id")
+	if err != nil {
+		return nil, fmt.Errorf("daily_pnl_update node %q: %w", nodeSpec.ID, err)
+	}
+	return &dailyPnLUpdateNode{
+		id:          nodeSpec.ID,
+		tradeNodeID: tradeNodeID,
+	}, nil
+}
+
+type OpenPositionCloseFactory struct{}
+
+func (f *OpenPositionCloseFactory) Kind() string { return "open_position_close" }
+
+func (f *OpenPositionCloseFactory) Build(nodeSpec spec.NodeSpec) (node.Node, error) {
+	if err := ensureNoUnknownConfigKeys(nodeSpec.Config, []string{"trade_node_id"}); err != nil {
+		return nil, fmt.Errorf("open_position_close node %q: %w", nodeSpec.ID, err)
+	}
+	tradeNodeID, err := requiredString(nodeSpec.Config, "trade_node_id")
+	if err != nil {
+		return nil, fmt.Errorf("open_position_close node %q: %w", nodeSpec.ID, err)
+	}
+	return &openPositionCloseNode{
+		id:          nodeSpec.ID,
+		tradeNodeID: tradeNodeID,
+	}, nil
+}
+
 type positionSnapshotLoadNode struct {
 	id string
 }
@@ -128,7 +205,7 @@ func (n *positionSnapshotLoadNode) Run(ctx context.Context, av artifact.View, aw
 		})
 		return nil
 	}
-	artifact.Set(aw, positionSnapshotOutputKey(n.id), openPositions.Items[0].Snapshot)
+	artifact.Set(aw, positionSnapshotOutputKey(n.id), openPositions.Items[0].SnapshotView())
 	return nil
 }
 
@@ -256,6 +333,27 @@ type positionTrackerUpdateNode struct {
 	executionNodeID string
 }
 
+type positionCloseToClosedTradeNode struct {
+	id             string
+	positionNodeID string
+	exitNodeID     string
+}
+
+type closedTradeStoreNode struct {
+	id          string
+	tradeNodeID string
+}
+
+type dailyPnLUpdateNode struct {
+	id          string
+	tradeNodeID string
+}
+
+type openPositionCloseNode struct {
+	id          string
+	tradeNodeID string
+}
+
 func (n *positionTrackerUpdateNode) Name() string {
 	return "dagruntime.position_tracker_update." + n.id
 }
@@ -301,6 +399,180 @@ func (n *positionTrackerUpdateNode) Run(ctx context.Context, av artifact.View, a
 	return nil
 }
 
+func (n *positionCloseToClosedTradeNode) Name() string {
+	return "dagruntime.position_close_to_closed_trade." + n.id
+}
+func (n *positionCloseToClosedTradeNode) Requires() []artifact.AnyKey {
+	return []artifact.AnyKey{
+		positionSnapshotOutputKey(n.positionNodeID),
+		signalExitDecisionOutputKey(n.exitNodeID),
+		usecase.InputKeyMarketOHLCVBars,
+	}
+}
+func (n *positionCloseToClosedTradeNode) Provides() []artifact.AnyKey {
+	return []artifact.AnyKey{closedTradeOutputKey(n.id)}
+}
+func (n *positionCloseToClosedTradeNode) Reads() []state.AnyKey {
+	return []state.AnyKey{algotrade.StateOpenPositions}
+}
+func (n *positionCloseToClosedTradeNode) Writes() []state.AnyKey { return nil }
+func (n *positionCloseToClosedTradeNode) Spec() node.ExecutionSpec {
+	return node.ExecutionSpec{Deterministic: true}
+}
+func (n *positionCloseToClosedTradeNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	position := artifact.MustGet(av, positionSnapshotOutputKey(n.positionNodeID))
+	decision := artifact.MustGet(av, signalExitDecisionOutputKey(n.exitNodeID))
+	if !decision.ShouldExit || !position.HasPosition || position.Side == algotrade.PositionSideFlat || position.Size <= 0 {
+		artifact.Set(aw, closedTradeOutputKey(n.id), algotrade.ClosedTrade{})
+		return nil
+	}
+
+	openPositions, ok := state.Get(txn, algotrade.StateOpenPositions)
+	if !ok || len(openPositions.Items) == 0 {
+		artifact.Set(aw, closedTradeOutputKey(n.id), algotrade.ClosedTrade{})
+		return nil
+	}
+	open := openPositions.Items[0]
+	bars := artifact.MustGet(av, usecase.InputKeyMarketOHLCVBars)
+	if len(bars) == 0 {
+		return fmt.Errorf("position_close_to_closed_trade node %q: market.ohlcv_bars is empty", n.id)
+	}
+	last := bars[len(bars)-1]
+	exitPrice := last.Close
+	exitTime := last.Closetime
+	if exitTime.IsZero() {
+		exitTime = last.Opentime
+	}
+	if exitTime.IsZero() {
+		exitTime = marketdata.NowUTCTime()
+	}
+	grossPnL := closedTradeGrossPnL(open.Side, open.EntryPrice, exitPrice, open.Size)
+	holdingDuration := ""
+	if !open.EntryTime.IsZero() && !exitTime.IsZero() {
+		holdingDuration = exitTime.Time().Sub(open.EntryTime.Time()).String()
+	}
+	artifact.Set(aw, closedTradeOutputKey(n.id), algotrade.ClosedTrade{
+		TradeID:         closedTradeID(open),
+		IntentID:        open.IntentID,
+		PositionID:      open.PositionID,
+		Symbol:          open.Symbol,
+		Side:            open.Side,
+		Size:            open.Size,
+		EntryTime:       open.EntryTime,
+		ExitTime:        exitTime,
+		EntryPrice:      open.EntryPrice,
+		ExitPrice:       exitPrice,
+		GrossPnL:        grossPnL,
+		NetPnL:          closedTradeNetPnL(grossPnL),
+		ExitReason:      decision.Reason,
+		HoldingDuration: holdingDuration,
+		StrategyID:      open.StrategyID,
+		WorkflowName:    open.WorkflowName,
+		WorkflowVersion: open.WorkflowVersion,
+		ParameterSetID:  open.ParameterSetID,
+	})
+	return nil
+}
+
+func (n *closedTradeStoreNode) Name() string {
+	return "dagruntime.closed_trade_store." + n.id
+}
+func (n *closedTradeStoreNode) Requires() []artifact.AnyKey {
+	return []artifact.AnyKey{closedTradeOutputKey(n.tradeNodeID)}
+}
+func (n *closedTradeStoreNode) Provides() []artifact.AnyKey { return nil }
+func (n *closedTradeStoreNode) Reads() []state.AnyKey {
+	return []state.AnyKey{algotrade.StateClosedTrades}
+}
+func (n *closedTradeStoreNode) Writes() []state.AnyKey {
+	return []state.AnyKey{algotrade.StateClosedTrades}
+}
+func (n *closedTradeStoreNode) Spec() node.ExecutionSpec {
+	return node.ExecutionSpec{Deterministic: true, Idempotent: true}
+}
+func (n *closedTradeStoreNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = aw
+	trade := artifact.MustGet(av, closedTradeOutputKey(n.tradeNodeID))
+	if trade.TradeID == "" {
+		return nil
+	}
+	closedTrades, _ := state.Get(txn, algotrade.StateClosedTrades)
+	for _, item := range closedTrades.Items {
+		if item.TradeID == trade.TradeID {
+			return nil
+		}
+	}
+	closedTrades.Items = append(closedTrades.Items, trade)
+	state.StageWrite(txn, algotrade.StateClosedTrades, closedTrades)
+	return nil
+}
+
+func (n *dailyPnLUpdateNode) Name() string { return "dagruntime.daily_pnl_update." + n.id }
+func (n *dailyPnLUpdateNode) Requires() []artifact.AnyKey {
+	return []artifact.AnyKey{closedTradeOutputKey(n.tradeNodeID)}
+}
+func (n *dailyPnLUpdateNode) Provides() []artifact.AnyKey { return nil }
+func (n *dailyPnLUpdateNode) Reads() []state.AnyKey {
+	return []state.AnyKey{algotrade.StateDailyPnL}
+}
+func (n *dailyPnLUpdateNode) Writes() []state.AnyKey {
+	return []state.AnyKey{algotrade.StateDailyPnL}
+}
+func (n *dailyPnLUpdateNode) Spec() node.ExecutionSpec {
+	return node.ExecutionSpec{Deterministic: true, Idempotent: true}
+}
+func (n *dailyPnLUpdateNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = aw
+	trade := artifact.MustGet(av, closedTradeOutputKey(n.tradeNodeID))
+	if trade.TradeID == "" || trade.ExitTime.IsZero() {
+		return nil
+	}
+	daily, _ := state.Get(txn, algotrade.StateDailyPnL)
+	tradingDay := trade.ExitTime.Time().UTC().Format("2006-01-02")
+	if daily.TradingDay != tradingDay {
+		daily = algotrade.DailyPnLState{TradingDay: tradingDay}
+	}
+	daily.RealizedPnL += trade.NetPnL
+	state.StageWrite(txn, algotrade.StateDailyPnL, daily)
+	return nil
+}
+
+func (n *openPositionCloseNode) Name() string { return "dagruntime.open_position_close." + n.id }
+func (n *openPositionCloseNode) Requires() []artifact.AnyKey {
+	return []artifact.AnyKey{closedTradeOutputKey(n.tradeNodeID)}
+}
+func (n *openPositionCloseNode) Provides() []artifact.AnyKey { return nil }
+func (n *openPositionCloseNode) Reads() []state.AnyKey {
+	return []state.AnyKey{algotrade.StateOpenPositions}
+}
+func (n *openPositionCloseNode) Writes() []state.AnyKey {
+	return []state.AnyKey{algotrade.StateOpenPositions}
+}
+func (n *openPositionCloseNode) Spec() node.ExecutionSpec {
+	return node.ExecutionSpec{Deterministic: true, Idempotent: true}
+}
+func (n *openPositionCloseNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = aw
+	trade := artifact.MustGet(av, closedTradeOutputKey(n.tradeNodeID))
+	if trade.PositionID == "" {
+		return nil
+	}
+	openPositions, _ := state.Get(txn, algotrade.StateOpenPositions)
+	filtered := openPositions.Items[:0]
+	for _, item := range openPositions.Items {
+		if item.PositionID != trade.PositionID {
+			filtered = append(filtered, item)
+		}
+	}
+	openPositions.Items = filtered
+	state.StageWrite(txn, algotrade.StateOpenPositions, openPositions)
+	return nil
+}
+
 func riskTrailingStopDistanceOutputKey(nodeID string) artifact.Key[marketdata.Price] {
 	return artifact.Key[marketdata.Price]{
 		Name:     fmt.Sprintf("%s.trailing_stop_distance", nodeID),
@@ -313,4 +585,31 @@ func positionSnapshotOutputKey(nodeID string) artifact.Key[algotrade.PositionSna
 		Name:     fmt.Sprintf("%s.position_snapshot", nodeID),
 		StableID: fmt.Sprintf("artifact:dagruntime.position.snapshot.%s.v1", nodeID),
 	}
+}
+
+func closedTradeOutputKey(nodeID string) artifact.Key[algotrade.ClosedTrade] {
+	return artifact.Key[algotrade.ClosedTrade]{
+		Name:     fmt.Sprintf("%s.closed_trade", nodeID),
+		StableID: fmt.Sprintf("artifact:dagruntime.closed_trade.%s.v1", nodeID),
+	}
+}
+
+func closedTradeID(open algotrade.OpenPosition) string {
+	if open.IntentID != "" {
+		return fmt.Sprintf("trade:%s:1", open.IntentID)
+	}
+	return fmt.Sprintf("trade:%s:1", open.PositionID)
+}
+
+func closedTradeGrossPnL(side algotrade.PositionSide, entryPrice, exitPrice marketdata.Price, size float64) float64 {
+	priceDelta := float64(exitPrice.Sub(entryPrice).Raw())
+	switch side {
+	case algotrade.PositionSideShort:
+		priceDelta = -priceDelta
+	}
+	return priceDelta * size
+}
+
+func closedTradeNetPnL(grossPnL float64) float64 {
+	return grossPnL
 }

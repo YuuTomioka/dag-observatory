@@ -3,6 +3,7 @@ package factory
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"dag-observatory/dag-core/internal/application/dagruntime/spec"
 	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
@@ -76,7 +77,7 @@ func (n *executionSubmitPaperOrderNode) Name() string {
 	return "dagruntime.execution_submit_paper_order." + n.id
 }
 func (n *executionSubmitPaperOrderNode) Requires() []artifact.AnyKey {
-	return []artifact.AnyKey{signalDecisionOutputKey(n.decisionNodeID)}
+	return []artifact.AnyKey{tradeIntentOutputKey(n.decisionNodeID)}
 }
 func (n *executionSubmitPaperOrderNode) Provides() []artifact.AnyKey {
 	return []artifact.AnyKey{paperExecutionResultOutputKey(n.id)}
@@ -90,16 +91,16 @@ func (n *executionSubmitPaperOrderNode) Spec() node.ExecutionSpec {
 func (n *executionSubmitPaperOrderNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
 	_ = ctx
 	_ = txn
-	decision := artifact.MustGet(av, signalDecisionOutputKey(n.decisionNodeID))
+	intent := artifact.MustGet(av, tradeIntentOutputKey(n.decisionNodeID))
 	result := algotrade.PaperExecutionResult{
 		Submitted: false,
-		Action:    decision.Action,
+		Action:    intent.Action,
 		Size:      0,
-		Reason:    decision.Reason,
+		Reason:    intent.Reason,
 	}
-	if decision.Action == algotrade.OrderActionBuy && decision.PositionSize > 0 {
+	if intent.Action == algotrade.OrderActionBuy && intent.PositionSize > 0 {
 		result.Submitted = true
-		result.Size = decision.PositionSize
+		result.Size = intent.PositionSize
 	}
 	artifact.Set(aw, paperExecutionResultOutputKey(n.id), result)
 	return nil
@@ -114,10 +115,13 @@ func (n *executionSubmitMarketOrderNode) Name() string {
 	return "dagruntime.execution_submit_market_order." + n.id
 }
 func (n *executionSubmitMarketOrderNode) Requires() []artifact.AnyKey {
-	return []artifact.AnyKey{signalDecisionOutputKey(n.decisionNodeID)}
+	return []artifact.AnyKey{tradeIntentOutputKey(n.decisionNodeID)}
 }
 func (n *executionSubmitMarketOrderNode) Provides() []artifact.AnyKey {
-	return []artifact.AnyKey{executionMarketOrderRequestOutputKey(n.id)}
+	return []artifact.AnyKey{
+		executionResultOutputKey(n.id),
+		executionMarketOrderRequestOutputKey(n.id),
+	}
 }
 func (n *executionSubmitMarketOrderNode) Reads() []state.AnyKey {
 	return []state.AnyKey{algotrade.StatePendingOrders}
@@ -135,21 +139,21 @@ func (n *executionSubmitMarketOrderNode) Spec() node.ExecutionSpec {
 
 func (n *executionSubmitMarketOrderNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
 	_ = ctx
-	decision := artifact.MustGet(av, signalDecisionOutputKey(n.decisionNodeID))
+	intent := artifact.MustGet(av, tradeIntentOutputKey(n.decisionNodeID))
+	requestedAt := intent.CreatedAt
 	req := algotrade.MarketOrderRequest{
 		Submitted: false,
-		Action:    decision.Action,
+		Action:    intent.Action,
 		Size:      0,
-		Reason:    decision.Reason,
-		SourceID: fmt.Sprintf(
-			"%s:%s:%0.8f:%d",
-			decision.Action,
-			decision.Reason,
-			decision.PositionSize,
-			decision.StopLossDistance.Raw(),
-		),
+		Reason:    intent.Reason,
+		SourceID:  executionSourceID(intent),
 	}
-	if decision.Action != algotrade.OrderActionBuy || decision.PositionSize <= 0 {
+	executionID := ""
+	if intent.IntentID != "" {
+		executionID = fmt.Sprintf("exec:%s:1", intent.IntentID)
+	}
+	if intent.Action != algotrade.OrderActionBuy || intent.PositionSize <= 0 {
+		artifact.Set(aw, executionResultOutputKey(n.id), req.ToExecutionResult(executionID, intent.IntentID, requestedAt))
 		artifact.Set(aw, executionMarketOrderRequestOutputKey(n.id), req)
 		return nil
 	}
@@ -159,8 +163,13 @@ func (n *executionSubmitMarketOrderNode) Run(ctx context.Context, av artifact.Vi
 		if item.SourceID == req.SourceID {
 			req.Submitted = true
 			req.OrderID = item.OrderID
-			req.Size = item.Request.PositionSize
+			req.Size = item.Intent.PositionSize
 			req.Reason = "pending_order_exists"
+			resultRequestedAt := item.Execution.RequestedAt
+			if resultRequestedAt.IsZero() {
+				resultRequestedAt = requestedAt
+			}
+			artifact.Set(aw, executionResultOutputKey(n.id), req.ToExecutionResult(item.ExecutionID, item.IntentID, resultRequestedAt))
 			artifact.Set(aw, executionMarketOrderRequestOutputKey(n.id), req)
 			return nil
 		}
@@ -169,17 +178,36 @@ func (n *executionSubmitMarketOrderNode) Run(ctx context.Context, av artifact.Vi
 	symbol, _ := artifact.Get(av, usecase.InputKeySymbol)
 	req.Submitted = true
 	req.OrderID = fmt.Sprintf("%s-%d", n.id, len(pending.Items)+1)
-	req.Size = decision.PositionSize
+	req.Size = intent.PositionSize
 	req.Reason = "submitted"
+	requestedAt = marketdata.NowUTCTime()
+	execution := req.ToExecutionResult(executionID, intent.IntentID, requestedAt)
 	pending.Items = append(pending.Items, algotrade.PendingOrder{
-		OrderID:  req.OrderID,
-		Symbol:   symbol,
-		Request:  decision,
-		SourceID: req.SourceID,
+		OrderID:     req.OrderID,
+		IntentID:    intent.IntentID,
+		ExecutionID: executionID,
+		Symbol:      symbol,
+		Intent:      intent,
+		Execution:   execution,
+		SourceID:    req.SourceID,
 	})
 	state.StageWrite(txn, algotrade.StatePendingOrders, pending)
+	artifact.Set(aw, executionResultOutputKey(n.id), execution)
 	artifact.Set(aw, executionMarketOrderRequestOutputKey(n.id), req)
 	return nil
+}
+
+func executionSourceID(intent algotrade.TradeIntent) string {
+	if intent.IntentID != "" {
+		return "intent:" + intent.IntentID
+	}
+	return fmt.Sprintf(
+		"%s:%s:%0.8f:%d",
+		intent.Action,
+		intent.Reason,
+		intent.PositionSize,
+		intent.InitialStopLoss.Raw(),
+	)
 }
 
 type executionConfirmFillNode struct {
@@ -194,7 +222,10 @@ func (n *executionConfirmFillNode) Requires() []artifact.AnyKey {
 	return []artifact.AnyKey{executionMarketOrderRequestOutputKey(n.orderRequestNodeID)}
 }
 func (n *executionConfirmFillNode) Provides() []artifact.AnyKey {
-	return []artifact.AnyKey{executionFillResultOutputKey(n.id)}
+	return []artifact.AnyKey{
+		executionResultOutputKey(n.id),
+		executionFillResultOutputKey(n.id),
+	}
 }
 func (n *executionConfirmFillNode) Reads() []state.AnyKey {
 	return []state.AnyKey{
@@ -226,7 +257,9 @@ func (n *executionConfirmFillNode) Run(ctx context.Context, av artifact.View, aw
 		Size:    request.Size,
 		Reason:  request.Reason,
 	}
+	updatedAt := marketdata.NowUTCTime()
 	if !request.Submitted || request.OrderID == "" {
+		artifact.Set(aw, executionResultOutputKey(n.id), executionResultFromFillCompatibility("", "", marketdata.UTCTime{}, updatedAt, result))
 		artifact.Set(aw, executionFillResultOutputKey(n.id), result)
 		return nil
 	}
@@ -243,6 +276,7 @@ func (n *executionConfirmFillNode) Run(ctx context.Context, av artifact.View, aw
 	}
 	if pendingIndex < 0 {
 		result.Reason = "pending_order_not_found"
+		artifact.Set(aw, executionResultOutputKey(n.id), executionResultFromFillCompatibility("", "", marketdata.UTCTime{}, updatedAt, result))
 		artifact.Set(aw, executionFillResultOutputKey(n.id), result)
 		return nil
 	}
@@ -251,11 +285,11 @@ func (n *executionConfirmFillNode) Run(ctx context.Context, av artifact.View, aw
 	state.StageWrite(txn, algotrade.StatePendingOrders, pending)
 
 	openPositions, _ := state.Get(txn, algotrade.StateOpenPositions)
-	if matched.Request.Action == algotrade.OrderActionBuy && matched.Request.PositionSize > 0 {
+	if matched.Intent.Action == algotrade.OrderActionBuy && matched.Intent.PositionSize > 0 {
 		snapshot := algotrade.PositionSnapshot{
 			HasPosition: true,
 			Side:        algotrade.PositionSideLong,
-			Size:        matched.Request.PositionSize,
+			Size:        matched.Intent.PositionSize,
 			EntryPrice:  marketdata.Price(0),
 		}
 		if bars, ok := artifact.Get(av, usecase.InputKeyMarketOHLCVBars); ok && len(bars) > 0 {
@@ -265,9 +299,20 @@ func (n *executionConfirmFillNode) Run(ctx context.Context, av artifact.View, aw
 		for i := range openPositions.Items {
 			if openPositions.Items[i].Symbol == matched.Symbol {
 				openPositions.Items[i] = algotrade.OpenPosition{
-					PositionID: matched.OrderID,
-					Symbol:     matched.Symbol,
-					Snapshot:   snapshot,
+					PositionID:      matched.OrderID,
+					IntentID:        matched.IntentID,
+					ExecutionID:     matched.ExecutionID,
+					Symbol:          matched.Symbol,
+					Side:            algotrade.PositionSideLong,
+					Size:            matched.Intent.PositionSize,
+					EntryPrice:      snapshot.EntryPrice,
+					EntryTime:       marketdata.NowUTCTime(),
+					EntryReason:     matched.Intent.Reason,
+					StrategyID:      matched.Intent.StrategyID,
+					WorkflowName:    matched.Intent.WorkflowName,
+					WorkflowVersion: matched.Intent.WorkflowVersion,
+					ParameterSetID:  matched.Intent.ParameterSetID,
+					Snapshot:        snapshot,
 				}
 				replaced = true
 				break
@@ -275,21 +320,46 @@ func (n *executionConfirmFillNode) Run(ctx context.Context, av artifact.View, aw
 		}
 		if !replaced {
 			openPositions.Items = append(openPositions.Items, algotrade.OpenPosition{
-				PositionID: matched.OrderID,
-				Symbol:     matched.Symbol,
-				Snapshot:   snapshot,
+				PositionID:      matched.OrderID,
+				IntentID:        matched.IntentID,
+				ExecutionID:     matched.ExecutionID,
+				Symbol:          matched.Symbol,
+				Side:            algotrade.PositionSideLong,
+				Size:            matched.Intent.PositionSize,
+				EntryPrice:      snapshot.EntryPrice,
+				EntryTime:       marketdata.NowUTCTime(),
+				EntryReason:     matched.Intent.Reason,
+				StrategyID:      matched.Intent.StrategyID,
+				WorkflowName:    matched.Intent.WorkflowName,
+				WorkflowVersion: matched.Intent.WorkflowVersion,
+				ParameterSetID:  matched.Intent.ParameterSetID,
+				Snapshot:        snapshot,
 			})
 		}
 		state.StageWrite(txn, algotrade.StateOpenPositions, openPositions)
 		result.Filled = true
 		result.Reason = "filled"
+		artifact.Set(aw, executionResultOutputKey(n.id), executionResultFromFillCompatibility(matched.ExecutionID, matched.IntentID, matched.Execution.RequestedAt, updatedAt, result))
 		artifact.Set(aw, executionFillResultOutputKey(n.id), result)
 		return nil
 	}
 
 	result.Reason = "unsupported_action"
+	artifact.Set(aw, executionResultOutputKey(n.id), executionResultFromFillCompatibility(matched.ExecutionID, matched.IntentID, matched.Execution.RequestedAt, updatedAt, result))
 	artifact.Set(aw, executionFillResultOutputKey(n.id), result)
 	return nil
+}
+
+func executionResultFromFillCompatibility(executionID, intentID string, requestedAt, updatedAt marketdata.UTCTime, result algotrade.FillResult) algotrade.ExecutionResult {
+	execution := result.ToExecutionResult(executionID, intentID, requestedAt, updatedAt)
+	reason := strings.ToLower(strings.TrimSpace(result.Reason))
+	switch {
+	case strings.Contains(reason, "cancel"):
+		execution.Status = algotrade.ExecutionStatusCancelled
+	case strings.Contains(reason, "reject"):
+		execution.Status = algotrade.ExecutionStatusRejected
+	}
+	return execution
 }
 
 func paperExecutionResultOutputKey(nodeID string) artifact.Key[algotrade.PaperExecutionResult] {
@@ -303,6 +373,13 @@ func executionMarketOrderRequestOutputKey(nodeID string) artifact.Key[algotrade.
 	return artifact.Key[algotrade.MarketOrderRequest]{
 		Name:     fmt.Sprintf("%s.market_order_request", nodeID),
 		StableID: fmt.Sprintf("artifact:dagruntime.execution.market_order_request.%s.v1", nodeID),
+	}
+}
+
+func executionResultOutputKey(nodeID string) artifact.Key[algotrade.ExecutionResult] {
+	return artifact.Key[algotrade.ExecutionResult]{
+		Name:     fmt.Sprintf("%s.execution_result", nodeID),
+		StableID: fmt.Sprintf("artifact:dagruntime.execution.result.%s.v1", nodeID),
 	}
 }
 

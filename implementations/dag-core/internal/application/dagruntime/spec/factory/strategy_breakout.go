@@ -833,6 +833,8 @@ func (n *signalBreakoutShortNode) Run(ctx context.Context, av artifact.View, aw 
 }
 
 type observabilitySignalDecision struct {
+	IntentID     string
+	Symbol       string
 	Action       algotrade.OrderAction
 	Reason       string
 	Allowed      bool
@@ -1310,7 +1312,10 @@ func (n *signalDecisionMapperNode) Requires() []artifact.AnyKey {
 	}
 }
 func (n *signalDecisionMapperNode) Provides() []artifact.AnyKey {
-	return []artifact.AnyKey{signalDecisionOutputKey(n.id)}
+	return []artifact.AnyKey{
+		tradeIntentOutputKey(n.id),
+		signalDecisionOutputKey(n.id),
+	}
 }
 func (n *signalDecisionMapperNode) Reads() []state.AnyKey  { return nil }
 func (n *signalDecisionMapperNode) Writes() []state.AnyKey { return nil }
@@ -1324,19 +1329,35 @@ func (n *signalDecisionMapperNode) Run(ctx context.Context, av artifact.View, aw
 	filtered := artifact.MustGet(av, entryFilterResultKey(n.allowedNodeID))
 	stopLossDistance := artifact.MustGet(av, riskStopLossDistanceOutputKey(n.sizingNodeID))
 	positionSize := artifact.MustGet(av, riskPositionSizeOutputKey(n.sizingNodeID))
-	decision := algotrade.OrderRequest{
-		Action:           algotrade.OrderActionHold,
-		Reason:           filtered.Reason,
-		PositionSize:     0,
-		StopLossDistance: marketdata.Price(0),
+	symbol, _ := artifact.Get(av, usecase.InputKeySymbol)
+	createdAt := marketdata.UTCTime{}
+	if bars, ok := artifact.Get(av, usecase.InputKeyMarketOHLCVBars); ok && len(bars) > 0 {
+		last := bars[len(bars)-1]
+		if !last.Closetime.IsZero() {
+			createdAt = last.Closetime
+		} else {
+			createdAt = last.Opentime
+		}
+	}
+
+	intent := algotrade.TradeIntent{
+		IntentID:        buildTradeIntentID(n.id, symbol, algotrade.OrderActionHold, filtered.Reason, createdAt),
+		Symbol:          symbol,
+		Action:          algotrade.OrderActionHold,
+		Reason:          filtered.Reason,
+		PositionSize:    0,
+		InitialStopLoss: marketdata.Price(0),
+		CreatedAt:       createdAt,
 	}
 	if filtered.Allowed && positionSize > 0 && stopLossDistance.Raw() > 0 {
-		decision.Action = algotrade.OrderActionBuy
-		decision.Reason = "entry_allowed"
-		decision.PositionSize = positionSize
-		decision.StopLossDistance = stopLossDistance
+		intent.IntentID = buildTradeIntentID(n.id, symbol, algotrade.OrderActionBuy, "entry_allowed", createdAt)
+		intent.Action = algotrade.OrderActionBuy
+		intent.Reason = "entry_allowed"
+		intent.PositionSize = positionSize
+		intent.InitialStopLoss = stopLossDistance
 	}
-	artifact.Set(aw, signalDecisionOutputKey(n.id), decision)
+	artifact.Set(aw, tradeIntentOutputKey(n.id), intent)
+	artifact.Set(aw, signalDecisionOutputKey(n.id), intent.ToOrderRequest())
 	return nil
 }
 
@@ -1462,11 +1483,25 @@ func riskTakeProfitDistanceOutputKey(nodeID string) artifact.Key[marketdata.Pric
 	}
 }
 
+func tradeIntentOutputKey(nodeID string) artifact.Key[algotrade.TradeIntent] {
+	return artifact.Key[algotrade.TradeIntent]{
+		Name:     fmt.Sprintf("%s.trade_intent", nodeID),
+		StableID: fmt.Sprintf("artifact:dagruntime.trade_intent.%s.v1", nodeID),
+	}
+}
+
 func signalDecisionOutputKey(nodeID string) artifact.Key[algotrade.OrderRequest] {
 	return artifact.Key[algotrade.OrderRequest]{
 		Name:     fmt.Sprintf("%s.signal_order_decision", nodeID),
 		StableID: fmt.Sprintf("artifact:dagruntime.signal.decision.%s.v1", nodeID),
 	}
+}
+
+func buildTradeIntentID(nodeID, symbol string, action algotrade.OrderAction, reason string, createdAt marketdata.UTCTime) string {
+	if !createdAt.IsZero() {
+		return fmt.Sprintf("intent:%s:%s:%s:%s", nodeID, symbol, action, createdAt.Time().UTC().Format(time.RFC3339Nano))
+	}
+	return fmt.Sprintf("intent:%s:%s:%s:%s", nodeID, symbol, action, reason)
 }
 
 func requiredFloat(config map[string]any, key string) (float64, error) {

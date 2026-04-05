@@ -182,12 +182,12 @@ func TestSignalDecisionAndObservabilityWithoutExecutionNodes(t *testing.T) {
 		view = artifacts.View()
 	}
 
-	decision := artifact.MustGet(view, signalDecisionOutputKey("decision"))
-	if decision.Action != "buy" {
-		t.Fatalf("expected action=buy, got %q", decision.Action)
+	intent := artifact.MustGet(view, tradeIntentOutputKey("decision"))
+	if intent.Action != algotrade.OrderActionBuy {
+		t.Fatalf("expected action=buy, got %q", intent.Action)
 	}
 	obs := artifact.MustGet(view, observabilitySignalDecisionOutputKey("obs"))
-	if !obs.Allowed {
+	if !obs.Allowed || obs.IntentID == "" {
 		t.Fatalf("expected allowed=true, got %#v", obs)
 	}
 }

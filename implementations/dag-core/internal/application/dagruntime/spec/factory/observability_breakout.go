@@ -80,7 +80,7 @@ func (n *observabilityEmitSignalDecisionNode) Name() string {
 	return "dagruntime.observability_emit_signal_decision." + n.id
 }
 func (n *observabilityEmitSignalDecisionNode) Requires() []artifact.AnyKey {
-	return []artifact.AnyKey{signalDecisionOutputKey(n.decisionNodeID)}
+	return []artifact.AnyKey{tradeIntentOutputKey(n.decisionNodeID)}
 }
 func (n *observabilityEmitSignalDecisionNode) Provides() []artifact.AnyKey {
 	return []artifact.AnyKey{observabilitySignalDecisionOutputKey(n.id)}
@@ -94,12 +94,14 @@ func (n *observabilityEmitSignalDecisionNode) Spec() node.ExecutionSpec {
 func (n *observabilityEmitSignalDecisionNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
 	_ = ctx
 	_ = txn
-	decision := artifact.MustGet(av, signalDecisionOutputKey(n.decisionNodeID))
+	intent := artifact.MustGet(av, tradeIntentOutputKey(n.decisionNodeID))
 	artifact.Set(aw, observabilitySignalDecisionOutputKey(n.id), observabilitySignalDecision{
-		Action:       decision.Action,
-		Reason:       decision.Reason,
-		Allowed:      decision.Action == algotrade.OrderActionBuy,
-		PositionSize: decision.PositionSize,
+		IntentID:     intent.IntentID,
+		Symbol:       intent.Symbol,
+		Action:       intent.Action,
+		Reason:       intent.Reason,
+		Allowed:      intent.Action == algotrade.OrderActionBuy,
+		PositionSize: intent.PositionSize,
 	})
 	return nil
 }

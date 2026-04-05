@@ -173,6 +173,24 @@ func (f *OpenPositionCloseFactory) Build(nodeSpec spec.NodeSpec) (node.Node, err
 	}, nil
 }
 
+type StrategySummaryUpdateFactory struct{}
+
+func (f *StrategySummaryUpdateFactory) Kind() string { return "strategy_summary_update" }
+
+func (f *StrategySummaryUpdateFactory) Build(nodeSpec spec.NodeSpec) (node.Node, error) {
+	if err := ensureNoUnknownConfigKeys(nodeSpec.Config, []string{"trade_node_id"}); err != nil {
+		return nil, fmt.Errorf("strategy_summary_update node %q: %w", nodeSpec.ID, err)
+	}
+	tradeNodeID, err := requiredString(nodeSpec.Config, "trade_node_id")
+	if err != nil {
+		return nil, fmt.Errorf("strategy_summary_update node %q: %w", nodeSpec.ID, err)
+	}
+	return &strategySummaryUpdateNode{
+		id:          nodeSpec.ID,
+		tradeNodeID: tradeNodeID,
+	}, nil
+}
+
 type positionSnapshotLoadNode struct {
 	id string
 }
@@ -350,6 +368,11 @@ type dailyPnLUpdateNode struct {
 }
 
 type openPositionCloseNode struct {
+	id          string
+	tradeNodeID string
+}
+
+type strategySummaryUpdateNode struct {
 	id          string
 	tradeNodeID string
 }
@@ -573,6 +596,35 @@ func (n *openPositionCloseNode) Run(ctx context.Context, av artifact.View, aw ar
 	return nil
 }
 
+func (n *strategySummaryUpdateNode) Name() string {
+	return "dagruntime.strategy_summary_update." + n.id
+}
+func (n *strategySummaryUpdateNode) Requires() []artifact.AnyKey {
+	return []artifact.AnyKey{closedTradeOutputKey(n.tradeNodeID)}
+}
+func (n *strategySummaryUpdateNode) Provides() []artifact.AnyKey { return nil }
+func (n *strategySummaryUpdateNode) Reads() []state.AnyKey {
+	return []state.AnyKey{algotrade.StateClosedTrades, algotrade.StateStrategySummary}
+}
+func (n *strategySummaryUpdateNode) Writes() []state.AnyKey {
+	return []state.AnyKey{algotrade.StateStrategySummary}
+}
+func (n *strategySummaryUpdateNode) Spec() node.ExecutionSpec {
+	return node.ExecutionSpec{Deterministic: true, Idempotent: true}
+}
+func (n *strategySummaryUpdateNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = av
+	_ = aw
+	closedTrades, _ := state.Get(txn, algotrade.StateClosedTrades)
+	if len(closedTrades.Items) == 0 {
+		return nil
+	}
+	summary := summarizeClosedTrades(closedTrades.Items)
+	state.StageWrite(txn, algotrade.StateStrategySummary, algotrade.StrategySummaryState{Summary: summary})
+	return nil
+}
+
 func riskTrailingStopDistanceOutputKey(nodeID string) artifact.Key[marketdata.Price] {
 	return artifact.Key[marketdata.Price]{
 		Name:     fmt.Sprintf("%s.trailing_stop_distance", nodeID),
@@ -612,4 +664,43 @@ func closedTradeGrossPnL(side algotrade.PositionSide, entryPrice, exitPrice mark
 
 func closedTradeNetPnL(grossPnL float64) float64 {
 	return grossPnL
+}
+
+func summarizeClosedTrades(trades []algotrade.ClosedTrade) algotrade.StrategySummary {
+	summary := algotrade.StrategySummary{}
+	var winSum float64
+	var lossSum float64
+	for i, trade := range trades {
+		if i == 0 {
+			summary.StrategyID = trade.StrategyID
+			summary.WorkflowName = trade.WorkflowName
+			summary.WorkflowVersion = trade.WorkflowVersion
+			summary.ParameterSetID = trade.ParameterSetID
+		}
+		summary.TradeCount++
+		summary.TotalNetPnL += trade.NetPnL
+		if trade.NetPnL > 0 {
+			summary.WinCount++
+			winSum += trade.NetPnL
+		} else if trade.NetPnL < 0 {
+			summary.LossCount++
+			lossSum += -trade.NetPnL
+		}
+		if trade.ExitTime.After(summary.UpdatedAt) {
+			summary.UpdatedAt = trade.ExitTime
+		}
+	}
+	if summary.TradeCount > 0 {
+		summary.WinRate = float64(summary.WinCount) / float64(summary.TradeCount)
+	}
+	if summary.WinCount > 0 {
+		summary.AverageWin = winSum / float64(summary.WinCount)
+	}
+	if summary.LossCount > 0 {
+		summary.AverageLoss = lossSum / float64(summary.LossCount)
+	}
+	if lossSum > 0 {
+		summary.ProfitFactor = winSum / lossSum
+	}
+	return summary
 }

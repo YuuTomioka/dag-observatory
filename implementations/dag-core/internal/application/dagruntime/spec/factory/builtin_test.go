@@ -60,6 +60,7 @@ func TestNewBuiltinRegistryRegistersKinds(t *testing.T) {
 		"closed_trade_store",
 		"daily_pnl_update",
 		"open_position_close",
+		"strategy_summary_update",
 	} {
 		if !registry.Has(kind) {
 			t.Fatalf("expected kind %q to be registered", kind)

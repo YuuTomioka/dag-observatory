@@ -392,6 +392,112 @@ func TestOpenPositionCloseRunRemovesClosedPosition(t *testing.T) {
 	}
 }
 
+func TestStrategySummaryUpdateRunProjectsFromClosedTrades(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	updateNode, err := registry.Build(spec.NodeSpec{
+		ID:   "summary",
+		Kind: "strategy_summary_update",
+		Config: map[string]any{
+			"trade_node_id": "close_trade",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build strategy_summary_update: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, closedTradeOutputKey("close_trade"), algotrade.ClosedTrade{
+		TradeID:         "trade:intent:1:1",
+		StrategyID:      "breakout",
+		WorkflowName:    "dagruntime.breakout_long_v1_extended",
+		WorkflowVersion: "v1",
+		ParameterSetID:  "p1",
+	})
+
+	mem := stateinfra.NewMemoryStore()
+	txn := mem.BeginTxn("test")
+	state.StageWrite(txn, algotrade.StateClosedTrades, algotrade.ClosedTradesState{
+		Items: []algotrade.ClosedTrade{
+			{
+				TradeID:         "trade:intent:1:1",
+				IntentID:        "intent:1",
+				NetPnL:          10,
+				ExitTime:        marketdata.MustParseUTCTime("2026-04-05T01:00:00Z"),
+				StrategyID:      "breakout",
+				WorkflowName:    "dagruntime.breakout_long_v1_extended",
+				WorkflowVersion: "v1",
+				ParameterSetID:  "p1",
+			},
+		},
+	})
+
+	if err := updateNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("run strategy_summary_update: %v", err)
+	}
+
+	summary := state.MustGet(txn, algotrade.StateStrategySummary).Summary
+	if summary.TradeCount != 1 || summary.WinCount != 1 || summary.TotalNetPnL != 10 {
+		t.Fatalf("expected projected summary values, got %#v", summary)
+	}
+	if summary.WorkflowVersion != "v1" || summary.ParameterSetID != "p1" {
+		t.Fatalf("expected summary grouping fields, got %#v", summary)
+	}
+}
+
+func TestStrategySummaryUpdateRunAggregatesWinsAndLosses(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	updateNode, err := registry.Build(spec.NodeSpec{
+		ID:   "summary",
+		Kind: "strategy_summary_update",
+		Config: map[string]any{
+			"trade_node_id": "close_trade",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build strategy_summary_update: %v", err)
+	}
+
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	artifact.Set(writer, closedTradeOutputKey("close_trade"), algotrade.ClosedTrade{TradeID: "trade:intent:3:1"})
+
+	mem := stateinfra.NewMemoryStore()
+	txn := mem.BeginTxn("test")
+	state.StageWrite(txn, algotrade.StateClosedTrades, algotrade.ClosedTradesState{
+		Items: []algotrade.ClosedTrade{
+			{TradeID: "trade:intent:1:1", NetPnL: 10, ExitTime: marketdata.MustParseUTCTime("2026-04-05T01:00:00Z"), StrategyID: "breakout", WorkflowName: "wf", WorkflowVersion: "v1", ParameterSetID: "p1"},
+			{TradeID: "trade:intent:2:1", NetPnL: -4, ExitTime: marketdata.MustParseUTCTime("2026-04-05T02:00:00Z"), StrategyID: "breakout", WorkflowName: "wf", WorkflowVersion: "v1", ParameterSetID: "p1"},
+			{TradeID: "trade:intent:3:1", NetPnL: 6, ExitTime: marketdata.MustParseUTCTime("2026-04-05T03:00:00Z"), StrategyID: "breakout", WorkflowName: "wf", WorkflowVersion: "v1", ParameterSetID: "p1"},
+		},
+	})
+
+	if err := updateNode.Run(context.Background(), artifacts.View(), writer, txn); err != nil {
+		t.Fatalf("run strategy_summary_update: %v", err)
+	}
+
+	summary := state.MustGet(txn, algotrade.StateStrategySummary).Summary
+	if summary.TradeCount != 3 || summary.WinCount != 2 || summary.LossCount != 1 {
+		t.Fatalf("expected win/loss counts, got %#v", summary)
+	}
+	if summary.TotalNetPnL != 12 || summary.WinRate != 2.0/3.0 {
+		t.Fatalf("expected total pnl/winrate, got %#v", summary)
+	}
+	if summary.AverageWin != 8 || summary.AverageLoss != 4 || summary.ProfitFactor != 4 {
+		t.Fatalf("expected derived summary metrics, got %#v", summary)
+	}
+}
+
 func TestPositionTimeoutExitFactoryBuildRequiresPositionNodeID(t *testing.T) {
 	t.Parallel()
 

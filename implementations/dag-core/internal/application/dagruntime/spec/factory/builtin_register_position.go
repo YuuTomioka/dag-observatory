@@ -12,5 +12,6 @@ func registerPositionFactories(registry *Registry, deps Dependencies) error {
 		&ClosedTradeStoreFactory{},
 		&DailyPnLUpdateFactory{},
 		&OpenPositionCloseFactory{},
+		&StrategySummaryUpdateFactory{},
 	)
 }

@@ -5,6 +5,7 @@ import (
 
 	artifactsrepository "dag-observatory/dag-core/internal/application/artifacts/repository"
 	ctraderusecase "dag-observatory/dag-core/internal/application/ctrader/usecase"
+	dagruntimeusecase "dag-observatory/dag-core/internal/application/dagruntime/usecase"
 	dbbackupsrepository "dag-observatory/dag-core/internal/application/dbbackups/repository"
 	marketdatausecase "dag-observatory/dag-core/internal/application/marketdata/usecase"
 	"dag-observatory/dag-core/internal/infrastructure/observability/applog"
@@ -71,6 +72,7 @@ func NewEchoContainer(
 	var listTicksBySymbolAndRange *marketdatausecase.ListTicksBySymbolAndRange
 	var backfillTimeframeBars *marketdatausecase.BackfillTimeframeBars
 	var postCTraderTicks *ctraderusecase.PostTicksUsecase
+	listTradeResults := &dagruntimeusecase.ListTradeResults{}
 	if marketData != nil {
 		createSymbol = marketData.CreateSymbol
 		getSymbolByCode = marketData.GetSymbolByCode
@@ -90,6 +92,8 @@ func NewEchoContainer(
 		Tracer:                    otelc.Tracer,
 		Metrics:                   otelc.Metrics,
 		RunWorkflow:               dagRuntime.Usecase,
+		StateStore:                dagRuntime.StateStore.Store,
+		ListTradeResults:          listTradeResults,
 		ArtifactsRepo:             artifactsRepo,
 		DBBackupsRepo:             dbBackupsRepo,
 		Presigner:                 presigner,

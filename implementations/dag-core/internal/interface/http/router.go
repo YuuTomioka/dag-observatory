@@ -7,9 +7,12 @@ import (
 	dbbackupsrepository "dag-observatory/dag-core/internal/application/dbbackups/repository"
 	marketdatausecase "dag-observatory/dag-core/internal/application/marketdata/usecase"
 	"dag-observatory/dag-core/internal/application/observability/port"
+	domainstate "dag-observatory/dag-core/internal/domain/dagruntime/state"
 	"dag-observatory/dag-core/internal/infrastructure/observability/applog"
 	"dag-observatory/dag-core/internal/infrastructure/observability/metrics"
 	miniostore "dag-observatory/dag-core/internal/infrastructure/storage/minio"
+	algotradehandler "dag-observatory/dag-core/internal/interface/http/algotrade/handler"
+	algotraderoute "dag-observatory/dag-core/internal/interface/http/algotrade/route"
 	artifactshandler "dag-observatory/dag-core/internal/interface/http/artifacts/handler"
 	artifactsroute "dag-observatory/dag-core/internal/interface/http/artifacts/route"
 	ctraderhandler "dag-observatory/dag-core/internal/interface/http/ctrader/handler"
@@ -28,14 +31,16 @@ import (
 )
 
 type Dependencies struct {
-	IntentLog     port.IntentLog
-	AppLog        *applog.Logger
-	Tracer        trace.Tracer
-	Metrics       *metrics.Instruments
-	RunWorkflow   *usecase.RunWorkflow
-	ArtifactsRepo artifactsrepository.Reader
-	Presigner     *miniostore.Presigner
-	DBBackupsRepo dbbackupsrepository.Reader
+	IntentLog        port.IntentLog
+	AppLog           *applog.Logger
+	Tracer           trace.Tracer
+	Metrics          *metrics.Instruments
+	RunWorkflow      *usecase.RunWorkflow
+	StateStore       domainstate.Store
+	ListTradeResults *usecase.ListTradeResults
+	ArtifactsRepo    artifactsrepository.Reader
+	Presigner        *miniostore.Presigner
+	DBBackupsRepo    dbbackupsrepository.Reader
 
 	CreateSymbol              *marketdatausecase.CreateSymbol
 	GetSymbolByCode           *marketdatausecase.GetSymbolByCode
@@ -54,6 +59,10 @@ func RegisterRoutes(e *echo.Echo, d Dependencies) {
 		Tracer:      d.Tracer,
 		Metrics:     d.Metrics,
 		RunWorkflow: d.RunWorkflow,
+	})
+	ath := algotradehandler.New(algotradehandler.Dependencies{
+		StateStore:       d.StateStore,
+		ListTradeResults: d.ListTradeResults,
 	})
 	ah := artifactshandler.New(artifactshandler.Dependencies{
 		ArtifactsRepo: d.ArtifactsRepo,
@@ -81,6 +90,7 @@ func RegisterRoutes(e *echo.Echo, d Dependencies) {
 
 	healthroute.Register(e, hh)
 	dagroute.Register(e, dh)
+	algotraderoute.Register(e, ath)
 	artifactsroute.Register(e, ah)
 	dbbackupsroute.Register(e, bh)
 	marketdataroute.Register(e, mh)

@@ -11,8 +11,8 @@ import (
 	"dag-observatory/dag-core/internal/application/dagruntime/spec"
 	"dag-observatory/dag-core/internal/application/dagruntime/spec/factory"
 	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
-	"dag-observatory/dag-core/internal/domain/algotrade"
 	"dag-observatory/dag-core/internal/application/marketdata/repository"
+	"dag-observatory/dag-core/internal/domain/algotrade"
 	"dag-observatory/dag-core/internal/domain/dagruntime/artifact"
 	"dag-observatory/dag-core/internal/domain/dagruntime/engine"
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
@@ -154,6 +154,24 @@ func TestCompileBreakoutLongV1ExtendedWorkflowFromYAML(t *testing.T) {
 	}
 	if len(compiled.Inputs) != 4 {
 		t.Fatalf("expected four inputs, got %d", len(compiled.Inputs))
+	}
+}
+
+func TestCompileBreakoutLongResultReflectionMinimalWorkflowFromYAML(t *testing.T) {
+	t.Parallel()
+
+	compiled, err := compileWorkflowFromSpecPath("workflows/breakout_long_result_reflection_minimal.yaml", nil)
+	if err != nil {
+		t.Fatalf("compile breakout_long_result_reflection_minimal workflow: %v", err)
+	}
+	if compiled.Name != "dagruntime.breakout_long_result_reflection_minimal" {
+		t.Fatalf("expected workflow name dagruntime.breakout_long_result_reflection_minimal, got %q", compiled.Name)
+	}
+	if len(compiled.Nodes) != 9 {
+		t.Fatalf("expected nine nodes, got %d", len(compiled.Nodes))
+	}
+	if len(compiled.Inputs) != 1 {
+		t.Fatalf("expected one input, got %d", len(compiled.Inputs))
 	}
 }
 
@@ -393,6 +411,93 @@ func TestRunBreakoutSubmitAndFillAcrossSeparateWorkflows(t *testing.T) {
 	openPositions, ok := state.Get(txn, algotrade.StateOpenPositions)
 	if !ok || len(openPositions.Items) != 1 {
 		t.Fatalf("expected one open position after fill, got %+v", openPositions)
+	}
+}
+
+func TestRunBreakoutResultReflectionMinimalWorkflowE2E(t *testing.T) {
+	t.Parallel()
+
+	compiled, err := compileWorkflowFromSpecPath("workflows/breakout_long_result_reflection_minimal.yaml", nil)
+	if err != nil {
+		t.Fatalf("compile breakout_long_result_reflection_minimal workflow: %v", err)
+	}
+
+	artifactStore := artifactinfra.NewMemoryStore()
+	stateStore := stateinfra.NewMemoryStore()
+	runner := &engine.Runner{
+		ArtifactStore: artifactStore,
+		StateStore:    stateStore,
+		Policy:        policy.Policy{},
+	}
+
+	partition := state.Partition("breakout-result-reflection-e2e")
+	txn := stateStore.BeginTxn(partition)
+	state.StageWrite(txn, algotrade.StateOpenPositions, algotrade.OpenPositionsState{
+		Items: []algotrade.OpenPosition{
+			{
+				PositionID:      "position-1",
+				IntentID:        "intent-1",
+				Symbol:          "USDJPY",
+				Side:            algotrade.PositionSideLong,
+				Size:            1,
+				EntryPrice:      marketdata.NewPriceFromRaw(1000),
+				EntryTime:       marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
+				StrategyID:      "breakout",
+				WorkflowName:    "dagruntime.breakout_long_execution_position_minimal",
+				WorkflowVersion: "v1",
+				ParameterSetID:  "p1",
+			},
+		},
+	})
+	if err := txn.Commit(); err != nil {
+		t.Fatalf("commit seeded state: %v", err)
+	}
+
+	event := events.Event{
+		EventID:   "breakout-result-reflection",
+		EventTime: time.Now().UTC(),
+		Partition: partition,
+		Type:      "task.completed",
+		Payload:   nil,
+	}
+	inputs := engine.InputMap{
+		usecase.InputKeyMarketOHLCVBars: []marketdata.OHLCV{
+			{
+				Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:04:00Z"),
+				Closetime: marketdata.MustParseUTCTime("2026-04-01T00:05:00Z"),
+				Open:      marketdata.NewPriceFromRaw(1000),
+				High:      marketdata.NewPriceFromRaw(1002),
+				Low:       marketdata.NewPriceFromRaw(998),
+				Close:     marketdata.NewPriceFromRaw(993),
+			},
+		},
+	}
+	if err := runner.RunCycle(context.Background(), compiled, inputs, partition, event); err != nil {
+		t.Fatalf("run breakout_long_result_reflection_minimal workflow: %v", err)
+	}
+
+	readTxn := stateStore.BeginTxn(partition)
+	closedTrades, ok := state.Get(readTxn, algotrade.StateClosedTrades)
+	if !ok || len(closedTrades.Items) != 1 {
+		t.Fatalf("expected one closed trade, got %+v", closedTrades)
+	}
+	if closedTrades.Items[0].ExitReason != "stop_loss_hit" {
+		t.Fatalf("expected stop_loss_hit exit reason, got %+v", closedTrades.Items[0])
+	}
+
+	dailyPnL, ok := state.Get(readTxn, algotrade.StateDailyPnL)
+	if !ok || dailyPnL.RealizedPnL != -7 {
+		t.Fatalf("expected realized pnl -7, got %+v", dailyPnL)
+	}
+
+	openPositions, _ := state.Get(readTxn, algotrade.StateOpenPositions)
+	if len(openPositions.Items) != 0 {
+		t.Fatalf("expected open position to be removed, got %+v", openPositions)
+	}
+
+	summary, ok := state.Get(readTxn, algotrade.StateStrategySummary)
+	if !ok || summary.Summary.TradeCount != 1 || summary.Summary.LossCount != 1 {
+		t.Fatalf("expected summary to reflect one losing trade, got %+v", summary)
 	}
 }
 

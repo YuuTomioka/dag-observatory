@@ -1,0 +1,53 @@
+# PURPOSE:
+# - Minimal result-reflection workflow for breakout long.
+# - Loads open position state, derives exit decision from current bars, and reflects closed trade / pnl / summary state.
+name: dagruntime.breakout_long_result_reflection_minimal
+version: v1
+inputs:
+  - market.ohlcv_bars
+nodes:
+  - id: atr
+    kind: feature_atr
+    config:
+      window: 14
+
+  - id: stop_loss
+    kind: risk_stop_loss_from_atr
+    config:
+      atr_node_id: atr
+      atr_multiple: 1.5
+
+  - id: position_load
+    kind: position_snapshot_load
+
+  - id: exit_basic
+    kind: signal_exit_basic
+    config:
+      position_node_id: position_load
+      stop_loss_node_id: stop_loss
+
+  - id: close_trade
+    kind: position_close_to_closed_trade
+    config:
+      position_node_id: position_load
+      exit_node_id: exit_basic
+
+  - id: closed_store
+    kind: closed_trade_store
+    config:
+      trade_node_id: close_trade
+
+  - id: daily_pnl
+    kind: daily_pnl_update
+    config:
+      trade_node_id: close_trade
+
+  - id: position_close
+    kind: open_position_close
+    config:
+      trade_node_id: close_trade
+
+  - id: summary_update
+    kind: strategy_summary_update
+    config:
+      trade_node_id: close_trade

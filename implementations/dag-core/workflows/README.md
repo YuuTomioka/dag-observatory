@@ -18,6 +18,81 @@
   - 新規追加時に命名/配置の迷いが継続的に発生する
 - 現段階では `DAGRUNTIME_WORKFLOW_SPEC_PATH=workflows/<name>.yaml` を前提に運用します。
 
+## 1.2 breakout 系 workflow の現在位置づけ（2026-04-05 時点）
+
+既存の breakout 系 YAML は、同じ strategy family の中で責務を段階的に切り分けた参照資産として扱います。
+
+- `breakout_long_v0.yaml`
+  - signal / filter / sizing / decision / observability の基線確認用です。
+  - paper execution と position update は含みますが、fill progression, close, summary の正本 workflow としては扱いません。
+  - 主目的は entry decision 周辺の構造確認と観測導線の最小検証です。
+
+- `breakout_long_execution_position_minimal.yaml`
+  - market order submit と position snapshot load を含む、execution 境界確認用です。
+  - fill confirmation, close, summary は同一 workflow に抱え込まず、execution 直後の state / artifact 形状を確認するための最小構成です。
+  - submit/fill/close を分割したときの entrypoint 候補として扱います。
+
+- `breakout_long_v1_extended.yaml`
+  - filter/risk/execution/position management をまとめた拡張検証用です。
+  - trailing stop や timeout exit のような position-management ノードを含みますが、現時点では closed trade store や strategy summary update までは接続していません。
+  - 将来の richer validation 用サンプルであり、現段階の結果正本 workflow ではありません。
+
+- `breakout_long_result_reflection_minimal.yaml`
+  - result reflection 専用の最小 workflow です。
+  - open position state と現在 bar を使って close 判定を行い、`closed_trades` / `daily_pnl` / `strategy_summary` を更新します。
+  - submit 系 workflow とは分離し、結果確定後の反映責務だけを担います。
+
+これらの YAML は「どれが最終完成版か」を争うものではなく、責務境界の異なる比較対象として維持します。
+
+## 1.3 breakout 系の分割方針
+
+breakout 系では、entry decision / execution / position / close / summary を次の原則で扱います。
+
+- entry decision は YAML で表現する。
+  - strategy 差分が最も出やすく、宣言的に比較したい層だからです。
+
+- execution と position management も YAML で表現する。
+  - submit, snapshot load, trailing, timeout などの接続順は workflow 宣言として比較可能にしておくべきだからです。
+
+- close と summary も node としては YAML で接続可能にする。
+  - ただし常に entry workflow と同一ファイルへ載せる前提にはしません。
+
+- state truth は `closed_trades` と `strategy_summary` に寄せる。
+  - observability event や WebSocket 的通知は補助導線であり、結果の正本にはしません。
+
+## 1.4 1 本に残すものと分けるものの基準
+
+1 本の workflow に残すのは、同一 cycle で完結し、入力 artifact と state write の因果がその場で説明できる範囲に限ります。
+
+- 1 本に残してよいもの
+  - signal, filter, sizing, decision
+  - submit のような command 生成
+  - snapshot load や trailing/timeout のような position-management
+  - paper execution のような cycle 内で完結する擬似処理
+
+- 別 workflow または別 event entrypoint に分けるもの
+  - fill confirmation のように外部 execution 結果を待つ処理
+  - close result の確定
+  - `closed_trade_store`, `daily_pnl_reflect`, `open_position_close`, `strategy_summary_update` のような結果確定後の反映
+
+判断基準は次の 3 点です。
+
+- 外部 event を待つか
+- retry / idempotency の境界が submit 系と result 反映系で異なるか
+- 失敗時に snapshot 再読込で回復できる read/write 境界を保ちたいか
+
+この基準により、submit 系 workflow と result reflection 系 workflow は分割を基本とします。close と summary は result reflection 側に寄せ、entry decision 側へ常設しません。
+
+## 1.5 現時点の採用方針
+
+2026-04-05 時点では、次を採用します。
+
+- `breakout_long_v0.yaml` は entry decision baseline
+- `breakout_long_execution_position_minimal.yaml` は execution / position 最小検証
+- `breakout_long_v1_extended.yaml` は position-management を含む拡張検証
+- `breakout_long_result_reflection_minimal.yaml` は result reflection 最小検証
+したがって、現時点では submit 系と result reflection 系を別 YAML として維持します。
+
 ## 2. Workflow 起点の依存関係
 
 Workflow は以下の順で実行可能な `pipeline.Compiled` に変換されます。

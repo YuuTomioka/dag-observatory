@@ -73,6 +73,10 @@ func NewEchoContainer(
 	var backfillTimeframeBars *marketdatausecase.BackfillTimeframeBars
 	var postCTraderTicks *ctraderusecase.PostTicksUsecase
 	listTradeResults := &dagruntimeusecase.ListTradeResults{}
+	listRuns := &dagruntimeusecase.ListRuns{Reader: dagRuntime.RunReader}
+	getRun := &dagruntimeusecase.GetRun{Reader: dagRuntime.RunReader}
+	listRunSteps := &dagruntimeusecase.ListRunSteps{Reader: dagRuntime.RunReader}
+	getRunNode := &dagruntimeusecase.GetRunNode{Reader: dagRuntime.RunReader}
 	if marketData != nil {
 		createSymbol = marketData.CreateSymbol
 		getSymbolByCode = marketData.GetSymbolByCode
@@ -92,6 +96,10 @@ func NewEchoContainer(
 		Tracer:                    otelc.Tracer,
 		Metrics:                   otelc.Metrics,
 		RunWorkflow:               dagRuntime.Usecase,
+		ListRuns:                  listRuns,
+		GetRun:                    getRun,
+		ListRunSteps:              listRunSteps,
+		GetRunNode:                getRunNode,
 		StateStore:                dagRuntime.StateStore.Store,
 		ListTradeResults:          listTradeResults,
 		ArtifactsRepo:             artifactsRepo,

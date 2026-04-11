@@ -27,7 +27,8 @@ type DAGRuntimeContainer struct {
 	EventConsumer *eventstoreinfra.KafkaConsumer
 	EventStream   port.EventStream
 	Observer      *observerinfra.OTelObserver
-	Recorder      *recorderinfra.NoopRecorder
+	Recorder      port.Recorder
+	RunReader     port.RunReader
 	Runner        *engine.Runner
 	Driver        *driver.Driver
 	Usecase       *usecase.RunWorkflow
@@ -62,7 +63,7 @@ func NewDAGRuntimeContainer(cfg Config, otelc *OTelContainer, compiled pipeline.
 	} else {
 		observer = observerinfra.NewOTelObserver(nil, nil)
 	}
-	recorder := recorderinfra.NewNoopRecorder()
+	recorder := recorderinfra.NewInMemoryRecorder()
 	observer.OnCompile(context.Background(), port.CompileInfo{
 		WorkflowName: compiled.Name,
 		NodeCount:    len(compiled.Order),
@@ -98,6 +99,7 @@ func NewDAGRuntimeContainer(cfg Config, otelc *OTelContainer, compiled pipeline.
 		EventStream:   eventStream,
 		Observer:      observer,
 		Recorder:      recorder,
+		RunReader:     recorder,
 		Runner:        runner,
 		Driver:        driver,
 		Usecase:       uc,

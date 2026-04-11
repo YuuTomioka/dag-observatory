@@ -36,6 +36,10 @@ type Dependencies struct {
 	Tracer           trace.Tracer
 	Metrics          *metrics.Instruments
 	RunWorkflow      *usecase.RunWorkflow
+	ListRuns         *usecase.ListRuns
+	GetRun           *usecase.GetRun
+	ListRunSteps     *usecase.ListRunSteps
+	GetRunNode       *usecase.GetRunNode
 	StateStore       domainstate.Store
 	ListTradeResults *usecase.ListTradeResults
 	ArtifactsRepo    artifactsrepository.Reader
@@ -55,10 +59,14 @@ type Dependencies struct {
 func RegisterRoutes(e *echo.Echo, d Dependencies) {
 	hh := healthhandler.New()
 	dh := daghandler.New(daghandler.Dependencies{
-		AppLog:      d.AppLog,
-		Tracer:      d.Tracer,
-		Metrics:     d.Metrics,
-		RunWorkflow: d.RunWorkflow,
+		AppLog:       d.AppLog,
+		Tracer:       d.Tracer,
+		Metrics:      d.Metrics,
+		RunWorkflow:  d.RunWorkflow,
+		ListRuns:     d.ListRuns,
+		GetRun:       d.GetRun,
+		ListRunSteps: d.ListRunSteps,
+		GetRunNode:   d.GetRunNode,
 	})
 	ath := algotradehandler.New(algotradehandler.Dependencies{
 		StateStore:       d.StateStore,

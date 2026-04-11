@@ -110,11 +110,21 @@ Progress note (2026-04-11):
 
 ### Phase 5: Add Run Read APIs
 
-- [ ] add a run listing API such as `/runs`
-- [ ] add a run detail API such as `/runs/:run_id`
-- [ ] add a step listing API such as `/runs/:run_id/steps`
-- [ ] add a node execution detail API such as `/runs/:run_id/nodes/:execution_id`
-- [ ] prioritize execution order, status, trigger/skip reason, and before/after diff over graph rendering concerns
+- [x] add a run listing API such as `/runs`
+- [x] add a run detail API such as `/runs/:run_id`
+- [x] add a step listing API such as `/runs/:run_id/steps`
+- [x] add a node execution detail API such as `/runs/:run_id/nodes/:execution_id`
+- [x] prioritize execution order, status, trigger/skip reason, and before/after diff over graph rendering concerns
+
+Progress note (2026-04-12):
+
+- added run read APIs:
+  - `GET /runs`
+  - `GET /runs/:run_id`
+  - `GET /runs/:run_id/steps`
+  - `GET /runs/:run_id/nodes/:execution_id`
+- introduced in-memory run read model backed by recorder events/cycle results
+- run step response exposes execution order (`sequence_no`), `status`, `trigger_reason`, `skip_reason`, and `state_diff`
 
 ### Phase 6: Add Result Summary API
 

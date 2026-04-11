@@ -39,3 +39,14 @@ func (e TimeoutError) Error() string {
 func (e TimeoutError) Unwrap() error {
 	return e.Err
 }
+
+type SkipError struct {
+	Reason string
+}
+
+func (e SkipError) Error() string {
+	if e.Reason == "" {
+		return "node_skipped"
+	}
+	return "node_skipped: " + e.Reason
+}

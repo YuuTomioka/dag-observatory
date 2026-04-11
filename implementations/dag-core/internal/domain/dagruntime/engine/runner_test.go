@@ -75,6 +75,41 @@ type sequenceObserver struct {
 	results []port.NodeResult
 }
 
+type captureRecorder struct {
+	mu         sync.Mutex
+	nodeEvents []events.NodeExecutionEvent
+}
+
+func (r *captureRecorder) RecordEvent(ctx context.Context, event events.Event) {
+	_ = ctx
+	_ = event
+}
+
+func (r *captureRecorder) RecordNodeExecution(ctx context.Context, event events.NodeExecutionEvent) {
+	_ = ctx
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.nodeEvents = append(r.nodeEvents, event)
+}
+
+func (r *captureRecorder) RecordNodeResult(ctx context.Context, result port.NodeResult) {
+	_ = ctx
+	_ = result
+}
+
+func (r *captureRecorder) RecordCycleResult(ctx context.Context, result port.CycleResult) {
+	_ = ctx
+	_ = result
+}
+
+func (r *captureRecorder) NodeEvents() []events.NodeExecutionEvent {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]events.NodeExecutionEvent, len(r.nodeEvents))
+	copy(out, r.nodeEvents)
+	return out
+}
+
 func (o *sequenceObserver) OnCompile(ctx context.Context, info port.CompileInfo) {}
 func (o *sequenceObserver) OnCycleStart(ctx context.Context, info port.CycleInfo) {
 	o.append("cycle_start")
@@ -285,6 +320,178 @@ func TestRunnerDefaultTimeout(t *testing.T) {
 	}
 	if !errors.Is(err, context.DeadlineExceeded) && !strings.Contains(err.Error(), "deadline exceeded") {
 		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+}
+
+func TestRunnerRecordsNodeExecutionEvents(t *testing.T) {
+	nodeOK := &counterNode{
+		spec: node.ExecutionSpec{Idempotent: true},
+	}
+	nodeFail := &counterNode{
+		spec: node.ExecutionSpec{Idempotent: true},
+		err:  errors.New("node failed"),
+	}
+	compiled := pipeline.Compiled{
+		Name:  "record-node-execution",
+		Order: []node.Node{nodeOK, nodeFail},
+		Nodes: []node.Node{nodeOK, nodeFail},
+	}
+	recorder := &captureRecorder{}
+	runner := &Runner{
+		ArtifactStore: artifactinfra.NewMemoryStore(),
+		StateStore:    stateinfra.NewMemoryStore(),
+		Policy:        policy.Policy{DefaultRetry: policy.RetryPolicy{MaxAttempts: 1}},
+		Recorder:      recorder,
+	}
+	eventTime := time.Date(2026, 4, 11, 10, 0, 0, 0, time.UTC)
+	event := events.Event{
+		EventID:   "run-1",
+		EventTime: eventTime,
+		Partition: state.Partition("p1"),
+		Type:      "test.requested",
+	}
+
+	_ = runner.RunCycle(context.Background(), compiled, InputMap{}, event.Partition, event)
+
+	got := recorder.NodeEvents()
+	if len(got) != 2 {
+		t.Fatalf("expected 2 node execution events, got %d", len(got))
+	}
+	if got[0].RunID != "run-1" || got[1].RunID != "run-1" {
+		t.Fatalf("expected run_id run-1, got %#v", got)
+	}
+	if got[0].SequenceNo != 1 || got[1].SequenceNo != 2 {
+		t.Fatalf("expected sequence numbers [1,2], got [%d,%d]", got[0].SequenceNo, got[1].SequenceNo)
+	}
+	if got[0].Status != events.NodeExecutionStatusSucceeded {
+		t.Fatalf("expected first status succeeded, got %s", got[0].Status)
+	}
+	if got[1].Status != events.NodeExecutionStatusFailed {
+		t.Fatalf("expected second status failed, got %s", got[1].Status)
+	}
+	if got[0].TriggerReason != "event_dispatch" || got[1].TriggerReason != "event_dispatch" {
+		t.Fatalf("expected trigger_reason event_dispatch, got %#v", got)
+	}
+	if got[0].Error != "" {
+		t.Fatalf("expected no error on first event, got %q", got[0].Error)
+	}
+	if got[1].Error == "" {
+		t.Fatal("expected error text on failed event")
+	}
+	if !got[0].EventTime.Equal(eventTime) || !got[1].EventTime.Equal(eventTime) {
+		t.Fatalf("expected event time %s, got %#v", eventTime, got)
+	}
+	if got[0].NodeName == "" || got[1].NodeName == "" {
+		t.Fatalf("expected node names, got %#v", got)
+	}
+	if got[0].DurationNS <= 0 || got[1].DurationNS <= 0 {
+		t.Fatalf("expected positive duration_ns, got %#v", got)
+	}
+}
+
+type skipNode struct {
+	spec   node.ExecutionSpec
+	reason string
+}
+
+func (n *skipNode) Name() string                { return "skip.node" }
+func (n *skipNode) Requires() []artifact.AnyKey { return nil }
+func (n *skipNode) Provides() []artifact.AnyKey { return nil }
+func (n *skipNode) Reads() []state.AnyKey       { return nil }
+func (n *skipNode) Writes() []state.AnyKey      { return nil }
+func (n *skipNode) Spec() node.ExecutionSpec    { return n.spec }
+func (n *skipNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = av
+	_ = aw
+	_ = txn
+	return dagerrors.SkipError{Reason: n.reason}
+}
+
+func TestRunnerSkipErrorIsRecordedAndDoesNotFailCycle(t *testing.T) {
+	skipped := &skipNode{
+		spec:   node.ExecutionSpec{Idempotent: true},
+		reason: "session blocked",
+	}
+	next := &counterNode{
+		spec: node.ExecutionSpec{Idempotent: true},
+	}
+	compiled := pipeline.Compiled{
+		Name:  "skip-node",
+		Order: []node.Node{skipped, next},
+		Nodes: []node.Node{skipped, next},
+	}
+	recorder := &captureRecorder{}
+	runner := &Runner{
+		ArtifactStore: artifactinfra.NewMemoryStore(),
+		StateStore:    stateinfra.NewMemoryStore(),
+		Policy:        policy.Policy{DefaultRetry: policy.RetryPolicy{MaxAttempts: 1}},
+		Recorder:      recorder,
+	}
+	event := events.Event{
+		EventID:   "run-skip",
+		EventTime: time.Date(2026, 4, 11, 12, 0, 0, 0, time.UTC),
+		Partition: state.Partition("p1"),
+		Type:      "test.requested",
+	}
+
+	err := runner.RunCycle(context.Background(), compiled, InputMap{}, event.Partition, event)
+	if err != nil {
+		t.Fatalf("expected skip to not fail cycle, got %v", err)
+	}
+	if next.Count() != 1 {
+		t.Fatalf("expected next node to run, got %d", next.Count())
+	}
+	got := recorder.NodeEvents()
+	if len(got) != 2 {
+		t.Fatalf("expected 2 node execution events, got %d", len(got))
+	}
+	if got[0].Status != events.NodeExecutionStatusSkipped {
+		t.Fatalf("expected first status skipped, got %s", got[0].Status)
+	}
+	if got[0].SkipReason != "session_blocked" {
+		t.Fatalf("expected normalized skip reason session_blocked, got %q", got[0].SkipReason)
+	}
+	if got[0].Error != "" {
+		t.Fatalf("expected empty error for skipped node, got %q", got[0].Error)
+	}
+}
+
+func TestRunnerTriggerReasonRetry(t *testing.T) {
+	nodeRetry := &counterNode{
+		spec: node.ExecutionSpec{SideEffect: true, Idempotent: true},
+		err:  errors.New("retry target"),
+	}
+	compiled := pipeline.Compiled{
+		Name:  "retry-trigger-reason",
+		Order: []node.Node{nodeRetry},
+		Nodes: []node.Node{nodeRetry},
+	}
+	recorder := &captureRecorder{}
+	runner := &Runner{
+		ArtifactStore: artifactinfra.NewMemoryStore(),
+		StateStore:    stateinfra.NewMemoryStore(),
+		Policy:        policy.Policy{DefaultRetry: policy.RetryPolicy{MaxAttempts: 2}},
+		Recorder:      recorder,
+	}
+	event := events.Event{
+		EventID:   "run-retry",
+		EventTime: time.Date(2026, 4, 11, 12, 30, 0, 0, time.UTC),
+		Partition: state.Partition("p1"),
+		Type:      "test.requested",
+	}
+
+	_ = runner.RunCycle(context.Background(), compiled, InputMap{}, event.Partition, event)
+
+	got := recorder.NodeEvents()
+	if len(got) != 2 {
+		t.Fatalf("expected 2 node execution events for retry, got %d", len(got))
+	}
+	if got[0].TriggerReason != "event_dispatch" {
+		t.Fatalf("expected first trigger reason event_dispatch, got %q", got[0].TriggerReason)
+	}
+	if got[1].TriggerReason != "retry" {
+		t.Fatalf("expected second trigger reason retry, got %q", got[1].TriggerReason)
 	}
 }
 

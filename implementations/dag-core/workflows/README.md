@@ -73,7 +73,7 @@ breakout 系では、entry decision / execution / position / close / summary を
 - 別 workflow または別 event entrypoint に分けるもの
   - fill confirmation のように外部 execution 結果を待つ処理
   - close result の確定
-  - `closed_trade_store`, `daily_pnl_reflect`, `open_position_close`, `strategy_summary_update` のような結果確定後の反映
+  - `closed_trade_store`, `daily_pnl_update`, `open_position_close`, `strategy_summary_update` のような結果確定後の反映
 
 判断基準は次の 3 点です。
 
@@ -190,6 +190,7 @@ nodes:
 - `DAGRUNTIME_WORKFLOW_SPEC_PATH=workflows/default.yaml`
 - `DAGRUNTIME_WORKFLOW_SPEC_PATH=workflows/marketdata_timeframe_bar_backfill.yaml`
 - `DAGRUNTIME_WORKFLOW_SPEC_PATH=workflows/breakout_long_v1_extended.yaml`
+- `DAGRUNTIME_WORKFLOW_SPEC_PATH=workflows/breakout_long_result_reflection_minimal.yaml`
 
 パス解決は `internal/application/dagruntime/spec/compiler/resolver.go` が行います。
 

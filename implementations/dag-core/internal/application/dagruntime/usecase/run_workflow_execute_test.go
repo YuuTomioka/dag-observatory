@@ -44,6 +44,11 @@ func (r *recordingRecorder) RecordEvent(ctx context.Context, event events.Event)
 	r.last = event
 }
 
+func (r *recordingRecorder) RecordNodeExecution(ctx context.Context, event events.NodeExecutionEvent) {
+	_ = ctx
+	_ = event
+}
+
 func (r *recordingRecorder) RecordNodeResult(ctx context.Context, result port.NodeResult) {
 	_ = ctx
 	_ = result

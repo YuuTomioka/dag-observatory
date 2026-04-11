@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"dag-observatory/dag-core/internal/application/dagruntime/port"
@@ -46,6 +47,7 @@ func (r *Runner) RunCycle(ctx context.Context, compiled pipeline.Compiled, input
 	var failedNode node.Node
 	var failedDuration time.Duration
 	lastAttempt := 1
+	sequenceNo := int64(0)
 
 	for attempt := 1; ; attempt++ {
 		lastAttempt = attempt
@@ -55,7 +57,7 @@ func (r *Runner) RunCycle(ctx context.Context, compiled pipeline.Compiled, input
 		}
 
 		txn := r.StateStore.BeginTxn(partition)
-		nodeErr := r.runPipeline(ctx, compiled, txn, event.EventID, int64(attempt-1))
+		nodeErr := r.runPipeline(ctx, compiled, txn, partition, event, int64(attempt-1), &sequenceNo)
 		if nodeErr == nil {
 			if err := txn.Commit(); err != nil {
 				lastErr = dagerrors.RuntimeError{
@@ -140,7 +142,16 @@ type nodeFailure struct {
 	duration time.Duration
 }
 
-func (r *Runner) runPipeline(ctx context.Context, compiled pipeline.Compiled, txn state.Txn, runID string, retryCount int64) *nodeFailure {
+func (r *Runner) runPipeline(
+	ctx context.Context,
+	compiled pipeline.Compiled,
+	txn state.Txn,
+	partition state.Partition,
+	event events.Event,
+	retryCount int64,
+	sequenceNo *int64,
+) *nodeFailure {
+	runID := event.EventID
 	for _, n := range compiled.Order {
 		queueWaitMS := queueWaitFromContextMS(ctx)
 		if r.Observer != nil {
@@ -152,6 +163,7 @@ func (r *Runner) runPipeline(ctx context.Context, compiled pipeline.Compiled, tx
 		}
 
 		start := time.Now()
+		snapshotBeforeRef := r.stateSnapshotRef(partition)
 		runCtx := ctx
 		timeout := effectiveTimeout(r.Policy, n.Spec())
 		cancel := func() {}
@@ -169,13 +181,40 @@ func (r *Runner) runPipeline(ctx context.Context, compiled pipeline.Compiled, tx
 				Err:  err,
 			}
 		}
+		skipReason, skipped := normalizeSkipReason(err)
+		status := nodeExecutionStatusFromError(err, skipped)
+		normalizedErr := err
+		if skipped {
+			normalizedErr = nil
+		}
+
+		if r.Recorder != nil {
+			if sequenceNo != nil {
+				*sequenceNo = *sequenceNo + 1
+			}
+			r.Recorder.RecordNodeExecution(ctx, events.NodeExecutionEvent{
+				RunID:             runID,
+				Partition:         partition,
+				EventTime:         event.EventTime,
+				SequenceNo:        valueOrZero(sequenceNo),
+				NodeID:            nodeName(n),
+				NodeName:          nodeName(n),
+				Status:            status,
+				TriggerReason:     normalizeTriggerReason(retryCount),
+				SkipReason:        skipReason,
+				SnapshotBeforeRef: snapshotBeforeRef,
+				SnapshotAfterRef:  r.stateSnapshotRef(partition),
+				DurationNS:        duration.Nanoseconds(),
+				Error:             errorString(normalizedErr),
+			})
+		}
 
 		if r.Observer != nil {
 			r.Observer.OnNodeEnd(ctx, port.NodeResult{
 				RunID:       runID,
 				NodeName:    nodeName(n),
 				Duration:    duration,
-				Err:         err,
+				Err:         normalizedErr,
 				RetryCount:  retryCount,
 				QueueWaitMS: queueWaitMS,
 			})
@@ -185,22 +224,83 @@ func (r *Runner) runPipeline(ctx context.Context, compiled pipeline.Compiled, tx
 				RunID:       runID,
 				NodeName:    nodeName(n),
 				Duration:    duration,
-				Err:         err,
+				Err:         normalizedErr,
 				RetryCount:  retryCount,
 				QueueWaitMS: queueWaitMS,
 			})
 		}
 
-		if err != nil {
+		if normalizedErr != nil {
 			return &nodeFailure{
 				node:     n,
 				spec:     n.Spec(),
-				err:      err,
+				err:      normalizedErr,
 				duration: duration,
 			}
 		}
 	}
 	return nil
+}
+
+func (r *Runner) stateSnapshotRef(partition state.Partition) string {
+	if r.StateHasher != nil {
+		return r.StateHasher.Hash(partition)
+	}
+	if hasher, ok := r.StateStore.(state.HashableStore); ok {
+		return hasher.Hash(partition)
+	}
+	return ""
+}
+
+func nodeExecutionStatusFromError(err error, skipped bool) events.NodeExecutionStatus {
+	if skipped {
+		return events.NodeExecutionStatusSkipped
+	}
+	if err != nil {
+		return events.NodeExecutionStatusFailed
+	}
+	return events.NodeExecutionStatusSucceeded
+}
+
+func errorString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
+func valueOrZero(value *int64) int64 {
+	if value == nil {
+		return 0
+	}
+	return *value
+}
+
+func normalizeTriggerReason(retryCount int64) string {
+	if retryCount > 0 {
+		return "retry"
+	}
+	return "event_dispatch"
+}
+
+func normalizeSkipReason(err error) (string, bool) {
+	if err == nil {
+		return "", false
+	}
+	var skipErr dagerrors.SkipError
+	if errors.As(err, &skipErr) {
+		return normalizeReason(skipErr.Reason), true
+	}
+	return "", false
+}
+
+func normalizeReason(reason string) string {
+	value := strings.TrimSpace(strings.ToLower(reason))
+	if value == "" {
+		return "unspecified"
+	}
+	value = strings.ReplaceAll(value, " ", "_")
+	return value
 }
 
 func queueWaitFromContextMS(ctx context.Context) int64 {

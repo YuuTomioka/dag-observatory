@@ -73,6 +73,7 @@ func NewEchoContainer(
 	var backfillTimeframeBars *marketdatausecase.BackfillTimeframeBars
 	var postCTraderTicks *ctraderusecase.PostTicksUsecase
 	listTradeResults := &dagruntimeusecase.ListTradeResults{}
+	getStrategySummary := &dagruntimeusecase.GetStrategySummary{}
 	listRuns := &dagruntimeusecase.ListRuns{Reader: dagRuntime.RunReader}
 	getRun := &dagruntimeusecase.GetRun{Reader: dagRuntime.RunReader}
 	listRunSteps := &dagruntimeusecase.ListRunSteps{Reader: dagRuntime.RunReader}
@@ -102,6 +103,7 @@ func NewEchoContainer(
 		GetRunNode:                getRunNode,
 		StateStore:                dagRuntime.StateStore.Store,
 		ListTradeResults:          listTradeResults,
+		GetStrategySummary:        getStrategySummary,
 		ArtifactsRepo:             artifactsRepo,
 		DBBackupsRepo:             dbBackupsRepo,
 		Presigner:                 presigner,

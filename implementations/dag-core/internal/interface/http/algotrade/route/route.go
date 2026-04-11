@@ -8,5 +8,6 @@ import (
 
 func Register(e *echo.Echo, h *handler.Handler) {
 	e.GET("/algotrade/trades", h.ListTrades)
+	e.GET("/algotrade/summary", h.GetSummary)
 	e.POST("/algotrade/result-reflection:run", h.RunResultReflection)
 }

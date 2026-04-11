@@ -31,20 +31,21 @@ import (
 )
 
 type Dependencies struct {
-	IntentLog        port.IntentLog
-	AppLog           *applog.Logger
-	Tracer           trace.Tracer
-	Metrics          *metrics.Instruments
-	RunWorkflow      *usecase.RunWorkflow
-	ListRuns         *usecase.ListRuns
-	GetRun           *usecase.GetRun
-	ListRunSteps     *usecase.ListRunSteps
-	GetRunNode       *usecase.GetRunNode
-	StateStore       domainstate.Store
-	ListTradeResults *usecase.ListTradeResults
-	ArtifactsRepo    artifactsrepository.Reader
-	Presigner        *miniostore.Presigner
-	DBBackupsRepo    dbbackupsrepository.Reader
+	IntentLog          port.IntentLog
+	AppLog             *applog.Logger
+	Tracer             trace.Tracer
+	Metrics            *metrics.Instruments
+	RunWorkflow        *usecase.RunWorkflow
+	ListRuns           *usecase.ListRuns
+	GetRun             *usecase.GetRun
+	ListRunSteps       *usecase.ListRunSteps
+	GetRunNode         *usecase.GetRunNode
+	StateStore         domainstate.Store
+	ListTradeResults   *usecase.ListTradeResults
+	GetStrategySummary *usecase.GetStrategySummary
+	ArtifactsRepo      artifactsrepository.Reader
+	Presigner          *miniostore.Presigner
+	DBBackupsRepo      dbbackupsrepository.Reader
 
 	CreateSymbol              *marketdatausecase.CreateSymbol
 	GetSymbolByCode           *marketdatausecase.GetSymbolByCode
@@ -69,9 +70,10 @@ func RegisterRoutes(e *echo.Echo, d Dependencies) {
 		GetRunNode:   d.GetRunNode,
 	})
 	ath := algotradehandler.New(algotradehandler.Dependencies{
-		StateStore:       d.StateStore,
-		ListTradeResults: d.ListTradeResults,
-		RunWorkflow:      d.RunWorkflow,
+		StateStore:         d.StateStore,
+		ListTradeResults:   d.ListTradeResults,
+		GetStrategySummary: d.GetStrategySummary,
+		RunWorkflow:        d.RunWorkflow,
 	})
 	ah := artifactshandler.New(artifactshandler.Dependencies{
 		ArtifactsRepo: d.ArtifactsRepo,

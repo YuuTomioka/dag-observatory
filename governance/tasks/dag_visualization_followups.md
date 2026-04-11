@@ -128,9 +128,15 @@ Progress note (2026-04-12):
 
 ### Phase 6: Add Result Summary API
 
-- [ ] add `GET /algotrade/summary?partition=...` or equivalent
-- [ ] expose enough summary data to support hypothesis comparison beyond `TradeView`
-- [ ] verify the summary response can act as the minimum judgment view for run comparison
+- [x] add `GET /algotrade/summary?partition=...` or equivalent
+- [x] expose enough summary data to support hypothesis comparison beyond `TradeView`
+- [x] verify the summary response can act as the minimum judgment view for run comparison
+
+Progress note (2026-04-12):
+
+- added `GET /algotrade/summary?partition=...`
+- response exposes summary projection fields including trade counts, win/loss metrics, and pnl aggregates
+- added handler tests for partition validation and summary projection retrieval
 
 ### Phase 7: Add The Minimum UI
 

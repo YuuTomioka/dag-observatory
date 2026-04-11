@@ -8,19 +8,22 @@ import (
 type Handler struct {
 	stateStore       domainstate.Store
 	listTradeResults *usecase.ListTradeResults
+	getSummary       *usecase.GetStrategySummary
 	runWF            *usecase.RunWorkflow
 }
 
 type Dependencies struct {
-	StateStore       domainstate.Store
-	ListTradeResults *usecase.ListTradeResults
-	RunWorkflow      *usecase.RunWorkflow
+	StateStore         domainstate.Store
+	ListTradeResults   *usecase.ListTradeResults
+	GetStrategySummary *usecase.GetStrategySummary
+	RunWorkflow        *usecase.RunWorkflow
 }
 
 func New(d Dependencies) *Handler {
 	return &Handler{
 		stateStore:       d.StateStore,
 		listTradeResults: d.ListTradeResults,
+		getSummary:       d.GetStrategySummary,
 		runWF:            d.RunWorkflow,
 	}
 }

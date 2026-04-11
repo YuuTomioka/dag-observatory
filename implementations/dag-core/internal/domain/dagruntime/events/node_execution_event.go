@@ -34,6 +34,13 @@ type NodeExecutionEvent struct {
 	OutputRef         string              `json:"output_ref,omitempty"`
 	SnapshotBeforeRef string              `json:"snapshot_before_ref,omitempty"`
 	SnapshotAfterRef  string              `json:"snapshot_after_ref,omitempty"`
+	StateDiff         []StateDiffField    `json:"state_diff,omitempty"`
 	DurationNS        int64               `json:"duration_ns"`
 	Error             string              `json:"error,omitempty"`
+}
+
+type StateDiffField struct {
+	Field  string `json:"field"`
+	Before any    `json:"before,omitempty"`
+	After  any    `json:"after,omitempty"`
 }

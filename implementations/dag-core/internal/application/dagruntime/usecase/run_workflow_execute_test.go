@@ -123,6 +123,27 @@ func TestBuildRunEventWithRunID(t *testing.T) {
 	}
 }
 
+func TestBuildRunEventWithExplicitPartition(t *testing.T) {
+	req := RunWorkflowRequest{
+		RunID:     "fixed-id",
+		Partition: "strategy-1:USDJPY",
+		Symbol:    "USDJPY",
+		Mode:      "normal",
+	}
+	now := time.Date(2026, 3, 29, 9, 5, 0, 0, time.UTC)
+	result, event, partition := buildRunEvent(req, now)
+
+	if result.RunID != "fixed-id" {
+		t.Fatalf("expected run_id fixed-id, got %q", result.RunID)
+	}
+	if event.EventID != "fixed-id" {
+		t.Fatalf("expected event id fixed-id, got %q", event.EventID)
+	}
+	if partition != state.Partition("strategy-1:USDJPY") {
+		t.Fatalf("expected explicit partition strategy-1:USDJPY, got %q", partition)
+	}
+}
+
 func TestBuildRunEventWithMarketBars(t *testing.T) {
 	req := RunWorkflowRequest{
 		RunID:  "bars-run",

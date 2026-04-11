@@ -5,9 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"dag-observatory/dag-core/internal/application/dagruntime/port"
 	"dag-observatory/dag-core/internal/application/dagruntime/spec"
 	"dag-observatory/dag-core/internal/application/dagruntime/spec/factory"
 	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
@@ -33,6 +35,41 @@ func (u fakeCompileUnitOfWork) Do(ctx context.Context, fn func(repos repository.
 
 func (u fakeCompileUnitOfWork) DoReadOnly(ctx context.Context, fn func(repos repository.Repositories) error) error {
 	return nil
+}
+
+type flowRecorder struct {
+	mu         sync.Mutex
+	nodeEvents []events.NodeExecutionEvent
+}
+
+func (r *flowRecorder) RecordEvent(ctx context.Context, event events.Event) {
+	_ = ctx
+	_ = event
+}
+
+func (r *flowRecorder) RecordNodeExecution(ctx context.Context, event events.NodeExecutionEvent) {
+	_ = ctx
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.nodeEvents = append(r.nodeEvents, event)
+}
+
+func (r *flowRecorder) RecordNodeResult(ctx context.Context, result port.NodeResult) {
+	_ = ctx
+	_ = result
+}
+
+func (r *flowRecorder) RecordCycleResult(ctx context.Context, result port.CycleResult) {
+	_ = ctx
+	_ = result
+}
+
+func (r *flowRecorder) NodeEvents() []events.NodeExecutionEvent {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]events.NodeExecutionEvent, len(r.nodeEvents))
+	copy(out, r.nodeEvents)
+	return out
 }
 
 func TestCompileDefaultWorkflowFromYAML(t *testing.T) {
@@ -411,6 +448,148 @@ func TestRunBreakoutSubmitAndFillAcrossSeparateWorkflows(t *testing.T) {
 	openPositions, ok := state.Get(txn, algotrade.StateOpenPositions)
 	if !ok || len(openPositions.Items) != 1 {
 		t.Fatalf("expected one open position after fill, got %+v", openPositions)
+	}
+}
+
+func TestRunBreakoutSubmitFillAndResultReflectionAcrossSeparateWorkflows(t *testing.T) {
+	t.Parallel()
+
+	submitCompiled, err := compileWorkflowFromSpecPath("workflows/breakout_long_execution_position_minimal.yaml", nil)
+	if err != nil {
+		t.Fatalf("compile submit workflow: %v", err)
+	}
+	reflectionCompiled, err := compileWorkflowFromSpecPath("workflows/breakout_long_result_reflection_minimal.yaml", nil)
+	if err != nil {
+		t.Fatalf("compile reflection workflow: %v", err)
+	}
+
+	registry, err := factory.NewBuiltinRegistry()
+	if err != nil {
+		t.Fatalf("new builtin registry: %v", err)
+	}
+	fillConfirmNode, err := registry.Build(spec.NodeSpec{
+		ID:   "fill_confirm",
+		Kind: "execution_confirm_fill",
+		Config: map[string]any{
+			"order_request_node_id": "market_exec",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build fill confirm node: %v", err)
+	}
+	marketExecKey := artifact.Key[algotrade.MarketOrderRequest]{
+		Name:     "market_exec.market_order_request",
+		StableID: "artifact:dagruntime.execution.market_order_request.market_exec.v1",
+	}
+	fillCompiled, err := workflow.Compile(workflow.Workflow{
+		Name:   "dagruntime.breakout_long_fill_confirm_minimal",
+		Inputs: []artifact.AnyKey{marketExecKey},
+		Nodes:  []node.Node{fillConfirmNode},
+	})
+	if err != nil {
+		t.Fatalf("compile fill workflow: %v", err)
+	}
+
+	recorder := &flowRecorder{}
+	artifactStore := artifactinfra.NewMemoryStore()
+	stateStore := stateinfra.NewMemoryStore()
+	runner := &engine.Runner{
+		ArtifactStore: artifactStore,
+		StateStore:    stateStore,
+		Policy:        policy.Policy{},
+		Recorder:      recorder,
+	}
+
+	partition := state.Partition("breakout-submit-fill-reflection-e2e")
+	submitEvent := events.Event{
+		EventID:   "breakout-submit-cycle",
+		EventTime: time.Now().UTC(),
+		Partition: partition,
+		Type:      "task.requested",
+		Payload:   nil,
+	}
+	if err := runner.RunCycle(context.Background(), submitCompiled, breakoutWorkflowInputs(), partition, submitEvent); err != nil {
+		t.Fatalf("run submit workflow: %v", err)
+	}
+
+	marketReq, ok := artifact.Get(artifactStore.View(), marketExecKey)
+	if !ok || !marketReq.Submitted || marketReq.OrderID == "" {
+		t.Fatalf("expected submitted order request from submit workflow, got %+v", marketReq)
+	}
+
+	fillEvent := events.Event{
+		EventID:   "breakout-fill-cycle",
+		EventTime: time.Now().UTC(),
+		Partition: partition,
+		Type:      "task.completed",
+		Payload:   nil,
+	}
+	if err := runner.RunCycle(context.Background(), fillCompiled, engine.InputMap{marketExecKey: marketReq}, partition, fillEvent); err != nil {
+		t.Fatalf("run fill workflow: %v", err)
+	}
+
+	reflectionEvent := events.Event{
+		EventID:   "breakout-result-reflection-cycle",
+		EventTime: time.Now().UTC(),
+		Partition: partition,
+		Type:      "task.completed",
+		Payload:   nil,
+	}
+	reflectionInputs := engine.InputMap{
+		usecase.InputKeyMarketOHLCVBars: []marketdata.OHLCV{
+			{
+				Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:04:00Z"),
+				Closetime: marketdata.MustParseUTCTime("2026-04-01T00:05:00Z"),
+				Open:      marketdata.NewPriceFromRaw(-8),
+				High:      marketdata.NewPriceFromRaw(-6),
+				Low:       marketdata.NewPriceFromRaw(-12),
+				Close:     marketdata.NewPriceFromRaw(-10),
+			},
+		},
+	}
+	if err := runner.RunCycle(context.Background(), reflectionCompiled, reflectionInputs, partition, reflectionEvent); err != nil {
+		t.Fatalf("run reflection workflow: %v", err)
+	}
+
+	txn := stateStore.BeginTxn(partition)
+	pending, _ := state.Get(txn, algotrade.StatePendingOrders)
+	if len(pending.Items) != 0 {
+		t.Fatalf("expected pending orders to be empty, got %d", len(pending.Items))
+	}
+	openPositions, _ := state.Get(txn, algotrade.StateOpenPositions)
+	if len(openPositions.Items) != 0 {
+		t.Fatalf("expected open positions to be closed, got %+v", openPositions)
+	}
+	closedTrades, ok := state.Get(txn, algotrade.StateClosedTrades)
+	if !ok || len(closedTrades.Items) != 1 {
+		t.Fatalf("expected one closed trade after reflection, got %+v", closedTrades)
+	}
+	summary, ok := state.Get(txn, algotrade.StateStrategySummary)
+	if !ok || summary.Summary.TradeCount != 1 {
+		t.Fatalf("expected summary trade_count=1, got %+v", summary)
+	}
+	if summary.Summary.LossCount != 1 {
+		t.Fatalf("expected summary loss_count=1, got %+v", summary.Summary)
+	}
+
+	gotNodeEvents := recorder.NodeEvents()
+	if len(gotNodeEvents) == 0 {
+		t.Fatal("expected node execution events across submit/fill/reflection flow")
+	}
+	hasRun := map[string]bool{
+		submitEvent.EventID:     false,
+		fillEvent.EventID:       false,
+		reflectionEvent.EventID: false,
+	}
+	for _, e := range gotNodeEvents {
+		if _, ok := hasRun[e.RunID]; ok {
+			hasRun[e.RunID] = true
+		}
+	}
+	for runID, found := range hasRun {
+		if !found {
+			t.Fatalf("expected recorded node execution events for run_id=%s", runID)
+		}
 	}
 }
 

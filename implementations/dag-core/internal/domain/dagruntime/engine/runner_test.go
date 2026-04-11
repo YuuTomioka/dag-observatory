@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"dag-observatory/dag-core/internal/application/dagruntime/port"
+	"dag-observatory/dag-core/internal/domain/algotrade"
 	"dag-observatory/dag-core/internal/domain/dagruntime/artifact"
 	dagerrors "dag-observatory/dag-core/internal/domain/dagruntime/errors"
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
@@ -492,6 +493,88 @@ func TestRunnerTriggerReasonRetry(t *testing.T) {
 	}
 	if got[1].TriggerReason != "retry" {
 		t.Fatalf("expected second trigger reason retry, got %q", got[1].TriggerReason)
+	}
+}
+
+type pendingOrderStateNode struct{}
+
+func (n *pendingOrderStateNode) Name() string                { return "pending.order.state.node" }
+func (n *pendingOrderStateNode) Requires() []artifact.AnyKey { return nil }
+func (n *pendingOrderStateNode) Provides() []artifact.AnyKey { return nil }
+func (n *pendingOrderStateNode) Reads() []state.AnyKey {
+	return []state.AnyKey{algotrade.StatePendingOrders}
+}
+func (n *pendingOrderStateNode) Writes() []state.AnyKey {
+	return []state.AnyKey{algotrade.StatePendingOrders}
+}
+func (n *pendingOrderStateNode) Spec() node.ExecutionSpec {
+	return node.ExecutionSpec{Idempotent: true}
+}
+func (n *pendingOrderStateNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = av
+	_ = aw
+	current, _ := state.Get(txn, algotrade.StatePendingOrders)
+	next := current
+	next.Items = append(next.Items, algotrade.PendingOrder{
+		OrderID: "order-1",
+		Intent: algotrade.TradeIntent{
+			IntentID: "intent-1",
+		},
+	})
+	state.StageWrite(txn, algotrade.StatePendingOrders, next)
+	return nil
+}
+
+func TestRunnerRecordsMinimalStateDiff(t *testing.T) {
+	diffNode := &pendingOrderStateNode{}
+	compiled := pipeline.Compiled{
+		Name:  "state-diff",
+		Order: []node.Node{diffNode},
+		Nodes: []node.Node{diffNode},
+	}
+	recorder := &captureRecorder{}
+	runner := &Runner{
+		ArtifactStore: artifactinfra.NewMemoryStore(),
+		StateStore:    stateinfra.NewMemoryStore(),
+		Policy:        policy.Policy{DefaultRetry: policy.RetryPolicy{MaxAttempts: 1}},
+		Recorder:      recorder,
+	}
+	event := events.Event{
+		EventID:   "run-diff",
+		EventTime: time.Date(2026, 4, 11, 13, 0, 0, 0, time.UTC),
+		Partition: state.Partition("p1"),
+		Type:      "test.requested",
+	}
+
+	if err := runner.RunCycle(context.Background(), compiled, InputMap{}, event.Partition, event); err != nil {
+		t.Fatalf("run cycle failed: %v", err)
+	}
+
+	got := recorder.NodeEvents()
+	if len(got) != 1 {
+		t.Fatalf("expected one node event, got %d", len(got))
+	}
+	var found bool
+	for _, diff := range got[0].StateDiff {
+		if diff.Field != "pending_orders.count" {
+			continue
+		}
+		before, ok := diff.Before.(int)
+		if !ok {
+			t.Fatalf("expected before count to be int, got %T", diff.Before)
+		}
+		after, ok := diff.After.(int)
+		if !ok {
+			t.Fatalf("expected after count to be int, got %T", diff.After)
+		}
+		if before != 0 || after != 1 {
+			t.Fatalf("expected pending_orders.count 0->1, got %d->%d", before, after)
+		}
+		found = true
+	}
+	if !found {
+		t.Fatalf("expected pending_orders.count diff, got %#v", got[0].StateDiff)
 	}
 }
 

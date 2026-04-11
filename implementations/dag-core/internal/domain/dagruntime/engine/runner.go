@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -164,6 +166,7 @@ func (r *Runner) runPipeline(
 
 		start := time.Now()
 		snapshotBeforeRef := r.stateSnapshotRef(partition)
+		beforeState := snapshotTrackedState(txn, trackedNodeStateKeys(n))
 		runCtx := ctx
 		timeout := effectiveTimeout(r.Policy, n.Spec())
 		cancel := func() {}
@@ -187,6 +190,8 @@ func (r *Runner) runPipeline(
 		if skipped {
 			normalizedErr = nil
 		}
+		afterState := snapshotTrackedState(txn, trackedNodeStateKeys(n))
+		stateDiff := buildTrackedStateDiff(beforeState, afterState)
 
 		if r.Recorder != nil {
 			if sequenceNo != nil {
@@ -204,6 +209,7 @@ func (r *Runner) runPipeline(
 				SkipReason:        skipReason,
 				SnapshotBeforeRef: snapshotBeforeRef,
 				SnapshotAfterRef:  r.stateSnapshotRef(partition),
+				StateDiff:         stateDiff,
 				DurationNS:        duration.Nanoseconds(),
 				Error:             errorString(normalizedErr),
 			})
@@ -301,6 +307,216 @@ func normalizeReason(reason string) string {
 	}
 	value = strings.ReplaceAll(value, " ", "_")
 	return value
+}
+
+func trackedNodeStateKeys(n node.Node) []state.AnyKey {
+	keys := append([]state.AnyKey{}, n.Reads()...)
+	keys = append(keys, n.Writes()...)
+	seen := map[state.RawKey]struct{}{}
+	out := make([]state.AnyKey, 0, len(keys))
+	for _, key := range keys {
+		if key == nil || !shouldTrackStateKey(key) {
+			continue
+		}
+		raw := key.Raw()
+		if _, ok := seen[raw]; ok {
+			continue
+		}
+		seen[raw] = struct{}{}
+		out = append(out, key)
+	}
+	return out
+}
+
+func shouldTrackStateKey(key state.AnyKey) bool {
+	raw := key.Raw()
+	switch raw.StableID {
+	case "state:algotrade.pending_orders.v1",
+		"state:algotrade.open_positions.v1",
+		"state:algotrade.closed_trades.v1",
+		"state:algotrade.daily_pnl.v1",
+		"state:algotrade.strategy_summary.v1":
+		return true
+	}
+	return false
+}
+
+func snapshotTrackedState(txn state.Txn, keys []state.AnyKey) map[string]any {
+	out := make(map[string]any, len(keys))
+	for _, key := range keys {
+		name := key.Raw().Name
+		value, ok := txn.Get(key)
+		if !ok {
+			out[name] = defaultStateSummary(name)
+			continue
+		}
+		out[name] = summarizeStateValue(name, value)
+	}
+	return out
+}
+
+func defaultStateSummary(name string) any {
+	switch name {
+	case "pending_orders", "open_positions", "closed_trades":
+		return map[string]any{"count": 0}
+	case "daily_pnl":
+		return map[string]any{
+			"realized_pnl":   0.0,
+			"unrealized_pnl": 0.0,
+			"loss_limit_hit": false,
+		}
+	case "strategy_summary":
+		return map[string]any{
+			"trade_count":   0,
+			"total_net_pnl": 0.0,
+			"win_rate":      0.0,
+		}
+	default:
+		return nil
+	}
+}
+
+func summarizeStateValue(name string, value any) any {
+	v := reflect.ValueOf(value)
+	switch name {
+	case "pending_orders", "open_positions", "closed_trades":
+		items := fieldValue(v, "Items")
+		if items.IsValid() && items.Kind() == reflect.Slice {
+			return map[string]any{"count": items.Len()}
+		}
+		return map[string]any{"count": 0}
+	case "daily_pnl":
+		return map[string]any{
+			"realized_pnl":   numberField(v, "RealizedPnL"),
+			"unrealized_pnl": numberField(v, "UnrealizedPnL"),
+			"loss_limit_hit": boolField(v, "LossLimitHit"),
+		}
+	case "strategy_summary":
+		summary := fieldValue(v, "Summary")
+		if !summary.IsValid() {
+			return defaultStateSummary(name)
+		}
+		return map[string]any{
+			"trade_count":   intField(summary, "TradeCount"),
+			"total_net_pnl": numberField(summary, "TotalNetPnL"),
+			"win_rate":      numberField(summary, "WinRate"),
+		}
+	default:
+		return value
+	}
+}
+
+func buildTrackedStateDiff(before, after map[string]any) []events.StateDiffField {
+	stateNames := map[string]struct{}{}
+	for name := range before {
+		stateNames[name] = struct{}{}
+	}
+	for name := range after {
+		stateNames[name] = struct{}{}
+	}
+	names := make([]string, 0, len(stateNames))
+	for name := range stateNames {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	out := make([]events.StateDiffField, 0)
+	for _, name := range names {
+		beforeValue := before[name]
+		afterValue := after[name]
+		beforeMap, beforeIsMap := beforeValue.(map[string]any)
+		afterMap, afterIsMap := afterValue.(map[string]any)
+		if beforeIsMap && afterIsMap {
+			keys := map[string]struct{}{}
+			for k := range beforeMap {
+				keys[k] = struct{}{}
+			}
+			for k := range afterMap {
+				keys[k] = struct{}{}
+			}
+			ordered := make([]string, 0, len(keys))
+			for k := range keys {
+				ordered = append(ordered, k)
+			}
+			sort.Strings(ordered)
+			for _, k := range ordered {
+				if reflect.DeepEqual(beforeMap[k], afterMap[k]) {
+					continue
+				}
+				out = append(out, events.StateDiffField{
+					Field:  name + "." + k,
+					Before: beforeMap[k],
+					After:  afterMap[k],
+				})
+			}
+			continue
+		}
+		if reflect.DeepEqual(beforeValue, afterValue) {
+			continue
+		}
+		out = append(out, events.StateDiffField{
+			Field:  name,
+			Before: beforeValue,
+			After:  afterValue,
+		})
+	}
+	return out
+}
+
+func fieldValue(v reflect.Value, name string) reflect.Value {
+	if !v.IsValid() {
+		return reflect.Value{}
+	}
+	if v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			return reflect.Value{}
+		}
+		v = v.Elem()
+	}
+	if v.Kind() != reflect.Struct {
+		return reflect.Value{}
+	}
+	return v.FieldByName(name)
+}
+
+func numberField(v reflect.Value, name string) float64 {
+	field := fieldValue(v, name)
+	if !field.IsValid() {
+		return 0
+	}
+	switch field.Kind() {
+	case reflect.Float32, reflect.Float64:
+		return field.Convert(reflect.TypeOf(float64(0))).Float()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return float64(field.Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return float64(field.Uint())
+	default:
+		return 0
+	}
+}
+
+func intField(v reflect.Value, name string) int {
+	field := fieldValue(v, name)
+	if !field.IsValid() {
+		return 0
+	}
+	switch field.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return int(field.Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return int(field.Uint())
+	default:
+		return 0
+	}
+}
+
+func boolField(v reflect.Value, name string) bool {
+	field := fieldValue(v, name)
+	if !field.IsValid() || field.Kind() != reflect.Bool {
+		return false
+	}
+	return field.Bool()
 }
 
 func queueWaitFromContextMS(ctx context.Context) int64 {

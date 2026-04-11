@@ -168,7 +168,11 @@ func buildRunEvent(req RunWorkflowRequest, now time.Time) (RunWorkflowResult, ev
 		}
 	}
 
-	partition := state.Partition(runID)
+	partitionValue := req.Partition
+	if partitionValue == "" {
+		partitionValue = runID
+	}
+	partition := state.Partition(partitionValue)
 	event := events.Event{
 		EventID:   runID,
 		EventTime: now,

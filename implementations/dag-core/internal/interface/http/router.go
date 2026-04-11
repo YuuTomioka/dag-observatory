@@ -63,6 +63,7 @@ func RegisterRoutes(e *echo.Echo, d Dependencies) {
 	ath := algotradehandler.New(algotradehandler.Dependencies{
 		StateStore:       d.StateStore,
 		ListTradeResults: d.ListTradeResults,
+		RunWorkflow:      d.RunWorkflow,
 	})
 	ah := artifactshandler.New(artifactshandler.Dependencies{
 		ArtifactsRepo: d.ArtifactsRepo,

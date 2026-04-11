@@ -79,17 +79,34 @@ Progress note (2026-04-11):
 
 ### Phase 3: Add Minimal Snapshot Diff
 
-- [ ] define a compact diff shape that prefers changed fields over full dumps
-- [ ] implement the first diff targets for `pending_orders`, `open_positions`, `closed_trades`, `daily_pnl`, and `strategy_summary`
-- [ ] keep the initial output optimized for immediate reading rather than deep generic diff coverage
-- [ ] add tests for representative diffs such as position changes, signal changes, trade count changes, and pnl changes
+- [x] define a compact diff shape that prefers changed fields over full dumps
+- [x] implement the first diff targets for `pending_orders`, `open_positions`, `closed_trades`, `daily_pnl`, and `strategy_summary`
+- [x] keep the initial output optimized for immediate reading rather than deep generic diff coverage
+- [x] add tests for representative diffs such as position changes, signal changes, trade count changes, and pnl changes
+
+Progress note (2026-04-11):
+
+- `NodeExecutionEvent` now includes `state_diff[]` with `{field, before, after}`
+- runner emits only changed fields and prioritizes compact summaries such as:
+  - `pending_orders.count`
+  - `open_positions.count`
+  - `closed_trades.count`
+  - `daily_pnl.realized_pnl`, `daily_pnl.unrealized_pnl`, `daily_pnl.loss_limit_hit`
+  - `strategy_summary.trade_count`, `strategy_summary.total_net_pnl`, `strategy_summary.win_rate`
 
 ### Phase 4: Expose Result Reflection Path
 
-- [ ] add one external or internal entrypoint that can drive result reflection from outside the workflow tests
-- [ ] support explicit `partition` selection for manual verification and replay-oriented execution
-- [ ] decide whether the first entrypoint should be HTTP, debug API, or replay endpoint based on the smallest implementation surface
-- [ ] verify submit -> fill -> result reflection can be exercised as one traceable flow
+- [x] add one external or internal entrypoint that can drive result reflection from outside the workflow tests
+- [x] support explicit `partition` selection for manual verification and replay-oriented execution
+- [x] decide whether the first entrypoint should be HTTP, debug API, or replay endpoint based on the smallest implementation surface
+- [x] verify submit -> fill -> result reflection can be exercised as one traceable flow
+
+Progress note (2026-04-11):
+
+- added HTTP entrypoint `POST /algotrade/result-reflection:run`
+- request supports explicit `partition` and `run_id` to drive manual/replay-oriented execution
+- `RunWorkflowRequest` now supports explicit partition override so reflection runs can target existing state scope
+- added integration scenario test that runs submit workflow -> fill confirm workflow -> result reflection workflow on one partition and verifies resulting closed trade / summary state with recorder-traceable run IDs
 
 ### Phase 5: Add Run Read APIs
 

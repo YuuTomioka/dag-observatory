@@ -13,6 +13,7 @@ type MarketdataRunInput struct {
 type RunWorkflowRequest struct {
 	Symbol         string
 	Mode           string
+	Partition      string
 	Bars           []float64
 	OHLCVBars      []marketdata.OHLCV
 	SpreadBps      float64

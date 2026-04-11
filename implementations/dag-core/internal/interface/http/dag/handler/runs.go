@@ -119,16 +119,16 @@ func (h *Handler) ListRunSteps(c echo.Context) error {
 
 // GetRunNode
 // @Summary Get run node execution detail
-// @Description Returns one node execution record by run id and execution id (sequence number).
+// @Description Returns one node execution record by run id and sequence number.
 // @Tags dag
 // @Produce json
 // @Param run_id path string true "Run ID"
-// @Param execution_id path string true "Execution ID (sequence number)"
+// @Param sequence_no path string true "Node execution sequence number"
 // @Success 200 {object} response.RunNodeDetailResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 404 {object} dto.ErrorResponse
 // @Failure 501 {object} dto.ErrorResponse
-// @Router /runs/{run_id}/nodes/{execution_id} [get]
+// @Router /runs/{run_id}/steps/{sequence_no} [get]
 func (h *Handler) GetRunNode(c echo.Context) error {
 	if h.getRunNode == nil {
 		return c.JSON(http.StatusNotImplemented, dto.ErrorResponse{
@@ -143,16 +143,19 @@ func (h *Handler) GetRunNode(c echo.Context) error {
 			Status: "error",
 		})
 	}
-	executionID := c.Param("execution_id")
-	if executionID == "" {
+	sequenceNo := c.Param("sequence_no")
+	if sequenceNo == "" {
+		sequenceNo = c.Param("execution_id")
+	}
+	if sequenceNo == "" {
 		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:  "execution_id is required",
+			Error:  "sequence_no is required",
 			Status: "error",
 		})
 	}
 	item, ok, err := h.getRunNode.Execute(c.Request().Context(), usecase.GetRunNodeRequest{
-		RunID:       runID,
-		ExecutionID: executionID,
+		RunID:      runID,
+		SequenceNo: sequenceNo,
 	})
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
@@ -167,8 +170,8 @@ func (h *Handler) GetRunNode(c echo.Context) error {
 		})
 	}
 	return c.JSON(http.StatusOK, response.RunNodeDetailResponse{
-		RunID:       runID,
-		ExecutionID: executionID,
-		Node:        item,
+		RunID:      runID,
+		SequenceNo: sequenceNo,
+		Node:       item,
 	})
 }

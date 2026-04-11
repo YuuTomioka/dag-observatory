@@ -28,6 +28,7 @@ type DAGRuntimeContainer struct {
 	EventStream   port.EventStream
 	Observer      *observerinfra.OTelObserver
 	Recorder      port.Recorder
+	RecorderClose func() error
 	RunReader     port.RunReader
 	Runner        *engine.Runner
 	Driver        *driver.Driver
@@ -63,7 +64,17 @@ func NewDAGRuntimeContainer(cfg Config, otelc *OTelContainer, compiled pipeline.
 	} else {
 		observer = observerinfra.NewOTelObserver(nil, nil)
 	}
-	recorder := recorderinfra.NewInMemoryRecorder()
+	runReader := recorderinfra.NewInMemoryRecorder()
+	var recorder port.Recorder = runReader
+	recorderClose := func() error { return nil }
+	if cfg.ObservationJSONLPath != "" {
+		jsonlRecorder, err := recorderinfra.NewJSONLRecorder(cfg.ObservationJSONLPath, runReader)
+		if err != nil {
+			return nil, err
+		}
+		recorder = jsonlRecorder
+		recorderClose = jsonlRecorder.Close
+	}
 	observer.OnCompile(context.Background(), port.CompileInfo{
 		WorkflowName: compiled.Name,
 		NodeCount:    len(compiled.Order),
@@ -99,7 +110,8 @@ func NewDAGRuntimeContainer(cfg Config, otelc *OTelContainer, compiled pipeline.
 		EventStream:   eventStream,
 		Observer:      observer,
 		Recorder:      recorder,
-		RunReader:     recorder,
+		RecorderClose: recorderClose,
+		RunReader:     runReader,
 		Runner:        runner,
 		Driver:        driver,
 		Usecase:       uc,

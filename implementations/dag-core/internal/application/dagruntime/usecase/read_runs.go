@@ -75,8 +75,11 @@ type ListRunStepsRequest struct {
 }
 
 type RunStepView struct {
-	ExecutionID       string                  `json:"execution_id"`
+	NodeExecutionID   string                  `json:"node_execution_id"`
 	SequenceNo        int64                   `json:"sequence_no"`
+	IntentID          string                  `json:"intent_id,omitempty"`
+	ExecutionID       string                  `json:"execution_id,omitempty"`
+	TradeID           string                  `json:"trade_id,omitempty"`
 	NodeID            string                  `json:"node_id"`
 	NodeName          string                  `json:"node_name"`
 	Status            string                  `json:"status"`
@@ -118,8 +121,8 @@ type GetRunNode struct {
 }
 
 type GetRunNodeRequest struct {
-	RunID       string
-	ExecutionID string
+	RunID      string
+	SequenceNo string
 }
 
 func (u *GetRunNode) Execute(ctx context.Context, req GetRunNodeRequest) (RunStepView, bool, error) {
@@ -127,9 +130,9 @@ func (u *GetRunNode) Execute(ctx context.Context, req GetRunNodeRequest) (RunSte
 	if u == nil || u.Reader == nil {
 		return RunStepView{}, false, nil
 	}
-	sequenceNo, err := strconv.ParseInt(req.ExecutionID, 10, 64)
+	sequenceNo, err := strconv.ParseInt(req.SequenceNo, 10, 64)
 	if err != nil {
-		return RunStepView{}, false, fmt.Errorf("execution_id must be int64 sequence number")
+		return RunStepView{}, false, fmt.Errorf("sequence_no must be int64")
 	}
 	for _, step := range u.Reader.ListRunSteps(req.RunID) {
 		if step.SequenceNo != sequenceNo {
@@ -158,8 +161,11 @@ func mapRunView(record port.RunRecord, stepCount int) RunView {
 
 func mapRunStep(step events.NodeExecutionEvent) RunStepView {
 	return RunStepView{
-		ExecutionID:       strconv.FormatInt(step.SequenceNo, 10),
+		NodeExecutionID:   strconv.FormatInt(step.SequenceNo, 10),
 		SequenceNo:        step.SequenceNo,
+		IntentID:          step.IntentID,
+		ExecutionID:       step.ExecutionID,
+		TradeID:           step.TradeID,
 		NodeID:            step.NodeID,
 		NodeName:          step.NodeName,
 		Status:            string(step.Status),

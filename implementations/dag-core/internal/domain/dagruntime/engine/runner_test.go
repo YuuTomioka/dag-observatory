@@ -162,6 +162,75 @@ func (o *sequenceObserver) Starts() []port.NodeInfo {
 	return out
 }
 
+var (
+	testIntentKey = artifact.Key[algotrade.TradeIntent]{
+		Name:     "test.trade_intent",
+		StableID: "artifact:test.trade_intent.v1",
+	}
+	testExecutionKey = artifact.Key[algotrade.ExecutionResult]{
+		Name:     "test.execution",
+		StableID: "artifact:test.execution.v1",
+	}
+	testClosedTradeKey = artifact.Key[algotrade.ClosedTrade]{
+		Name:     "test.closed_trade",
+		StableID: "artifact:test.closed_trade.v1",
+	}
+)
+
+type writeIntentNode struct{}
+
+func (n *writeIntentNode) Name() string                { return "intent.node" }
+func (n *writeIntentNode) Requires() []artifact.AnyKey { return nil }
+func (n *writeIntentNode) Provides() []artifact.AnyKey { return []artifact.AnyKey{testIntentKey} }
+func (n *writeIntentNode) Reads() []state.AnyKey       { return nil }
+func (n *writeIntentNode) Writes() []state.AnyKey      { return nil }
+func (n *writeIntentNode) Spec() node.ExecutionSpec    { return node.ExecutionSpec{} }
+func (n *writeIntentNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = av
+	_ = txn
+	artifact.Set(aw, testIntentKey, algotrade.TradeIntent{IntentID: "intent:test:1"})
+	return nil
+}
+
+type writeExecutionNode struct{}
+
+func (n *writeExecutionNode) Name() string                { return "execution.node" }
+func (n *writeExecutionNode) Requires() []artifact.AnyKey { return []artifact.AnyKey{testIntentKey} }
+func (n *writeExecutionNode) Provides() []artifact.AnyKey { return []artifact.AnyKey{testExecutionKey} }
+func (n *writeExecutionNode) Reads() []state.AnyKey       { return nil }
+func (n *writeExecutionNode) Writes() []state.AnyKey      { return nil }
+func (n *writeExecutionNode) Spec() node.ExecutionSpec    { return node.ExecutionSpec{} }
+func (n *writeExecutionNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = txn
+	intent := artifact.MustGet(av, testIntentKey)
+	artifact.Set(aw, testExecutionKey, algotrade.ExecutionResult{
+		IntentID:    intent.IntentID,
+		ExecutionID: "exec:intent:test:1",
+	})
+	return nil
+}
+
+type writeTradeNode struct{}
+
+func (n *writeTradeNode) Name() string                { return "trade.node" }
+func (n *writeTradeNode) Requires() []artifact.AnyKey { return []artifact.AnyKey{testExecutionKey} }
+func (n *writeTradeNode) Provides() []artifact.AnyKey { return []artifact.AnyKey{testClosedTradeKey} }
+func (n *writeTradeNode) Reads() []state.AnyKey       { return nil }
+func (n *writeTradeNode) Writes() []state.AnyKey      { return nil }
+func (n *writeTradeNode) Spec() node.ExecutionSpec    { return node.ExecutionSpec{} }
+func (n *writeTradeNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = txn
+	execution := artifact.MustGet(av, testExecutionKey)
+	artifact.Set(aw, testClosedTradeKey, algotrade.ClosedTrade{
+		IntentID: execution.IntentID,
+		TradeID:  "trade:intent:test:1",
+	})
+	return nil
+}
+
 func TestRunnerRetryRespectsIdempotency(t *testing.T) {
 	nodeNoRetry := &counterNode{
 		spec: node.ExecutionSpec{SideEffect: true, Idempotent: false},
@@ -191,6 +260,50 @@ func TestRunnerRetryRespectsIdempotency(t *testing.T) {
 
 	if nodeNoRetry.Count() != 1 {
 		t.Fatalf("expected no retry when not idempotent, got %d runs", nodeNoRetry.Count())
+	}
+}
+
+func TestRunnerRecordsCorrelationIDsAndArtifactRefs(t *testing.T) {
+	recorder := &captureRecorder{}
+	compiled := pipeline.Compiled{
+		Name: "correlation",
+		Order: []node.Node{
+			&writeIntentNode{},
+			&writeExecutionNode{},
+			&writeTradeNode{},
+		},
+	}
+	runner := &Runner{
+		ArtifactStore: artifactinfra.NewMemoryStore(),
+		StateStore:    stateinfra.NewMemoryStore(),
+		Recorder:      recorder,
+	}
+	event := events.Event{
+		EventID:   "run-correlation",
+		EventTime: time.Now(),
+		Partition: state.Partition("partition-a"),
+		Type:      "task.requested",
+	}
+
+	if err := runner.RunCycle(context.Background(), compiled, InputMap{}, event.Partition, event); err != nil {
+		t.Fatalf("run cycle failed: %v", err)
+	}
+
+	got := recorder.NodeEvents()
+	if len(got) != 3 {
+		t.Fatalf("expected 3 node events, got %d", len(got))
+	}
+	if got[0].IntentID != "intent:test:1" || got[0].ExecutionID != "" || got[0].TradeID != "" {
+		t.Fatalf("unexpected intent node correlation: %#v", got[0])
+	}
+	if got[1].IntentID != "intent:test:1" || got[1].ExecutionID != "exec:intent:test:1" {
+		t.Fatalf("unexpected execution node correlation: %#v", got[1])
+	}
+	if got[2].IntentID != "intent:test:1" || got[2].TradeID != "trade:intent:test:1" {
+		t.Fatalf("unexpected trade node correlation: %#v", got[2])
+	}
+	if got[1].InputRef != "artifact:test.trade_intent.v1" || got[1].OutputRef != "artifact:test.execution.v1" {
+		t.Fatalf("unexpected execution node refs: %#v", got[1])
 	}
 }
 

@@ -140,21 +140,48 @@ Progress note (2026-04-12):
 
 ### Phase 7: Add The Minimum UI
 
-- [ ] start with a two-pane UI composed of execution timeline and node detail plus diff
-- [ ] avoid investing in a full DAG canvas before the run read model proves sufficient
-- [ ] keep graph rendering, path highlighting, and broader visual polish as later work
+- [x] start with a two-pane UI composed of execution timeline and node detail plus diff
+- [x] avoid investing in a full DAG canvas before the run read model proves sufficient
+- [x] keep graph rendering, path highlighting, and broader visual polish as later work
+
+Progress note (2026-04-12):
+
+- added `GET /runs/ui` as a minimal inspector UI served directly from `implementations/dag-core`
+- UI stays intentionally thin and reads from existing APIs:
+  - `GET /runs`
+  - `GET /runs/:run_id/steps`
+  - `GET /runs/:run_id/nodes/:execution_id`
+  - `GET /algotrade/summary?partition=...`
+- left pane focuses on run selection plus execution timeline
+- right pane focuses on node detail, refs, and compact state diff
+- graph canvas, path highlighting, and broader frontend framework choices remain deferred
 
 ### Phase 8: Fix Correlation IDs
 
-- [ ] fix correlation semantics for `run_id`, `partition`, `intent_id`, `execution_id`, `trade_id`, and `sequence_no`
-- [ ] verify these identifiers are enough to answer why a signal or order did or did not happen
-- [ ] ensure the same correlation model can support backtest/live comparison later
+- [x] fix correlation semantics for `run_id`, `partition`, `intent_id`, `execution_id`, `trade_id`, and `sequence_no`
+- [x] verify these identifiers are enough to answer why a signal or order did or did not happen
+- [x] ensure the same correlation model can support backtest/live comparison later
+
+Progress note (2026-04-12):
+
+- `NodeExecutionEvent` now carries `intent_id`, domain `execution_id`, and `trade_id` separately from `sequence_no`
+- canonical node-step read path is now `GET /runs/:run_id/steps/:sequence_no`
+- legacy `GET /runs/:run_id/nodes/:execution_id` remains as a compatibility alias, but it still resolves by sequence number
+- runner now records artifact refs for `input_ref` / `output_ref` and extracts correlation IDs from known algotrade artifacts such as `TradeIntent`, `ExecutionResult`, and `ClosedTrade`
+- tests verify sequence-based step lookup and correlation propagation through runner-recorded node events
 
 ### Phase 9: Choose The Initial Storage Format
 
-- [ ] start with JSON Lines for execution observation records
-- [ ] keep the first persistence path append-friendly and replay-friendly
-- [ ] defer DB-backed storage until the observation model and read APIs stabilize
+- [x] start with JSON Lines for execution observation records
+- [x] keep the first persistence path append-friendly and replay-friendly
+- [x] defer DB-backed storage until the observation model and read APIs stabilize
+
+Progress note (2026-04-12):
+
+- added optional JSON Lines observation recorder under `implementations/dag-core/internal/infrastructure/dagruntime/recorder`
+- recorder appends `run_event`, `node_execution`, and `cycle_result` records while preserving the existing in-memory run read model
+- file output is enabled only when `DAGRUNTIME_OBSERVATION_JSONL_PATH` is set
+- JSON Lines path is intentionally append-only and local-file based; DB-backed storage remains deferred until the observation shape and read APIs settle
 
 ## Acceptance Criteria
 

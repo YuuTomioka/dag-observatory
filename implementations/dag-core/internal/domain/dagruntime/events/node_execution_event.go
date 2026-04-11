@@ -24,6 +24,9 @@ type NodeExecutionEvent struct {
 	Partition         state.Partition     `json:"partition"`
 	EventTime         time.Time           `json:"event_time"`
 	SequenceNo        int64               `json:"sequence_no"`
+	IntentID          string              `json:"intent_id,omitempty"`
+	ExecutionID       string              `json:"execution_id,omitempty"`
+	TradeID           string              `json:"trade_id,omitempty"`
 	NodeID            string              `json:"node_id"`
 	NodeName          string              `json:"node_name"`
 	Status            NodeExecutionStatus `json:"status"`

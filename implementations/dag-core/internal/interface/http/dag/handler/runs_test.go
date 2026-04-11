@@ -28,14 +28,17 @@ func TestListRunsAndGetRunNodeHTTP(t *testing.T) {
 	}
 	recorder.RecordEvent(context.Background(), runEvent)
 	recorder.RecordNodeExecution(context.Background(), events.NodeExecutionEvent{
-		RunID:      "run-1",
-		Partition:  state.Partition("p1"),
-		EventTime:  runEvent.EventTime,
-		SequenceNo: 1,
-		NodeID:     "n1",
-		NodeName:   "node.one",
-		Status:     events.NodeExecutionStatusSucceeded,
-		DurationNS: 1000,
+		RunID:       "run-1",
+		Partition:   state.Partition("p1"),
+		EventTime:   runEvent.EventTime,
+		SequenceNo:  1,
+		IntentID:    "intent:entry",
+		ExecutionID: "exec:intent:entry:1",
+		TradeID:     "trade:intent:entry:1",
+		NodeID:      "n1",
+		NodeName:    "node.one",
+		Status:      events.NodeExecutionStatusSucceeded,
+		DurationNS:  1000,
 	})
 	recorder.RecordCycleResult(context.Background(), port.CycleResult{
 		Partition: state.Partition("p1"),
@@ -71,11 +74,11 @@ func TestListRunsAndGetRunNodeHTTP(t *testing.T) {
 		t.Fatalf("unexpected list runs response: %#v", listResp)
 	}
 
-	req2 := httptest.NewRequest(http.MethodGet, "/runs/run-1/nodes/1", nil)
+	req2 := httptest.NewRequest(http.MethodGet, "/runs/run-1/steps/1", nil)
 	rec2 := httptest.NewRecorder()
 	c2 := e.NewContext(req2, rec2)
-	c2.SetPath("/runs/:run_id/nodes/:execution_id")
-	c2.SetParamNames("run_id", "execution_id")
+	c2.SetPath("/runs/:run_id/steps/:sequence_no")
+	c2.SetParamNames("run_id", "sequence_no")
 	c2.SetParamValues("run-1", "1")
 	if err := h.GetRunNode(c2); err != nil {
 		t.Fatalf("get run node handler error: %v", err)
@@ -89,7 +92,7 @@ func TestListRunsAndGetRunNodeHTTP(t *testing.T) {
 	if err := json.Unmarshal(rec2.Body.Bytes(), &nodeResp); err != nil {
 		t.Fatalf("decode node response: %v", err)
 	}
-	if nodeResp.Node.ExecutionID != "1" || nodeResp.Node.NodeName != "node.one" {
+	if nodeResp.Node.NodeExecutionID != "1" || nodeResp.Node.ExecutionID != "exec:intent:entry:1" || nodeResp.Node.NodeName != "node.one" {
 		t.Fatalf("unexpected node response: %#v", nodeResp.Node)
 	}
 }

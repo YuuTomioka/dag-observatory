@@ -9,7 +9,9 @@ import (
 func Register(e *echo.Echo, h *daghandler.Handler) {
 	e.POST("/dag/run", h.DagRun)
 	e.GET("/runs", h.ListRuns)
+	e.GET("/runs/ui", h.RunsUI)
 	e.GET("/runs/:run_id", h.GetRun)
 	e.GET("/runs/:run_id/steps", h.ListRunSteps)
+	e.GET("/runs/:run_id/steps/:sequence_no", h.GetRunNode)
 	e.GET("/runs/:run_id/nodes/:execution_id", h.GetRunNode)
 }

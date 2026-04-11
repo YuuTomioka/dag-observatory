@@ -16,7 +16,7 @@ type ListRunStepsResponse struct {
 }
 
 type RunNodeDetailResponse struct {
-	RunID       string              `json:"run_id"`
-	ExecutionID string              `json:"execution_id"`
-	Node        usecase.RunStepView `json:"node"`
+	RunID      string              `json:"run_id"`
+	SequenceNo string              `json:"sequence_no"`
+	Node       usecase.RunStepView `json:"node"`
 }

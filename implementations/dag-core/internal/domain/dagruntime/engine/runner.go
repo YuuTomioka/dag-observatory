@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"dag-observatory/dag-core/internal/application/dagruntime/port"
+	"dag-observatory/dag-core/internal/domain/algotrade"
 	"dag-observatory/dag-core/internal/domain/dagruntime/artifact"
 	dagerrors "dag-observatory/dag-core/internal/domain/dagruntime/errors"
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
@@ -165,8 +166,10 @@ func (r *Runner) runPipeline(
 		}
 
 		start := time.Now()
+		inputRef := artifactRef(n.Requires())
 		snapshotBeforeRef := r.stateSnapshotRef(partition)
 		beforeState := snapshotTrackedState(txn, trackedNodeStateKeys(n))
+		correlation := correlationFromArtifacts(r.ArtifactStore.View(), n.Requires())
 		runCtx := ctx
 		timeout := effectiveTimeout(r.Policy, n.Spec())
 		cancel := func() {}
@@ -190,6 +193,7 @@ func (r *Runner) runPipeline(
 		if skipped {
 			normalizedErr = nil
 		}
+		mergeCorrelation(&correlation, correlationFromArtifacts(r.ArtifactStore.View(), n.Provides()))
 		afterState := snapshotTrackedState(txn, trackedNodeStateKeys(n))
 		stateDiff := buildTrackedStateDiff(beforeState, afterState)
 
@@ -202,11 +206,16 @@ func (r *Runner) runPipeline(
 				Partition:         partition,
 				EventTime:         event.EventTime,
 				SequenceNo:        valueOrZero(sequenceNo),
+				IntentID:          correlation.IntentID,
+				ExecutionID:       correlation.ExecutionID,
+				TradeID:           correlation.TradeID,
 				NodeID:            nodeName(n),
 				NodeName:          nodeName(n),
 				Status:            status,
 				TriggerReason:     normalizeTriggerReason(retryCount),
 				SkipReason:        skipReason,
+				InputRef:          inputRef,
+				OutputRef:         artifactRef(n.Provides()),
 				SnapshotBeforeRef: snapshotBeforeRef,
 				SnapshotAfterRef:  r.stateSnapshotRef(partition),
 				StateDiff:         stateDiff,
@@ -307,6 +316,101 @@ func normalizeReason(reason string) string {
 	}
 	value = strings.ReplaceAll(value, " ", "_")
 	return value
+}
+
+type correlationIDs struct {
+	IntentID    string
+	ExecutionID string
+	TradeID     string
+}
+
+func correlationFromArtifacts(view artifact.View, keys []artifact.AnyKey) correlationIDs {
+	if view == nil {
+		return correlationIDs{}
+	}
+	out := correlationIDs{}
+	for _, key := range keys {
+		if key == nil {
+			continue
+		}
+		value, ok := view.Get(key)
+		if !ok {
+			continue
+		}
+		mergeCorrelation(&out, correlationFromValue(value))
+	}
+	return out
+}
+
+func correlationFromValue(value any) correlationIDs {
+	switch v := value.(type) {
+	case algotrade.TradeIntent:
+		return correlationIDs{IntentID: v.IntentID}
+	case algotrade.ExecutionResult:
+		return correlationIDs{IntentID: v.IntentID, ExecutionID: v.ExecutionID}
+	case algotrade.PendingOrder:
+		return correlationIDs{IntentID: v.IntentID, ExecutionID: v.ExecutionID}
+	case algotrade.PendingOrdersState:
+		for _, item := range v.Items {
+			if ids := correlationFromValue(item); ids != (correlationIDs{}) {
+				return ids
+			}
+		}
+	case algotrade.OpenPosition:
+		return correlationIDs{IntentID: v.IntentID, ExecutionID: v.ExecutionID}
+	case algotrade.OpenPositionsState:
+		for _, item := range v.Items {
+			if ids := correlationFromValue(item); ids != (correlationIDs{}) {
+				return ids
+			}
+		}
+	case algotrade.ClosedTrade:
+		return correlationIDs{IntentID: v.IntentID, TradeID: v.TradeID}
+	case algotrade.ClosedTradesState:
+		for _, item := range v.Items {
+			if ids := correlationFromValue(item); ids != (correlationIDs{}) {
+				return ids
+			}
+		}
+	}
+	return correlationIDs{}
+}
+
+func mergeCorrelation(dst *correlationIDs, src correlationIDs) {
+	if dst == nil {
+		return
+	}
+	if dst.IntentID == "" && src.IntentID != "" {
+		dst.IntentID = src.IntentID
+	}
+	if dst.ExecutionID == "" && src.ExecutionID != "" {
+		dst.ExecutionID = src.ExecutionID
+	}
+	if dst.TradeID == "" && src.TradeID != "" {
+		dst.TradeID = src.TradeID
+	}
+}
+
+func artifactRef(keys []artifact.AnyKey) string {
+	if len(keys) == 0 {
+		return ""
+	}
+	refs := make([]string, 0, len(keys))
+	for _, key := range keys {
+		if key == nil {
+			continue
+		}
+		raw := key.Raw()
+		if raw.StableID != "" {
+			refs = append(refs, raw.StableID)
+			continue
+		}
+		if raw.Name != "" {
+			refs = append(refs, raw.Name)
+		}
+	}
+	sort.Strings(refs)
+	return strings.Join(refs, ",")
 }
 
 func trackedNodeStateKeys(n node.Node) []state.AnyKey {

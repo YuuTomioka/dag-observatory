@@ -2,7 +2,7 @@
 
 ## Background
 
-The note at `.wrk/202604/20260406-dag-visualization-next-themes.md` reorganized the next visualization theme for `implementations/dag-core`.
+The earlier working note was condensed into this repository-aligned task document for `implementations/dag-core`.
 
 The core requirement is not visual polish.
 The repository needs an observation path that can explain, for one input event, which nodes ran, in what order, with what state changes, and why the final decision was produced.
@@ -330,13 +330,14 @@ Recommended commands:
 
 ```bash
 cd /home/user/shiq/dag-observatory/implementations/dag-core
-mkdir -p .tmp/go-cache
-GOCACHE=$(pwd)/.tmp/go-cache go test ./internal/infrastructure/dagruntime/recorder ./internal/domain/dagruntime/engine ./internal/interface/http/dag/handler ./internal/di
+mkdir -p ../../var/cache/go-build
+GOCACHE=$(pwd)/../../var/cache/go-build go test ./internal/infrastructure/dagruntime/recorder ./internal/domain/dagruntime/engine ./internal/interface/http/dag/handler ./internal/di
 ```
 
 ```bash
 cd /home/user/shiq/dag-observatory/implementations/dag-core
-export DAGRUNTIME_OBSERVATION_JSONL_PATH=$(pwd)/tmp/observations/runs.jsonl
+mkdir -p ../../var/observations
+export DAGRUNTIME_OBSERVATION_JSONL_PATH=$(pwd)/../../var/observations/runs.jsonl
 go run ./cmd/api
 ```
 
@@ -366,7 +367,7 @@ Recommended UI check:
 Recommended JSON Lines check:
 
 ```bash
-tail -n 20 /home/user/shiq/dag-observatory/implementations/dag-core/tmp/observations/runs.jsonl
+tail -n 20 /home/user/shiq/dag-observatory/var/observations/runs.jsonl
 ```
 
 Verification points:
@@ -380,7 +381,7 @@ Verification points:
 
 ## Result
 
-- the working note at `.wrk/202604/20260406-dag-visualization-next-themes.md` was condensed into a repository-aligned task document under `governance/tasks/`
+- the earlier local working note was condensed into a repository-aligned task document under `governance/tasks/`
 - the recommended implementation order is fixed as:
   1. observation model
   2. runner recording

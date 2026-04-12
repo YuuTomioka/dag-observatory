@@ -1,4 +1,8 @@
+# Legacy local scratch area. Shared task context belongs in `governance/tasks/`.
 .wrk/
+# Local runtime artifacts and caches should be kept under `var/`.
+var/
+# Legacy implementation-local cache/output paths kept ignored for backward compatibility.
 implementations/dag-core/tmp/
 implementations/dag-core/.tmp/
 *.pyc

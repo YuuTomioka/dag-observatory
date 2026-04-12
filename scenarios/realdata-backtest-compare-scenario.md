@@ -19,6 +19,25 @@ For the promoted integrated flow including normal/skip/fail/retry and JSONL repl
 - `dag-core-api` is running with marketdata repositories configured
 - historical timeframe bars exist for the target symbol/timeframe/range
 
+### Minimum Fixture Setup
+
+Apply seed SQL (includes `USDJPY` symbol and `2026-04-01` M1 bars):
+
+```bash
+cd /home/user/shiq/dag-observatory
+make tsdb-seed
+```
+
+Optional gap fixture for `strict` / `skip` behavior checks:
+
+```sql
+DELETE FROM timeframe_bar
+WHERE symbol_id = (SELECT id FROM symbol WHERE code = 'USDJPY')
+  AND timeframe_code = 'm1'
+  AND open_time >= '2026-04-01T02:00:00Z'::timestamptz
+  AND open_time <  '2026-04-01T02:10:00Z'::timestamptz;
+```
+
 ## Input Metadata Rule
 
 Each backtest request should include reproducibility metadata in addition to range and symbol:

@@ -72,6 +72,56 @@ The current Go implementation expresses the repository structure through:
 - Prefer feature-local endpoints over `POST /dag/run` when both exist.
 - `bars` is mapped to runtime input key `market.bars`.
 
+## Algotrade Validation Read Model
+
+The current algotrade validation path distinguishes between execution-time artifacts and result-side read models.
+
+- `TradeIntent`: normalized strategy intent produced by entry decision flows
+- `ExecutionResult`: normalized execution progression derived from that intent
+- `ClosedTrade`: completed-trade fact used for validation and comparison
+- `StrategySummary`: projection over closed trades for run/strategy comparison
+
+Current durable state keys in `internal/domain/algotrade/` include:
+
+- `pending_orders`
+- `open_positions`
+- `closed_trades`
+- `daily_pnl`
+- `strategy_summary`
+
+Current read and execution-facing HTTP paths include:
+
+- `POST /algotrade/backtests:run`
+- `POST /algotrade/result-reflection:run`
+- `GET /algotrade/trades`
+- `GET /algotrade/equity`
+- `GET /algotrade/summary`
+- `GET /runs/ui`
+
+These paths are intended as validation and inspection surfaces. They do not replace runtime/state truth with UI-owned truth.
+
+## Tick Ingestion Notes
+
+The implementation also exposes a cTrader-oriented tick ingestion entrypoint:
+
+- `POST /v1/ctrader/ticks`
+
+Current request characteristics:
+
+- JSON body, with optional `gzip` content encoding
+- required fields: `symbol`, `price_scale`, `ticks[]`
+- optional correlation/batching fields: `request_id`, `day`, `batch_seq`
+- each tick carries `time`, `bid`, `ask`
+
+Validation rules currently enforced:
+
+- `symbol` must resolve to a known symbol
+- `price_scale` must match the symbol master
+- `ticks` must not be empty
+- `batch_seq` must be non-negative
+- `time` must be RFC3339Nano or the accepted legacy timestamp layout
+- when `day` is provided, every tick must fall within that UTC day
+
 ## Contract Assets
 
 This implementation owns implementation-facing contract assets such as:

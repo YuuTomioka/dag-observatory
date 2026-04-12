@@ -4,7 +4,7 @@
 
 This repository is a parent repository for derivative projects around DAG + time-series systems.
 
-Code is not the source of truth. `blueprint/` is the primary source of structural truth.
+Code is not the primary structural source of truth. Read and update the repository from `blueprint/` and `governance/` first when a task can affect structure, boundaries, conventions, or durable operating assumptions.
 
 ## Read Order
 
@@ -12,40 +12,60 @@ Code is not the source of truth. `blueprint/` is the primary source of structura
 2. `blueprint/identity/repository-purpose.md`
 3. `blueprint/architecture/system-boundaries.md`
 4. `blueprint/architecture/flow-and-time-model.md`
-5. Relevant files under `blueprint/conventions/`
-6. Relevant files under `blueprint/adr/` when a past structural decision may affect the task
-7. `governance/policies/` for repository-wide change and documentation rules
-8. `scenarios/` when validating or explaining representative usage
-9. Then the target implementation, platform, data, deployment, or script directory
+5. relevant files under `blueprint/conventions/`
+6. relevant files under `blueprint/adr/` when past structural decisions matter
+7. `governance/policies/change-policy.md`
+8. `governance/policies/documentation-policy.md`
+9. relevant files under `scenarios/`
+10. then the target implementation, platform, data, deployment, or script directory
 
-## AI Working Order
+## AI Working Rules
 
-AI contributors should interpret the repository in this order:
+- Start from repository principles, not implementation details, when the task might affect structure or long-lived rules.
+- Treat `README.md` as an entrypoint only, not as the full specification.
+- Use `scenarios/` when validating or explaining recommended usage.
+- Prefer the smallest boundary that correctly contains the change.
+- Do not invent parallel sources of truth in implementation docs, scratch notes, or generated output.
 
-1. principles in `blueprint/`
-2. repository rules in `AGENTS.md` and `governance/policies/`
-3. representative usage in `scenarios/`
-4. implementation-local rules under the target directory
-5. implementation code and runtime assets
+## Change Classification
 
-Do not start from implementation details when the task could affect repository structure, boundaries, conventions, or durable operating assumptions.
+Classify the task in this order before editing:
 
-## Change Rules
+1. repository structure, boundaries, or inheritance rules
+2. repository-wide documentation or contributor operating rules
+3. representative usage or validation flow
+4. implementation-local, platform-local, data-local, or deployment-local change
 
-- Update `blueprint/` first when a change affects structure, boundaries, or conventions.
-- Update `blueprint/adr/` when a durable repository-level decision or rationale changes.
-- Update `governance/policies/` when the repository-wide change-handling rule changes.
-- Keep implementation-specific details under `implementations/`.
-- Keep runtime and observability environment details under `platform/`.
-- Keep execution wrappers and local stack wiring under `deployments/`.
-- Keep time-series design assets under `data/`.
-- Keep AI-local workflow helpers under `.codex/` and avoid treating them as structural source of truth.
-- Do not reintroduce `.docs/`; temporary work context belongs in `governance/tasks/`.
+If the task falls into a higher class, update that layer first before editing lower layers.
+
+## Placement Rules
+
+- `blueprint/`: long-lived design truth, boundaries, conventions, and ADRs
+- `governance/policies/`: repository-wide change-handling and documentation rules
+- `governance/tasks/`: shared temporary task context
+- `implementations/`: implementation-local code and guidance
+- `platform/`: operating environment and observability reference assets
+- `deployments/`: local stack wiring and execution wrappers
+- `data/`: durable SQL, migration, and analysis assets
+- `scenarios/`: representative flows and validation guidance
+- `.codex/`: AI-local helpers only
+- `var/`: untracked local runtime outputs and caches
 
 ## Documentation Rules
 
-- `README.md` is an entrypoint, not the full specification.
-- Long-lived decisions belong in `blueprint/adr/`.
-- Scenario-driven guidance belongs in `scenarios/`.
-- Work-in-progress context belongs in `governance/tasks/`.
-- `.codex/` may hold AI workflow helpers, but repository structure and design truth must remain in `blueprint/` and `governance/`.
+- Promote durable conclusions into the proper permanent location.
+- Keep temporary planning notes in `governance/tasks/` until promoted or retired.
+- Do not use `.wrk/` as a tracked or referenced documentation surface.
+- Do not reintroduce `.docs/`.
+- Do not treat generated artifacts or runtime output as structural truth.
+
+## Practical Editing Rules
+
+- Update `blueprint/` first when a change affects structure, boundaries, conventions, or derivative inheritance.
+- Update `blueprint/adr/` when repository-level rationale or durable decisions change.
+- Update `governance/policies/` when repository-wide contributor rules change.
+- Update `scenarios/` when the recommended entry flow or validation procedure changes.
+- Keep implementation-specific details under `implementations/`.
+- Keep platform topology and backend configuration under `platform/`.
+- Keep local compose wiring and migrator wrappers under `deployments/`.
+- Keep time-series schema, migrations, and shared queries under `data/`.

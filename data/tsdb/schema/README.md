@@ -21,8 +21,8 @@ data/tsdb/schema/
 │  ├─ 000050_create_timeframe_bar.sql
 │  └─ 000060_create_backtest_run_summaries.sql
 └─ seed/
-   ├─ 000010_reference_symbols.sql
-   └─ 000020_sample_ticks.sql
+   ├─ 000030_symbol.sql
+   └─ 000040_timeframe_bar_usdjpy_m1_backtest_fixture.sql
 ```
 
 The exact migration contents may evolve, but naming and ordering rules should remain stable.

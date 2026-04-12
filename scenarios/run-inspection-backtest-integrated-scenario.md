@@ -19,6 +19,18 @@ It is the promoted reproducible flow for `implementations/dag-core` run observab
 - optional JSONL path is enabled when replay checks are needed:
   - `DAGRUNTIME_OBSERVATION_JSONL_PATH=<path>`
 
+### Minimum Data Setup
+
+```bash
+cd /home/user/shiq/dag-observatory
+make tsdb-seed
+```
+
+The seed set includes:
+
+- `USDJPY` symbol master row
+- `m1` timeframe bars for `2026-04-01T00:00:00Z` to `2026-04-01T05:59:00Z`
+
 ## Flow
 
 ### 1. Create two comparable backtest runs

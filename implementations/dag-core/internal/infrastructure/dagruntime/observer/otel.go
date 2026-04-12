@@ -38,16 +38,21 @@ func (o *OTelObserver) OnCompile(ctx context.Context, info port.CompileInfo) {
 
 func (o *OTelObserver) OnCycleStart(ctx context.Context, info port.CycleInfo) {
 	runID := info.Event.EventID
+	partition := string(info.Partition)
+	span := trace.SpanFromContext(ctx)
+	span.SetAttributes(correlationSpanAttrs(runID, partition, 0, "", "", "")...)
 	if o.intentLog != nil && runID != "" {
 		o.intentLog.DAGRunStateChanged(ctx, semantics.DAGRunStateChanged{
 			DAGRunID:  runID,
+			Partition: partition,
 			FromState: "queued",
 			ToState:   "running",
 		})
-		symbol := string(info.Partition)
+		symbol := partition
 		if symbol != "" {
 			o.intentLog.DAGRunStarted(ctx, semantics.DAGRunStarted{
 				DAGRunID:  runID,
+				Partition: partition,
 				Symbol:    symbol,
 				InputSize: 0,
 			})
@@ -61,19 +66,23 @@ func (o *OTelObserver) OnCycleEnd(ctx context.Context, info port.CycleResult) {
 		return
 	}
 	durationMS := info.Duration.Milliseconds()
-	symbol := string(info.Partition)
-	attrs := cycleAttrs(info.WorkflowName, symbol, runID)
+	partition := string(info.Partition)
+	span := trace.SpanFromContext(ctx)
+	span.SetAttributes(correlationSpanAttrs(runID, partition, 0, "", "", "")...)
+	attrs := cycleMetricAttrs(info.WorkflowName)
 
 	if info.Err == nil {
 		if o.intentLog != nil {
 			o.intentLog.DAGRunStateChanged(ctx, semantics.DAGRunStateChanged{
 				DAGRunID:   runID,
+				Partition:  partition,
 				FromState:  "running",
 				ToState:    "succeeded",
 				DurationMS: durationMS,
 			})
 			o.intentLog.DAGRunFinished(ctx, semantics.DAGRunFinished{
 				DAGRunID:   runID,
+				Partition:  partition,
 				Status:     "succeeded",
 				DurationMS: durationMS,
 				RetryCount: info.RetryCount,
@@ -86,12 +95,14 @@ func (o *OTelObserver) OnCycleEnd(ctx context.Context, info port.CycleResult) {
 	if o.intentLog != nil {
 		o.intentLog.DAGRunStateChanged(ctx, semantics.DAGRunStateChanged{
 			DAGRunID:   runID,
+			Partition:  partition,
 			FromState:  "running",
 			ToState:    "failed",
 			DurationMS: durationMS,
 		})
 		o.intentLog.DAGRunFailed(ctx, semantics.DAGRunFailed{
 			DAGRunID:   runID,
+			Partition:  partition,
 			ErrorType:  "dagruntime.error",
 			ErrorMsg:   info.Err.Error(),
 			DurationMS: durationMS,
@@ -102,19 +113,39 @@ func (o *OTelObserver) OnCycleEnd(ctx context.Context, info port.CycleResult) {
 }
 
 func (o *OTelObserver) OnNodeStart(ctx context.Context, info port.NodeInfo) {
+	partition := string(info.Partition)
+	span := trace.SpanFromContext(ctx)
+	span.SetAttributes(correlationSpanAttrs(
+		info.RunID,
+		partition,
+		info.SequenceNo,
+		info.IntentID,
+		info.ExecutionID,
+		info.TradeID,
+	)...)
 	if o.intentLog == nil || info.RunID == "" {
 		return
 	}
 	o.intentLog.DAGNodeStateChanged(ctx, semantics.DAGNodeStateChanged{
 		DAGRunID:    info.RunID,
+		Partition:   partition,
+		SequenceNo:  info.SequenceNo,
+		IntentID:    info.IntentID,
+		ExecutionID: info.ExecutionID,
+		TradeID:     info.TradeID,
 		DAGNodeID:   info.NodeName,
 		FromState:   "queued",
 		ToState:     "running",
 		QueueWaitMS: info.QueueWaitMS,
 	})
 	o.intentLog.DAGNodeStarted(ctx, semantics.DAGNodeStarted{
-		DAGRunID:  info.RunID,
-		DAGNodeID: info.NodeName,
+		DAGRunID:    info.RunID,
+		Partition:   partition,
+		SequenceNo:  info.SequenceNo,
+		IntentID:    info.IntentID,
+		ExecutionID: info.ExecutionID,
+		TradeID:     info.TradeID,
+		DAGNodeID:   info.NodeName,
 	})
 }
 
@@ -123,12 +154,27 @@ func (o *OTelObserver) OnNodeEnd(ctx context.Context, info port.NodeResult) {
 		return
 	}
 	durationMS := info.Duration.Milliseconds()
-	attrs := nodeAttrs(info.NodeName, info.RunID)
+	partition := string(info.Partition)
+	span := trace.SpanFromContext(ctx)
+	span.SetAttributes(correlationSpanAttrs(
+		info.RunID,
+		partition,
+		info.SequenceNo,
+		info.IntentID,
+		info.ExecutionID,
+		info.TradeID,
+	)...)
+	attrs := nodeMetricAttrs(info.NodeName)
 
 	if info.Err == nil {
 		if o.intentLog != nil {
 			o.intentLog.DAGNodeStateChanged(ctx, semantics.DAGNodeStateChanged{
 				DAGRunID:    info.RunID,
+				Partition:   partition,
+				SequenceNo:  info.SequenceNo,
+				IntentID:    info.IntentID,
+				ExecutionID: info.ExecutionID,
+				TradeID:     info.TradeID,
 				DAGNodeID:   info.NodeName,
 				FromState:   "running",
 				ToState:     "succeeded",
@@ -136,11 +182,16 @@ func (o *OTelObserver) OnNodeEnd(ctx context.Context, info port.NodeResult) {
 				QueueWaitMS: info.QueueWaitMS,
 			})
 			o.intentLog.DAGNodeFinished(ctx, semantics.DAGNodeFinished{
-				DAGRunID:   info.RunID,
-				DAGNodeID:  info.NodeName,
-				Status:     "succeeded",
-				DurationMS: durationMS,
-				RetryCount: info.RetryCount,
+				DAGRunID:    info.RunID,
+				Partition:   partition,
+				SequenceNo:  info.SequenceNo,
+				IntentID:    info.IntentID,
+				ExecutionID: info.ExecutionID,
+				TradeID:     info.TradeID,
+				DAGNodeID:   info.NodeName,
+				Status:      "succeeded",
+				DurationMS:  durationMS,
+				RetryCount:  info.RetryCount,
 			})
 		}
 		o.recordNodeMetrics(ctx, attrs, "succeeded", info.Duration)
@@ -151,6 +202,11 @@ func (o *OTelObserver) OnNodeEnd(ctx context.Context, info port.NodeResult) {
 		if o.intentLog != nil {
 			o.intentLog.DAGNodeStateChanged(ctx, semantics.DAGNodeStateChanged{
 				DAGRunID:    info.RunID,
+				Partition:   partition,
+				SequenceNo:  info.SequenceNo,
+				IntentID:    info.IntentID,
+				ExecutionID: info.ExecutionID,
+				TradeID:     info.TradeID,
 				DAGNodeID:   info.NodeName,
 				FromState:   "running",
 				ToState:     "timeout",
@@ -158,10 +214,15 @@ func (o *OTelObserver) OnNodeEnd(ctx context.Context, info port.NodeResult) {
 				QueueWaitMS: info.QueueWaitMS,
 			})
 			o.intentLog.DAGNodeTimeout(ctx, semantics.DAGNodeTimeout{
-				DAGRunID:   info.RunID,
-				DAGNodeID:  info.NodeName,
-				DurationMS: durationMS,
-				RetryCount: info.RetryCount,
+				DAGRunID:    info.RunID,
+				Partition:   partition,
+				SequenceNo:  info.SequenceNo,
+				IntentID:    info.IntentID,
+				ExecutionID: info.ExecutionID,
+				TradeID:     info.TradeID,
+				DAGNodeID:   info.NodeName,
+				DurationMS:  durationMS,
+				RetryCount:  info.RetryCount,
 			})
 		}
 		o.recordNodeMetrics(ctx, attrs, "timeout", info.Duration)
@@ -171,6 +232,11 @@ func (o *OTelObserver) OnNodeEnd(ctx context.Context, info port.NodeResult) {
 	if o.intentLog != nil {
 		o.intentLog.DAGNodeStateChanged(ctx, semantics.DAGNodeStateChanged{
 			DAGRunID:    info.RunID,
+			Partition:   partition,
+			SequenceNo:  info.SequenceNo,
+			IntentID:    info.IntentID,
+			ExecutionID: info.ExecutionID,
+			TradeID:     info.TradeID,
 			DAGNodeID:   info.NodeName,
 			FromState:   "running",
 			ToState:     "failed",
@@ -178,12 +244,17 @@ func (o *OTelObserver) OnNodeEnd(ctx context.Context, info port.NodeResult) {
 			QueueWaitMS: info.QueueWaitMS,
 		})
 		o.intentLog.DAGNodeFailed(ctx, semantics.DAGNodeFailed{
-			DAGRunID:   info.RunID,
-			DAGNodeID:  info.NodeName,
-			ErrorType:  classifyNodeErrorType(info.Err),
-			ErrorMsg:   info.Err.Error(),
-			DurationMS: durationMS,
-			RetryCount: info.RetryCount,
+			DAGRunID:    info.RunID,
+			Partition:   partition,
+			SequenceNo:  info.SequenceNo,
+			IntentID:    info.IntentID,
+			ExecutionID: info.ExecutionID,
+			TradeID:     info.TradeID,
+			DAGNodeID:   info.NodeName,
+			ErrorType:   classifyNodeErrorType(info.Err),
+			ErrorMsg:    info.Err.Error(),
+			DurationMS:  durationMS,
+			RetryCount:  info.RetryCount,
 		})
 	}
 	o.recordNodeMetrics(ctx, attrs, "failed", info.Duration)
@@ -209,23 +280,40 @@ func (o *OTelObserver) recordNodeMetrics(ctx context.Context, base []attribute.K
 	o.metrics.DAGNodeLatency.Record(ctx, float64(duration.Milliseconds()), metric.WithAttributes(attrs...))
 }
 
-func cycleAttrs(workflow, symbol, runID string) []attribute.KeyValue {
-	attrs := []attribute.KeyValue{
-		attribute.String(semantics.KeyDAGRunID, runID),
-	}
+func cycleMetricAttrs(workflow string) []attribute.KeyValue {
+	attrs := []attribute.KeyValue{}
 	if workflow != "" {
 		attrs = append(attrs, attribute.String("workflow", workflow))
-	}
-	if symbol != "" {
-		attrs = append(attrs, attribute.String(semantics.KeySymbol, symbol))
 	}
 	return attrs
 }
 
-func nodeAttrs(nodeName, runID string) []attribute.KeyValue {
+func nodeMetricAttrs(nodeName string) []attribute.KeyValue {
 	attrs := []attribute.KeyValue{
-		attribute.String(semantics.KeyDAGRunID, runID),
 		attribute.String(semantics.KeyDAGNodeID, nodeName),
+	}
+	return attrs
+}
+
+func correlationSpanAttrs(runID, partition string, sequenceNo int64, intentID, executionID, tradeID string) []attribute.KeyValue {
+	attrs := make([]attribute.KeyValue, 0, 6)
+	if runID != "" {
+		attrs = append(attrs, attribute.String(semantics.KeyDAGRunID, runID))
+	}
+	if partition != "" {
+		attrs = append(attrs, attribute.String(semantics.KeyDAGPartition, partition))
+	}
+	if sequenceNo > 0 {
+		attrs = append(attrs, attribute.Int64(semantics.KeyDAGSequenceNo, sequenceNo))
+	}
+	if intentID != "" {
+		attrs = append(attrs, attribute.String(semantics.KeyDAGIntentID, intentID))
+	}
+	if executionID != "" {
+		attrs = append(attrs, attribute.String(semantics.KeyDAGExecutionID, executionID))
+	}
+	if tradeID != "" {
+		attrs = append(attrs, attribute.String(semantics.KeyDAGTradeID, tradeID))
 	}
 	return attrs
 }

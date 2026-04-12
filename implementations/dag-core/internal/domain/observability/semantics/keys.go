@@ -3,6 +3,11 @@ package semantics
 const (
 	KeyEvent                = "event"
 	KeyDAGRunID             = "dag.run_id"
+	KeyDAGPartition         = "dag.partition"
+	KeyDAGSequenceNo        = "dag.sequence_no"
+	KeyDAGIntentID          = "dag.intent_id"
+	KeyDAGExecutionID       = "dag.execution_id"
+	KeyDAGTradeID           = "dag.trade_id"
 	KeyDAGTaskID            = "dag.task_id"
 	KeyDAGTaskName          = "dag.task_name"
 	KeyDAGAttempt           = "dag.attempt"

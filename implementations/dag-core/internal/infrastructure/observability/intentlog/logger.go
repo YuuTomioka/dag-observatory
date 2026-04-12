@@ -62,6 +62,9 @@ func (l *Logger) DAGRunStarted(ctx context.Context, e semantics.DAGRunStarted) {
 		log.String(semantics.KeyDAGRunID, e.DAGRunID),
 		log.String(semantics.KeySymbol, e.Symbol),
 	}
+	if e.Partition != "" {
+		attrs = append(attrs, log.String(semantics.KeyDAGPartition, e.Partition))
+	}
 	if e.InputSize > 0 {
 		attrs = append(attrs, log.Int64(semantics.KeyInputSize, e.InputSize))
 	}
@@ -76,6 +79,9 @@ func (l *Logger) DAGRunFinished(ctx context.Context, e semantics.DAGRunFinished)
 		log.String(semantics.KeyDAGRunID, e.DAGRunID),
 		log.String(semantics.KeyStatus, e.Status),
 		log.Int64(semantics.KeyDurationMS, e.DurationMS),
+	}
+	if e.Partition != "" {
+		attrs = append(attrs, log.String(semantics.KeyDAGPartition, e.Partition))
 	}
 	if e.RetryCount > 0 {
 		attrs = append(attrs, log.Int64(semantics.KeyRetryCount, e.RetryCount))
@@ -93,6 +99,9 @@ func (l *Logger) DAGRunFailed(ctx context.Context, e semantics.DAGRunFailed) {
 		log.String(semantics.KeyErrorMsg, e.ErrorMsg),
 		log.Int64(semantics.KeyDurationMS, e.DurationMS),
 	}
+	if e.Partition != "" {
+		attrs = append(attrs, log.String(semantics.KeyDAGPartition, e.Partition))
+	}
 	if e.RetryCount > 0 {
 		attrs = append(attrs, log.Int64(semantics.KeyRetryCount, e.RetryCount))
 	}
@@ -108,6 +117,9 @@ func (l *Logger) DAGRunStateChanged(ctx context.Context, e semantics.DAGRunState
 		log.String(semantics.KeyFromState, e.FromState),
 		log.String(semantics.KeyToState, e.ToState),
 	}
+	if e.Partition != "" {
+		attrs = append(attrs, log.String(semantics.KeyDAGPartition, e.Partition))
+	}
 	if e.DurationMS > 0 {
 		attrs = append(attrs, log.Int64(semantics.KeyDurationMS, e.DurationMS))
 	}
@@ -122,6 +134,7 @@ func (l *Logger) DAGNodeStarted(ctx context.Context, e semantics.DAGNodeStarted)
 		log.String(semantics.KeyDAGRunID, e.DAGRunID),
 		log.String(semantics.KeyDAGNodeID, e.DAGNodeID),
 	}
+	attrs = appendCorrelationAttrs(attrs, e.Partition, e.SequenceNo, e.IntentID, e.ExecutionID, e.TradeID)
 	attrs = appendParentAttrs(attrs, e.ParentNodeID, e.ParentNodeIDs)
 	l.emit(ctx, semantics.EventDAGNodeStarted, log.SeverityInfo, attrs...)
 }
@@ -136,6 +149,7 @@ func (l *Logger) DAGNodeFinished(ctx context.Context, e semantics.DAGNodeFinishe
 		log.String(semantics.KeyStatus, e.Status),
 		log.Int64(semantics.KeyDurationMS, e.DurationMS),
 	}
+	attrs = appendCorrelationAttrs(attrs, e.Partition, e.SequenceNo, e.IntentID, e.ExecutionID, e.TradeID)
 	if e.RetryCount > 0 {
 		attrs = append(attrs, log.Int64(semantics.KeyRetryCount, e.RetryCount))
 	}
@@ -154,6 +168,7 @@ func (l *Logger) DAGNodeFailed(ctx context.Context, e semantics.DAGNodeFailed) {
 		log.String(semantics.KeyErrorMsg, e.ErrorMsg),
 		log.Int64(semantics.KeyDurationMS, e.DurationMS),
 	}
+	attrs = appendCorrelationAttrs(attrs, e.Partition, e.SequenceNo, e.IntentID, e.ExecutionID, e.TradeID)
 	if e.RetryCount > 0 {
 		attrs = append(attrs, log.Int64(semantics.KeyRetryCount, e.RetryCount))
 	}
@@ -170,6 +185,7 @@ func (l *Logger) DAGNodeTimeout(ctx context.Context, e semantics.DAGNodeTimeout)
 		log.String(semantics.KeyDAGNodeID, e.DAGNodeID),
 		log.Int64(semantics.KeyDurationMS, e.DurationMS),
 	}
+	attrs = appendCorrelationAttrs(attrs, e.Partition, e.SequenceNo, e.IntentID, e.ExecutionID, e.TradeID)
 	if e.RetryCount > 0 {
 		attrs = append(attrs, log.Int64(semantics.KeyRetryCount, e.RetryCount))
 	}
@@ -186,6 +202,7 @@ func (l *Logger) DAGNodeSkipped(ctx context.Context, e semantics.DAGNodeSkipped)
 		log.String(semantics.KeyDAGNodeID, e.DAGNodeID),
 		log.String(semantics.KeyReason, e.Reason),
 	}
+	attrs = appendCorrelationAttrs(attrs, e.Partition, e.SequenceNo, e.IntentID, e.ExecutionID, e.TradeID)
 	attrs = appendParentAttrs(attrs, e.ParentNodeID, e.ParentNodeIDs)
 	l.emit(ctx, semantics.EventDAGNodeSkipped, log.SeverityWarn, attrs...)
 }
@@ -200,6 +217,7 @@ func (l *Logger) DAGNodeStateChanged(ctx context.Context, e semantics.DAGNodeSta
 		log.String(semantics.KeyFromState, e.FromState),
 		log.String(semantics.KeyToState, e.ToState),
 	}
+	attrs = appendCorrelationAttrs(attrs, e.Partition, e.SequenceNo, e.IntentID, e.ExecutionID, e.TradeID)
 	if e.DurationMS > 0 {
 		attrs = append(attrs, log.Int64(semantics.KeyDurationMS, e.DurationMS))
 	}
@@ -290,6 +308,25 @@ func appendParentAttrs(attrs []log.KeyValue, parentID string, parentIDs []string
 		if len(values) > 0 {
 			attrs = append(attrs, log.Slice(semantics.KeyDAGParentNodeIDs, values...))
 		}
+	}
+	return attrs
+}
+
+func appendCorrelationAttrs(attrs []log.KeyValue, partition string, sequenceNo int64, intentID, executionID, tradeID string) []log.KeyValue {
+	if partition != "" {
+		attrs = append(attrs, log.String(semantics.KeyDAGPartition, partition))
+	}
+	if sequenceNo > 0 {
+		attrs = append(attrs, log.Int64(semantics.KeyDAGSequenceNo, sequenceNo))
+	}
+	if intentID != "" {
+		attrs = append(attrs, log.String(semantics.KeyDAGIntentID, intentID))
+	}
+	if executionID != "" {
+		attrs = append(attrs, log.String(semantics.KeyDAGExecutionID, executionID))
+	}
+	if tradeID != "" {
+		attrs = append(attrs, log.String(semantics.KeyDAGTradeID, tradeID))
 	}
 	return attrs
 }

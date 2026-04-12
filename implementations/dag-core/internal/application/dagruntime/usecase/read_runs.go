@@ -140,6 +140,7 @@ type ListRunStepsRequest struct {
 
 type RunStepView struct {
 	NodeExecutionID   string                  `json:"node_execution_id"`
+	Partition         string                  `json:"partition"`
 	SequenceNo        int64                   `json:"sequence_no"`
 	IntentID          string                  `json:"intent_id,omitempty"`
 	ExecutionID       string                  `json:"execution_id,omitempty"`
@@ -235,6 +236,7 @@ func mapRunView(record port.RunRecord, stepCount int) RunView {
 func mapRunStep(step events.NodeExecutionEvent) RunStepView {
 	return RunStepView{
 		NodeExecutionID:   strconv.FormatInt(step.SequenceNo, 10),
+		Partition:         string(step.Partition),
 		SequenceNo:        step.SequenceNo,
 		IntentID:          step.IntentID,
 		ExecutionID:       step.ExecutionID,

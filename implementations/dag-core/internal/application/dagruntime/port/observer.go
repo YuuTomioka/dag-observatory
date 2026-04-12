@@ -31,12 +31,22 @@ type CycleResult struct {
 
 type NodeInfo struct {
 	RunID       string
+	Partition   state.Partition
+	SequenceNo  int64
+	IntentID    string
+	ExecutionID string
+	TradeID     string
 	NodeName    string
 	QueueWaitMS int64
 }
 
 type NodeResult struct {
 	RunID       string
+	Partition   state.Partition
+	SequenceNo  int64
+	IntentID    string
+	ExecutionID string
+	TradeID     string
 	NodeName    string
 	Duration    time.Duration
 	Err         error

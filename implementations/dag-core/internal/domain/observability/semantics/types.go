@@ -22,6 +22,7 @@ func (e ClockTickReceived) Validate() error {
 
 type DAGRunStarted struct {
 	DAGRunID  string
+	Partition string
 	Symbol    string
 	InputSize int64
 }
@@ -41,6 +42,7 @@ func (e DAGRunStarted) Validate() error {
 
 type DAGRunFinished struct {
 	DAGRunID   string
+	Partition  string
 	Status     string
 	DurationMS int64
 	RetryCount int64
@@ -64,6 +66,7 @@ func (e DAGRunFinished) Validate() error {
 
 type DAGRunFailed struct {
 	DAGRunID   string
+	Partition  string
 	ErrorType  string
 	ErrorMsg   string
 	DurationMS int64
@@ -91,6 +94,7 @@ func (e DAGRunFailed) Validate() error {
 
 type DAGRunStateChanged struct {
 	DAGRunID   string
+	Partition  string
 	FromState  string
 	ToState    string
 	DurationMS int64
@@ -114,6 +118,11 @@ func (e DAGRunStateChanged) Validate() error {
 
 type DAGNodeStarted struct {
 	DAGRunID      string
+	Partition     string
+	SequenceNo    int64
+	IntentID      string
+	ExecutionID   string
+	TradeID       string
 	DAGNodeID     string
 	ParentNodeID  string
 	ParentNodeIDs []string
@@ -131,6 +140,11 @@ func (e DAGNodeStarted) Validate() error {
 
 type DAGNodeFinished struct {
 	DAGRunID      string
+	Partition     string
+	SequenceNo    int64
+	IntentID      string
+	ExecutionID   string
+	TradeID       string
 	DAGNodeID     string
 	Status        string
 	DurationMS    int64
@@ -160,6 +174,11 @@ func (e DAGNodeFinished) Validate() error {
 
 type DAGNodeFailed struct {
 	DAGRunID      string
+	Partition     string
+	SequenceNo    int64
+	IntentID      string
+	ExecutionID   string
+	TradeID       string
 	DAGNodeID     string
 	ErrorType     string
 	ErrorMsg      string
@@ -193,6 +212,11 @@ func (e DAGNodeFailed) Validate() error {
 
 type DAGNodeTimeout struct {
 	DAGRunID      string
+	Partition     string
+	SequenceNo    int64
+	IntentID      string
+	ExecutionID   string
+	TradeID       string
 	DAGNodeID     string
 	DurationMS    int64
 	RetryCount    int64
@@ -218,6 +242,11 @@ func (e DAGNodeTimeout) Validate() error {
 
 type DAGNodeSkipped struct {
 	DAGRunID      string
+	Partition     string
+	SequenceNo    int64
+	IntentID      string
+	ExecutionID   string
+	TradeID       string
 	DAGNodeID     string
 	Reason        string
 	ParentNodeID  string
@@ -239,6 +268,11 @@ func (e DAGNodeSkipped) Validate() error {
 
 type DAGNodeStateChanged struct {
 	DAGRunID      string
+	Partition     string
+	SequenceNo    int64
+	IntentID      string
+	ExecutionID   string
+	TradeID       string
 	DAGNodeID     string
 	FromState     string
 	ToState       string

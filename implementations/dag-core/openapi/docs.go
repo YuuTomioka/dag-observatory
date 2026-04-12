@@ -2461,6 +2461,9 @@ const docTemplate = `{
                 "output_ref": {
                     "type": "string"
                 },
+                "partition": {
+                    "type": "string"
+                },
                 "sequence_no": {
                     "type": "integer"
                 },

@@ -254,10 +254,24 @@ Progress note (2026-04-12):
 
 ### Phase 14: Strengthen Correlation Across APIs, Logs, And Traces
 
-- [ ] align `run_id`, `partition`, `intent_id`, `execution_id`, `trade_id`, and `sequence_no` across read APIs and intent logs
-- [ ] ensure trace attributes include identifiers needed to jump between trace view and run-step view
-- [ ] verify high-cardinality identifiers remain fields/attributes rather than promoted labels
-- [ ] add focused observability tests or checks for correlation-field presence in representative flows
+- [x] align `run_id`, `partition`, `intent_id`, `execution_id`, `trade_id`, and `sequence_no` across read APIs and intent logs
+- [x] ensure trace attributes include identifiers needed to jump between trace view and run-step view
+- [x] verify high-cardinality identifiers remain fields/attributes rather than promoted labels
+- [x] add focused observability tests or checks for correlation-field presence in representative flows
+
+Progress note (2026-04-12):
+
+- expanded node observer payload (`NodeInfo`/`NodeResult`) to include `partition`, `sequence_no`, `intent_id`, `execution_id`, and `trade_id`, and propagated these from runner correlation extraction
+- intent log semantics and logger now include optional correlation attributes:
+  - `dag.partition`
+  - `dag.sequence_no`
+  - `dag.intent_id`
+  - `dag.execution_id`
+  - `dag.trade_id`
+- OTel observer now sets span attributes for correlation IDs on cycle/node boundaries so trace views can map directly to run-step records
+- run-step API projection now includes `partition` alongside existing `run_id`, `sequence_no`, `intent_id`, `execution_id`, and `trade_id`
+- metrics labeling was tightened to avoid high-cardinality identifiers (run/intent/execution/trade/sequence are not emitted as metric attributes)
+- added focused observer tests for correlation propagation and metric-attribute cardinality guards
 
 ### Phase 15: Extend Minimum UI With Compare View
 

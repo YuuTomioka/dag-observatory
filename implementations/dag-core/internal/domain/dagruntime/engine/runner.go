@@ -156,10 +156,21 @@ func (r *Runner) runPipeline(
 ) *nodeFailure {
 	runID := event.EventID
 	for _, n := range compiled.Order {
+		correlation := correlationFromArtifacts(r.ArtifactStore.View(), n.Requires())
+		var currentSequenceNo int64
+		if sequenceNo != nil {
+			*sequenceNo = *sequenceNo + 1
+			currentSequenceNo = *sequenceNo
+		}
 		queueWaitMS := queueWaitFromContextMS(ctx)
 		if r.Observer != nil {
 			r.Observer.OnNodeStart(ctx, port.NodeInfo{
 				RunID:       runID,
+				Partition:   partition,
+				SequenceNo:  currentSequenceNo,
+				IntentID:    correlation.IntentID,
+				ExecutionID: correlation.ExecutionID,
+				TradeID:     correlation.TradeID,
 				NodeName:    nodeName(n),
 				QueueWaitMS: queueWaitMS,
 			})
@@ -169,7 +180,6 @@ func (r *Runner) runPipeline(
 		inputRef := artifactRef(n.Requires())
 		snapshotBeforeRef := r.stateSnapshotRef(partition)
 		beforeState := snapshotTrackedState(txn, trackedNodeStateKeys(n))
-		correlation := correlationFromArtifacts(r.ArtifactStore.View(), n.Requires())
 		runCtx := ctx
 		timeout := effectiveTimeout(r.Policy, n.Spec())
 		cancel := func() {}
@@ -198,14 +208,11 @@ func (r *Runner) runPipeline(
 		stateDiff := buildTrackedStateDiff(beforeState, afterState)
 
 		if r.Recorder != nil {
-			if sequenceNo != nil {
-				*sequenceNo = *sequenceNo + 1
-			}
 			r.Recorder.RecordNodeExecution(ctx, events.NodeExecutionEvent{
 				RunID:             runID,
 				Partition:         partition,
 				EventTime:         event.EventTime,
-				SequenceNo:        valueOrZero(sequenceNo),
+				SequenceNo:        currentSequenceNo,
 				IntentID:          correlation.IntentID,
 				ExecutionID:       correlation.ExecutionID,
 				TradeID:           correlation.TradeID,
@@ -227,6 +234,11 @@ func (r *Runner) runPipeline(
 		if r.Observer != nil {
 			r.Observer.OnNodeEnd(ctx, port.NodeResult{
 				RunID:       runID,
+				Partition:   partition,
+				SequenceNo:  currentSequenceNo,
+				IntentID:    correlation.IntentID,
+				ExecutionID: correlation.ExecutionID,
+				TradeID:     correlation.TradeID,
 				NodeName:    nodeName(n),
 				Duration:    duration,
 				Err:         normalizedErr,
@@ -237,6 +249,11 @@ func (r *Runner) runPipeline(
 		if r.Recorder != nil {
 			r.Recorder.RecordNodeResult(ctx, port.NodeResult{
 				RunID:       runID,
+				Partition:   partition,
+				SequenceNo:  currentSequenceNo,
+				IntentID:    correlation.IntentID,
+				ExecutionID: correlation.ExecutionID,
+				TradeID:     correlation.TradeID,
 				NodeName:    nodeName(n),
 				Duration:    duration,
 				Err:         normalizedErr,
@@ -282,13 +299,6 @@ func errorString(err error) string {
 		return ""
 	}
 	return err.Error()
-}
-
-func valueOrZero(value *int64) int64 {
-	if value == nil {
-		return 0
-	}
-	return *value
 }
 
 func normalizeTriggerReason(retryCount int64) string {

@@ -55,7 +55,7 @@ go-build:
 
 openapi:
 	@mkdir -p implementations/dag-core/openapi
-	@cd $(GO_DIR) && go run github.com/swaggo/swag/cmd/swag@v1.16.3 init -g main.go -d ./cmd/api,./internal/interface/http -o ./openapi
+	@cd $(GO_DIR) && go run github.com/swaggo/swag/cmd/swag@v1.16.3 init -g main.go -d ./cmd/api,./internal/interface/http,./internal/domain/marketdata,./internal/domain/dagruntime/events,./internal/application/dagruntime/usecase -o ./openapi
 
 grpc-gen:
 	@mkdir -p $(GO_DIR)/internal/interface/grpc/gen

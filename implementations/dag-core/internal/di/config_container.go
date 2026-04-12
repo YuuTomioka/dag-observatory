@@ -1,6 +1,10 @@
 package di
 
-import "os"
+import (
+	"os"
+	"strconv"
+	"strings"
+)
 
 type Config struct {
 	ServiceName          string
@@ -11,6 +15,8 @@ type Config struct {
 	GRPCPort             string
 	GraphQLPort          string
 	WSPort               string
+	SwaggerUIEnabled     bool
+	SwaggerUIRoute       string
 	AppLogLevel          string
 	AppLogOutput         string
 	StateStoreType       string
@@ -38,15 +44,18 @@ type Config struct {
 }
 
 func NewConfig() Config {
+	env := getenv("ENV", "dev")
 	return Config{
 		ServiceName:          getenv("SERVICE_NAME", "dag-observatory-dag-core"),
 		ServiceNamespace:     getenv("SERVICE_NAMESPACE", ""),
 		ServiceVersion:       getenv("SERVICE_VERSION", ""),
-		Env:                  getenv("ENV", "dev"),
+		Env:                  env,
 		HTTPPort:             getenv("HTTP_PORT", "8080"),
 		GRPCPort:             getenv("GRPC_PORT", "9090"),
 		GraphQLPort:          getenv("GRAPHQL_PORT", "8081"),
 		WSPort:               getenv("WS_PORT", "8082"),
+		SwaggerUIEnabled:     resolveSwaggerUIEnabled(env, getenv("SWAGGER_UI_ENABLED", "")),
+		SwaggerUIRoute:       getenv("SWAGGER_UI_ROUTE", "/swagger/*"),
 		AppLogLevel:          getenv("APP_LOG_LEVEL", "info"),
 		AppLogOutput:         getenv("APP_LOG_OUTPUT", "stdout"),
 		StateStoreType:       getenv("STATE_STORE_TYPE", "memory"),
@@ -71,6 +80,17 @@ func NewConfig() Config {
 		OTLPTracesEndpoint:  getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", ""),
 		OTLPMetricsEndpoint: getenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", ""),
 	}
+}
+
+func resolveSwaggerUIEnabled(env, raw string) bool {
+	if raw == "" {
+		return strings.EqualFold(env, "dev")
+	}
+	enabled, err := strconv.ParseBool(raw)
+	if err != nil {
+		return strings.EqualFold(env, "dev")
+	}
+	return enabled
 }
 
 func getenv(k, def string) string {

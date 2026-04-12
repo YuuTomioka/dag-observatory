@@ -91,6 +91,50 @@ OpenAPI outputs belong under:
 
 They should be generated from the Go HTTP implementation and reviewed as implementation artifacts.
 
+## OpenAPI And Swagger UI Operation Policy
+
+### Source Of Truth
+
+- OpenAPI source of truth is implementation code under `internal/interface/http/` and `cmd/api/main.go` annotation metadata.
+- Generated artifacts under `openapi/` are not hand-edited.
+- Contract changes are reviewed as both source diff and generated artifact diff.
+
+### Generation And Verification
+
+- Generate OpenAPI: `make openapi`
+- Verify contract drift: `make contracts-check`
+- API changes must regenerate `implementations/dag-core/openapi/` in the same change set.
+
+### Swagger UI Serving Policy (`echo-swagger`)
+
+- Canonical route: `/swagger/*`
+- Responsibility split:
+  - `swag`: OpenAPI artifact generation
+  - `echo-swagger`: runtime docs/UI serving
+- Runtime config:
+  - `SWAGGER_UI_ENABLED`: optional bool override (`true`/`false`)
+  - `SWAGGER_UI_ROUTE`: route pattern (default `/swagger/*`)
+- Default environment policy:
+  - `dev`: enabled by default
+  - `staging`: enabled only with access control
+  - `prod`: disabled by default; temporary enablement requires explicit approval and access control
+
+### Review And Local Flow
+
+- Recommended local flow after API changes:
+  1. update handler/DTO annotations and related implementation code
+  2. run `make openapi`
+  3. run `make go-test` and `make contracts-check`
+  4. if docs serving is enabled in the target environment, verify `/swagger/*`
+- PR review checklist:
+  - source-level API intent is clear
+  - generated OpenAPI artifacts are updated and reviewed
+  - compatibility risk (breaking/non-breaking) is called out in PR description
+
+### Deferred Item
+
+- OpenAPI v2 to v3 migration remains a separate future decision and is not coupled to `echo-swagger` introduction.
+
 ## Read With
 
 - `blueprint/architecture/system-boundaries.md`

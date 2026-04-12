@@ -11,6 +11,49 @@ definitions:
       symbol:
         type: string
     type: object
+  events.StateDiffField:
+    properties:
+      after: {}
+      before: {}
+      field:
+        type: string
+    type: object
+  handler.resultReflectionRunRequest:
+    properties:
+      account_balance:
+        type: number
+      mode:
+        type: string
+      ohlcv_bars:
+        items:
+          $ref: '#/definitions/marketdata.OHLCV'
+        type: array
+      partition:
+        type: string
+      run_id:
+        type: string
+      spread_bps:
+        type: number
+      symbol:
+        type: string
+    type: object
+  marketdata.OHLCV:
+    properties:
+      close:
+        type: integer
+      closetime:
+        type: string
+      high:
+        type: integer
+      low:
+        type: integer
+      open:
+        type: integer
+      opentime:
+        type: string
+      volume:
+        type: integer
+    type: object
   request.BackfillTimeframeBarsRequest:
     properties:
       chunk_size_bars:
@@ -70,6 +113,9 @@ definitions:
     type: object
   request.RunRequest:
     properties:
+      account_balance:
+        example: 10000
+        type: number
       bars:
         items:
           type: number
@@ -79,6 +125,13 @@ definitions:
       mode:
         example: normal
         type: string
+      ohlcv_bars:
+        items:
+          $ref: '#/definitions/marketdata.OHLCV'
+        type: array
+      spread_bps:
+        example: 5.2
+        type: number
       symbol:
         example: USDJPY
         type: string
@@ -217,6 +270,13 @@ definitions:
       status:
         type: string
     type: object
+  response.GetSummaryResponse:
+    properties:
+      partition:
+        type: string
+      summary:
+        $ref: '#/definitions/response.StrategySummary'
+    type: object
   response.ListArtifactsResponse:
     properties:
       items:
@@ -229,6 +289,22 @@ definitions:
       items:
         items:
           $ref: '#/definitions/response.DBBackupItem'
+        type: array
+    type: object
+  response.ListRunStepsResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/usecase.RunStepView'
+        type: array
+      run_id:
+        type: string
+    type: object
+  response.ListRunsResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/usecase.RunView'
         type: array
     type: object
   response.ListSymbolsResponse:
@@ -244,6 +320,15 @@ definitions:
         items:
           $ref: '#/definitions/response.TickItem'
         type: array
+    type: object
+  response.ListTradesResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/response.TradeItem'
+        type: array
+      partition:
+        type: string
     type: object
   response.MarketdataInput:
     properties:
@@ -281,6 +366,33 @@ definitions:
       url:
         type: string
     type: object
+  response.ResultReflectionRunResponse:
+    properties:
+      entrypoint:
+        type: string
+      partition:
+        type: string
+      run_id:
+        type: string
+      status:
+        type: string
+      symbol:
+        type: string
+    type: object
+  response.RunDetailResponse:
+    properties:
+      run:
+        $ref: '#/definitions/usecase.RunView'
+    type: object
+  response.RunNodeDetailResponse:
+    properties:
+      node:
+        $ref: '#/definitions/usecase.RunStepView'
+      run_id:
+        type: string
+      sequence_no:
+        type: string
+    type: object
   response.RunResponse:
     properties:
       entrypoint:
@@ -296,6 +408,37 @@ definitions:
         type: string
       symbol:
         example: USDJPY
+        type: string
+    type: object
+  response.StrategySummary:
+    properties:
+      average_loss:
+        type: number
+      average_win:
+        type: number
+      loss_count:
+        type: integer
+      max_drawdown:
+        type: number
+      parameter_set_id:
+        type: string
+      profit_factor:
+        type: number
+      strategy_id:
+        type: string
+      total_net_pnl:
+        type: number
+      trade_count:
+        type: integer
+      updated_at:
+        type: string
+      win_count:
+        type: integer
+      win_rate:
+        type: number
+      workflow_name:
+        type: string
+      workflow_version:
         type: string
     type: object
   response.SymbolItem:
@@ -326,9 +469,106 @@ definitions:
       time:
         type: string
     type: object
+  response.TradeItem:
+    properties:
+      entry_price_raw:
+        type: integer
+      entry_time:
+        type: string
+      exit_price_raw:
+        type: integer
+      exit_reason:
+        type: string
+      exit_time:
+        type: string
+      intent_id:
+        type: string
+      net_pnl:
+        type: number
+      parameter_set_id:
+        type: string
+      position_id:
+        type: string
+      side:
+        type: string
+      size:
+        type: number
+      symbol:
+        type: string
+      trade_id:
+        type: string
+      workflow_name:
+        type: string
+      workflow_version:
+        type: string
+    type: object
   response.UpsertTicksBulkResponse:
     properties:
       upserted:
+        type: integer
+    type: object
+  usecase.RunStepView:
+    properties:
+      duration_ns:
+        type: integer
+      error:
+        type: string
+      execution_id:
+        type: string
+      input_ref:
+        type: string
+      intent_id:
+        type: string
+      node_execution_id:
+        type: string
+      node_id:
+        type: string
+      node_name:
+        type: string
+      output_ref:
+        type: string
+      sequence_no:
+        type: integer
+      skip_reason:
+        type: string
+      snapshot_after_ref:
+        type: string
+      snapshot_before_ref:
+        type: string
+      state_diff:
+        items:
+          $ref: '#/definitions/events.StateDiffField'
+        type: array
+      status:
+        type: string
+      trade_id:
+        type: string
+      trigger_reason:
+        type: string
+    type: object
+  usecase.RunView:
+    properties:
+      duration_ms:
+        type: integer
+      ended_at:
+        type: string
+      error:
+        type: string
+      event_time:
+        type: string
+      event_type:
+        type: string
+      partition:
+        type: string
+      retry_count:
+        type: integer
+      run_id:
+        type: string
+      started_at:
+        type: string
+      status:
+        type: string
+      step_count:
         type: integer
     type: object
 info:
@@ -337,6 +577,110 @@ info:
   title: DAG Observatory API
   version: 0.1.0
 paths:
+  /algotrade/result-reflection:run:
+    post:
+      consumes:
+      - application/json
+      description: Triggers the configured runtime workflow as a result-reflection
+        entrypoint. Intended for manual submit/fill/result-reflection verification
+        with explicit partition control.
+      parameters:
+      - description: Result reflection run request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.resultReflectionRunRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.ResultReflectionRunResponse'
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/response.ResultReflectionRunResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Run result reflection workflow
+      tags:
+      - algotrade
+  /algotrade/summary:
+    get:
+      description: Returns strategy summary projection for the given runtime partition.
+      parameters:
+      - description: Runtime partition
+        in: query
+        name: partition
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.GetSummaryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get strategy summary
+      tags:
+      - algotrade
+  /algotrade/trades:
+    get:
+      description: Returns closed-trade facts for the given runtime partition. This
+        is a snapshot read path for result confirmation, not an observability event
+        feed.
+      parameters:
+      - description: Runtime partition
+        in: query
+        name: partition
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.ListTradesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: List closed trades
+      tags:
+      - algotrade
   /artifacts/{artifact_id}:presign-download:
     post:
       description: Returns a time-limited URL for downloading an artifact
@@ -809,6 +1153,119 @@ paths:
       summary: Trigger timeframe bar backfill workflow
       tags:
       - marketdata
+  /runs:
+    get:
+      description: Returns run-level read model items. Optional `partition` narrows
+        results.
+      parameters:
+      - description: Runtime partition filter
+        in: query
+        name: partition
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.ListRunsResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: List workflow runs
+      tags:
+      - dag
+  /runs/{run_id}:
+    get:
+      description: Returns one run-level read model by run id.
+      parameters:
+      - description: Run ID
+        in: path
+        name: run_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.RunDetailResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get run detail
+      tags:
+      - dag
+  /runs/{run_id}/steps:
+    get:
+      description: Returns node execution steps for one run.
+      parameters:
+      - description: Run ID
+        in: path
+        name: run_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.ListRunStepsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: List run steps
+      tags:
+      - dag
+  /runs/{run_id}/steps/{sequence_no}:
+    get:
+      description: Returns one node execution record by run id and sequence number.
+      parameters:
+      - description: Run ID
+        in: path
+        name: run_id
+        required: true
+        type: string
+      - description: Node execution sequence number
+        in: path
+        name: sequence_no
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.RunNodeDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get run node execution detail
+      tags:
+      - dag
   /workflow-runs/{workflow_run_id}/artifacts:
     get:
       description: Returns artifacts associated with a workflow run id

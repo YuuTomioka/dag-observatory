@@ -196,6 +196,17 @@ RunView は event.Type から phase を正規化します。
 - `db_backups` の query 定義は `data/tsdb/query/` 配下で管理する
 - `implementations/dag-core` 側の実装が inline SQL でも、仕様変更時は先に `data/tsdb/query/` 相当の SQL 資産を更新する
 
+### 7.7 OpenAPI / Swagger UI 運用方針（採用）
+- OpenAPI の正本は `implementations/dag-core` の HTTP 実装と注釈。
+- 生成物は `implementations/dag-core/openapi/` に置き、手編集しない。
+- API 変更時は `make openapi` と `make contracts-check` を必須運用とする。
+- Swagger UI の標準ルートは `/swagger/*` とする。
+- 環境別公開方針:
+  - `dev`: デフォルト有効
+  - `staging`: アクセス制御下で有効
+  - `prod`: デフォルト無効（明示承認時のみ一時有効化）
+- 詳細運用は `implementations/dag-core/README.md` の OpenAPI/Swagger UI ポリシーに従う。
+
 ---
 
 ## 8. リポジトリ構成

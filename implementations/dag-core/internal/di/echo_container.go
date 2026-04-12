@@ -14,8 +14,10 @@ import (
 	dbbackupsinfra "dag-observatory/dag-core/internal/infrastructure/persistence/tsdb/repository/dbbackups"
 	miniostore "dag-observatory/dag-core/internal/infrastructure/storage/minio"
 	httpif "dag-observatory/dag-core/internal/interface/http"
+	_ "dag-observatory/dag-core/openapi"
 
 	"github.com/labstack/echo/v4"
+	echoSwagger "github.com/swaggo/echo-swagger"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 )
 
@@ -116,6 +118,14 @@ func NewEchoContainer(
 		BackfillTimeframeBars:     backfillTimeframeBars,
 		PostCTraderTicks:          postCTraderTicks,
 	})
+	registerSwaggerUIRoute(e, cfg.SwaggerUIEnabled, cfg.SwaggerUIRoute)
 
 	return e, nil
+}
+
+func registerSwaggerUIRoute(e *echo.Echo, enabled bool, route string) {
+	if !enabled || route == "" {
+		return
+	}
+	e.GET(route, echoSwagger.WrapHandler)
 }

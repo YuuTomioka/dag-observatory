@@ -15,6 +15,158 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/algotrade/result-reflection:run": {
+            "post": {
+                "description": "Triggers the configured runtime workflow as a result-reflection entrypoint. Intended for manual submit/fill/result-reflection verification with explicit partition control.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "algotrade"
+                ],
+                "summary": "Run result reflection workflow",
+                "parameters": [
+                    {
+                        "description": "Result reflection run request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.resultReflectionRunRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResultReflectionRunResponse"
+                        }
+                    },
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/response.ResultReflectionRunResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/algotrade/summary": {
+            "get": {
+                "description": "Returns strategy summary projection for the given runtime partition.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "algotrade"
+                ],
+                "summary": "Get strategy summary",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Runtime partition",
+                        "name": "partition",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.GetSummaryResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/algotrade/trades": {
+            "get": {
+                "description": "Returns closed-trade facts for the given runtime partition. This is a snapshot read path for result confirmation, not an observability event feed.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "algotrade"
+                ],
+                "summary": "List closed trades",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Runtime partition",
+                        "name": "partition",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.ListTradesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/artifacts/{artifact_id}:presign-download": {
             "post": {
                 "description": "Returns a time-limited URL for downloading an artifact",
@@ -719,6 +871,176 @@ const docTemplate = `{
                 }
             }
         },
+        "/runs": {
+            "get": {
+                "description": "Returns run-level read model items. Optional ` + "`" + `partition` + "`" + ` narrows results.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dag"
+                ],
+                "summary": "List workflow runs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Runtime partition filter",
+                        "name": "partition",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.ListRunsResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/runs/{run_id}": {
+            "get": {
+                "description": "Returns one run-level read model by run id.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dag"
+                ],
+                "summary": "Get run detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.RunDetailResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/runs/{run_id}/steps": {
+            "get": {
+                "description": "Returns node execution steps for one run.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dag"
+                ],
+                "summary": "List run steps",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.ListRunStepsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/runs/{run_id}/steps/{sequence_no}": {
+            "get": {
+                "description": "Returns one node execution record by run id and sequence number.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dag"
+                ],
+                "summary": "Get run node execution detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Node execution sequence number",
+                        "name": "sequence_no",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.RunNodeDetailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/workflow-runs/{workflow_run_id}/artifacts": {
             "get": {
                 "description": "Returns artifacts associated with a workflow run id",
@@ -794,6 +1116,71 @@ const docTemplate = `{
                 },
                 "symbol": {
                     "type": "string"
+                }
+            }
+        },
+        "events.StateDiffField": {
+            "type": "object",
+            "properties": {
+                "after": {},
+                "before": {},
+                "field": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.resultReflectionRunRequest": {
+            "type": "object",
+            "properties": {
+                "account_balance": {
+                    "type": "number"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "ohlcv_bars": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/marketdata.OHLCV"
+                    }
+                },
+                "partition": {
+                    "type": "string"
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "spread_bps": {
+                    "type": "number"
+                },
+                "symbol": {
+                    "type": "string"
+                }
+            }
+        },
+        "marketdata.OHLCV": {
+            "type": "object",
+            "properties": {
+                "close": {
+                    "type": "integer"
+                },
+                "closetime": {
+                    "type": "string"
+                },
+                "high": {
+                    "type": "integer"
+                },
+                "low": {
+                    "type": "integer"
+                },
+                "open": {
+                    "type": "integer"
+                },
+                "opentime": {
+                    "type": "string"
+                },
+                "volume": {
+                    "type": "integer"
                 }
             }
         },
@@ -881,6 +1268,10 @@ const docTemplate = `{
         "request.RunRequest": {
             "type": "object",
             "properties": {
+                "account_balance": {
+                    "type": "number",
+                    "example": 10000
+                },
                 "bars": {
                     "type": "array",
                     "items": {
@@ -893,6 +1284,16 @@ const docTemplate = `{
                 "mode": {
                     "type": "string",
                     "example": "normal"
+                },
+                "ohlcv_bars": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/marketdata.OHLCV"
+                    }
+                },
+                "spread_bps": {
+                    "type": "number",
+                    "example": 5.2
                 },
                 "symbol": {
                     "type": "string",
@@ -1095,6 +1496,17 @@ const docTemplate = `{
                 }
             }
         },
+        "response.GetSummaryResponse": {
+            "type": "object",
+            "properties": {
+                "partition": {
+                    "type": "string"
+                },
+                "summary": {
+                    "$ref": "#/definitions/response.StrategySummary"
+                }
+            }
+        },
         "response.ListArtifactsResponse": {
             "type": "object",
             "properties": {
@@ -1113,6 +1525,31 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/response.DBBackupItem"
+                    }
+                }
+            }
+        },
+        "response.ListRunStepsResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/usecase.RunStepView"
+                    }
+                },
+                "run_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.ListRunsResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/usecase.RunView"
                     }
                 }
             }
@@ -1136,6 +1573,20 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/response.TickItem"
                     }
+                }
+            }
+        },
+        "response.ListTradesResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/response.TradeItem"
+                    }
+                },
+                "partition": {
+                    "type": "string"
                 }
             }
         },
@@ -1192,6 +1643,48 @@ const docTemplate = `{
                 }
             }
         },
+        "response.ResultReflectionRunResponse": {
+            "type": "object",
+            "properties": {
+                "entrypoint": {
+                    "type": "string"
+                },
+                "partition": {
+                    "type": "string"
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "symbol": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.RunDetailResponse": {
+            "type": "object",
+            "properties": {
+                "run": {
+                    "$ref": "#/definitions/usecase.RunView"
+                }
+            }
+        },
+        "response.RunNodeDetailResponse": {
+            "type": "object",
+            "properties": {
+                "node": {
+                    "$ref": "#/definitions/usecase.RunStepView"
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "sequence_no": {
+                    "type": "string"
+                }
+            }
+        },
         "response.RunResponse": {
             "type": "object",
             "properties": {
@@ -1213,6 +1706,53 @@ const docTemplate = `{
                 "symbol": {
                     "type": "string",
                     "example": "USDJPY"
+                }
+            }
+        },
+        "response.StrategySummary": {
+            "type": "object",
+            "properties": {
+                "average_loss": {
+                    "type": "number"
+                },
+                "average_win": {
+                    "type": "number"
+                },
+                "loss_count": {
+                    "type": "integer"
+                },
+                "max_drawdown": {
+                    "type": "number"
+                },
+                "parameter_set_id": {
+                    "type": "string"
+                },
+                "profit_factor": {
+                    "type": "number"
+                },
+                "strategy_id": {
+                    "type": "string"
+                },
+                "total_net_pnl": {
+                    "type": "number"
+                },
+                "trade_count": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "win_count": {
+                    "type": "integer"
+                },
+                "win_rate": {
+                    "type": "number"
+                },
+                "workflow_name": {
+                    "type": "string"
+                },
+                "workflow_version": {
+                    "type": "string"
                 }
             }
         },
@@ -1259,10 +1799,157 @@ const docTemplate = `{
                 }
             }
         },
+        "response.TradeItem": {
+            "type": "object",
+            "properties": {
+                "entry_price_raw": {
+                    "type": "integer"
+                },
+                "entry_time": {
+                    "type": "string"
+                },
+                "exit_price_raw": {
+                    "type": "integer"
+                },
+                "exit_reason": {
+                    "type": "string"
+                },
+                "exit_time": {
+                    "type": "string"
+                },
+                "intent_id": {
+                    "type": "string"
+                },
+                "net_pnl": {
+                    "type": "number"
+                },
+                "parameter_set_id": {
+                    "type": "string"
+                },
+                "position_id": {
+                    "type": "string"
+                },
+                "side": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "number"
+                },
+                "symbol": {
+                    "type": "string"
+                },
+                "trade_id": {
+                    "type": "string"
+                },
+                "workflow_name": {
+                    "type": "string"
+                },
+                "workflow_version": {
+                    "type": "string"
+                }
+            }
+        },
         "response.UpsertTicksBulkResponse": {
             "type": "object",
             "properties": {
                 "upserted": {
+                    "type": "integer"
+                }
+            }
+        },
+        "usecase.RunStepView": {
+            "type": "object",
+            "properties": {
+                "duration_ns": {
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "execution_id": {
+                    "type": "string"
+                },
+                "input_ref": {
+                    "type": "string"
+                },
+                "intent_id": {
+                    "type": "string"
+                },
+                "node_execution_id": {
+                    "type": "string"
+                },
+                "node_id": {
+                    "type": "string"
+                },
+                "node_name": {
+                    "type": "string"
+                },
+                "output_ref": {
+                    "type": "string"
+                },
+                "sequence_no": {
+                    "type": "integer"
+                },
+                "skip_reason": {
+                    "type": "string"
+                },
+                "snapshot_after_ref": {
+                    "type": "string"
+                },
+                "snapshot_before_ref": {
+                    "type": "string"
+                },
+                "state_diff": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/events.StateDiffField"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                },
+                "trade_id": {
+                    "type": "string"
+                },
+                "trigger_reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "usecase.RunView": {
+            "type": "object",
+            "properties": {
+                "duration_ms": {
+                    "type": "integer"
+                },
+                "ended_at": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "event_time": {
+                    "type": "string"
+                },
+                "event_type": {
+                    "type": "string"
+                },
+                "partition": {
+                    "type": "string"
+                },
+                "retry_count": {
+                    "type": "integer"
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "step_count": {
                     "type": "integer"
                 }
             }

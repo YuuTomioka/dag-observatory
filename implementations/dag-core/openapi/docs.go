@@ -1074,6 +1074,36 @@ const docTemplate = `{
                         "description": "Runtime partition filter",
                         "name": "partition",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Run status filter",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Started-at lower bound (RFC3339 or RFC3339Nano, inclusive)",
+                        "name": "since",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Started-at upper bound (RFC3339 or RFC3339Nano, exclusive)",
+                        "name": "until",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max items for one page",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pagination cursor (non-negative integer offset)",
+                        "name": "cursor",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2005,6 +2035,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/usecase.RunView"
                     }
+                },
+                "next_cursor": {
+                    "type": "string"
                 }
             }
         },

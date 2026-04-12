@@ -75,3 +75,84 @@ func TestJSONLRecorderAppendsObservationRecords(t *testing.T) {
 		t.Fatalf("expected wrapped recorder to keep in-memory steps")
 	}
 }
+
+func TestReplayJSONLReconstructsRunReadModel(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "runs.jsonl")
+	primary := NewInMemoryRecorder()
+	writer, err := NewJSONLRecorder(path, primary)
+	if err != nil {
+		t.Fatalf("new jsonl recorder: %v", err)
+	}
+
+	event := events.Event{
+		EventID:   "run-replay-1",
+		EventTime: time.Date(2026, 4, 12, 5, 0, 0, 0, time.UTC),
+		Partition: state.Partition("partition-replay"),
+		Type:      "task.requested",
+	}
+	writer.RecordEvent(context.Background(), event)
+	writer.RecordNodeExecution(context.Background(), events.NodeExecutionEvent{
+		RunID:      "run-replay-1",
+		Partition:  state.Partition("partition-replay"),
+		EventTime:  event.EventTime,
+		SequenceNo: 1,
+		NodeID:     "node-1",
+		NodeName:   "node.one",
+		Status:     events.NodeExecutionStatusSucceeded,
+	})
+	writer.RecordCycleResult(context.Background(), port.CycleResult{
+		Partition: state.Partition("partition-replay"),
+		Event:     event,
+		Duration:  5 * time.Millisecond,
+	})
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close jsonl recorder: %v", err)
+	}
+
+	replayed := NewInMemoryRecorder()
+	stats, err := ReplayJSONL(path, replayed)
+	if err != nil {
+		t.Fatalf("replay jsonl: %v", err)
+	}
+	if stats.AppliedLines != 3 || stats.SkippedLines != 0 {
+		t.Fatalf("unexpected replay stats: %#v", stats)
+	}
+
+	run, ok := replayed.GetRun("run-replay-1")
+	if !ok {
+		t.Fatal("expected replayed run")
+	}
+	if run.Status != "succeeded" {
+		t.Fatalf("expected succeeded status, got %q", run.Status)
+	}
+	steps := replayed.ListRunSteps("run-replay-1")
+	if len(steps) != 1 || steps[0].NodeID != "node-1" {
+		t.Fatalf("unexpected replayed steps: %#v", steps)
+	}
+}
+
+func TestReplayJSONLToleratesMalformedLines(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "runs-malformed.jsonl")
+	content := strings.Join([]string{
+		`{"kind":"run_event","run_id":"run-x","partition":"p","event_type":"task.requested","event_time":"2026-04-12T08:00:00Z"}`,
+		`{"kind":`,
+		`{"kind":"node_execution","run_id":"run-x","partition":"p","event_time":"2026-04-12T08:00:00Z","sequence_no":1,"node_id":"n1","node_name":"node.1","status":"succeeded"}`,
+		`{"kind":"cycle_result","run_id":"run-x","partition":"p","event_type":"task.requested","event_time":"2026-04-12T08:00:00Z","duration_ns":1000000}`,
+	}, "\n")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write malformed jsonl: %v", err)
+	}
+
+	replayed := NewInMemoryRecorder()
+	stats, err := ReplayJSONL(path, replayed)
+	if err != nil {
+		t.Fatalf("replay jsonl should tolerate malformed lines: %v", err)
+	}
+	if stats.DecodeErrors != 1 || stats.SkippedLines != 1 {
+		t.Fatalf("unexpected replay stats: %#v", stats)
+	}
+	run, ok := replayed.GetRun("run-x")
+	if !ok || run.Status != "succeeded" {
+		t.Fatalf("expected valid trailing records to be replayed, run=%#v ok=%v", run, ok)
+	}
+}

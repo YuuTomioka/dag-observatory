@@ -59,10 +59,15 @@ type Dependencies struct {
 	ListTicksBySymbolAndRange *marketdatausecase.ListTicksBySymbolAndRange
 	BackfillTimeframeBars     *marketdatausecase.BackfillTimeframeBars
 	PostCTraderTicks          *ctraderusecase.PostTicksUsecase
+	ReplaySkippedLines        int64
+	ReplayErrors              int64
 }
 
 func RegisterRoutes(e *echo.Echo, d Dependencies) {
-	hh := healthhandler.New()
+	hh := healthhandler.New(healthhandler.Dependencies{
+		ReplaySkippedLines: d.ReplaySkippedLines,
+		ReplayErrors:       d.ReplayErrors,
+	})
 	dh := daghandler.New(daghandler.Dependencies{
 		AppLog:             d.AppLog,
 		Tracer:             d.Tracer,

@@ -415,6 +415,8 @@ definitions:
         items:
           $ref: '#/definitions/usecase.RunView'
         type: array
+      next_cursor:
+        type: string
     type: object
   response.ListSymbolsResponse:
     properties:
@@ -1469,6 +1471,26 @@ paths:
       - description: Runtime partition filter
         in: query
         name: partition
+        type: string
+      - description: Run status filter
+        in: query
+        name: status
+        type: string
+      - description: Started-at lower bound (RFC3339 or RFC3339Nano, inclusive)
+        in: query
+        name: since
+        type: string
+      - description: Started-at upper bound (RFC3339 or RFC3339Nano, exclusive)
+        in: query
+        name: until
+        type: string
+      - description: Max items for one page
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination cursor (non-negative integer offset)
+        in: query
+        name: cursor
         type: string
       produces:
       - application/json

@@ -64,15 +64,84 @@ func TestListRunsExecute(t *testing.T) {
 	}
 	uc := &ListRuns{Reader: reader}
 
-	items, err := uc.Execute(context.Background(), ListRunsRequest{Partition: "p1"})
+	result, err := uc.Execute(context.Background(), ListRunsRequest{Partition: "p1"})
 	if err != nil {
 		t.Fatalf("list runs failed: %v", err)
 	}
+	items := result.Items
 	if len(items) != 1 {
 		t.Fatalf("expected one run, got %d", len(items))
 	}
 	if items[0].RunID != "run-1" || items[0].StepCount != 2 {
 		t.Fatalf("unexpected run view: %#v", items[0])
+	}
+}
+
+func TestListRunsExecuteSupportsFilterAndCursor(t *testing.T) {
+	now := time.Date(2026, 4, 12, 0, 0, 0, 0, time.UTC)
+	reader := &fakeRunReader{
+		runs: []port.RunRecord{
+			{
+				RunID:     "run-3",
+				Partition: state.Partition("p1"),
+				Status:    "failed",
+				StartedAt: now.Add(3 * time.Minute),
+				EventTime: now.Add(3 * time.Minute),
+			},
+			{
+				RunID:     "run-2",
+				Partition: state.Partition("p1"),
+				Status:    "succeeded",
+				StartedAt: now.Add(2 * time.Minute),
+				EventTime: now.Add(2 * time.Minute),
+			},
+			{
+				RunID:     "run-1",
+				Partition: state.Partition("p1"),
+				Status:    "succeeded",
+				StartedAt: now.Add(1 * time.Minute),
+				EventTime: now.Add(1 * time.Minute),
+			},
+		},
+	}
+	uc := &ListRuns{Reader: reader}
+
+	since := now.Add(30 * time.Second)
+	until := now.Add(4 * time.Minute)
+	page1, err := uc.Execute(context.Background(), ListRunsRequest{
+		Partition: "p1",
+		Status:    "succeeded",
+		Since:     &since,
+		Until:     &until,
+		Limit:     1,
+		Cursor:    "0",
+	})
+	if err != nil {
+		t.Fatalf("list runs page1 failed: %v", err)
+	}
+	if len(page1.Items) != 1 || page1.Items[0].RunID != "run-2" {
+		t.Fatalf("unexpected first page: %#v", page1)
+	}
+	if page1.NextCursor != "1" {
+		t.Fatalf("expected next cursor 1, got %q", page1.NextCursor)
+	}
+
+	page2, err := uc.Execute(context.Background(), ListRunsRequest{
+		Partition: "p1",
+		Status:    "succeeded",
+		Since:     &since,
+		Until:     &until,
+		Limit:     1,
+		Cursor:    page1.NextCursor,
+	})
+	if err != nil {
+		t.Fatalf("list runs page2 failed: %v", err)
+	}
+	if len(page2.Items) != 1 || page2.Items[0].RunID != "run-1" {
+		t.Fatalf("unexpected second page: %#v", page2)
+	}
+	if page2.NextCursor != "" {
+		t.Fatalf("expected empty next cursor on last page, got %q", page2.NextCursor)
 	}
 }
 

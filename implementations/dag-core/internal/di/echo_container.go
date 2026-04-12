@@ -136,6 +136,8 @@ func NewEchoContainer(
 		ListTicksBySymbolAndRange: listTicksBySymbolAndRange,
 		BackfillTimeframeBars:     backfillTimeframeBars,
 		PostCTraderTicks:          postCTraderTicks,
+		ReplaySkippedLines:        dagRuntime.ReplayStats.SkippedLines,
+		ReplayErrors:              dagRuntime.ReplayStats.DecodeErrors + dagRuntime.ReplayStats.ReplayErrors,
 	})
 	registerSwaggerUIRoute(e, cfg.SwaggerUIEnabled, cfg.SwaggerUIRoute)
 

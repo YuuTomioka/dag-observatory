@@ -29,6 +29,7 @@ type DAGRuntimeContainer struct {
 	Observer      *observerinfra.OTelObserver
 	Recorder      port.Recorder
 	RecorderClose func() error
+	ReplayStats   recorderinfra.ReplayStats
 	RunReader     port.RunReader
 	Runner        *engine.Runner
 	Driver        *driver.Driver
@@ -67,7 +68,12 @@ func NewDAGRuntimeContainer(cfg Config, otelc *OTelContainer, compiled pipeline.
 	runReader := recorderinfra.NewInMemoryRecorder()
 	var recorder port.Recorder = runReader
 	recorderClose := func() error { return nil }
+	replayStats := recorderinfra.ReplayStats{}
 	if cfg.ObservationJSONLPath != "" {
+		replayStats, err = recorderinfra.ReplayJSONL(cfg.ObservationJSONLPath, runReader)
+		if err != nil {
+			return nil, err
+		}
 		jsonlRecorder, err := recorderinfra.NewJSONLRecorder(cfg.ObservationJSONLPath, runReader)
 		if err != nil {
 			return nil, err
@@ -116,6 +122,7 @@ func NewDAGRuntimeContainer(cfg Config, otelc *OTelContainer, compiled pipeline.
 		Observer:      observer,
 		Recorder:      recorder,
 		RecorderClose: recorderClose,
+		ReplayStats:   replayStats,
 		RunReader:     runReader,
 		Runner:        runner,
 		Driver:        driver,

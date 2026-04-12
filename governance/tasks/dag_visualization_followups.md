@@ -202,24 +202,47 @@ Progress note (2026-04-12):
 
 ### Phase 10: Add JSONL Replay Read Path
 
-- [ ] add startup-time replay loading from JSON Lines into the run read model
-- [ ] preserve append-first write path while allowing process-restart recovery for run inspection
-- [ ] ensure replay logic accepts mixed record kinds (`run_event`, `node_execution`, `cycle_result`) in one stream
-- [ ] add tests that verify run APIs can serve previously recorded runs after restart-like reconstruction
+- [x] add startup-time replay loading from JSON Lines into the run read model
+- [x] preserve append-first write path while allowing process-restart recovery for run inspection
+- [x] ensure replay logic accepts mixed record kinds (`run_event`, `node_execution`, `cycle_result`) in one stream
+- [x] add tests that verify run APIs can serve previously recorded runs after restart-like reconstruction
+
+Progress note (2026-04-12):
+
+- added `ReplayJSONL(path, sink)` in recorder layer and wired startup replay in `NewDAGRuntimeContainer` when `DAGRUNTIME_OBSERVATION_JSONL_PATH` is set
+- replay now reconstructs run read model records from mixed JSONL kinds (`run_event`, `node_execution`, `cycle_result`) before append-mode writer initialization
+- append-first path is preserved via existing `JSONLRecorder` after replay
+- added replay tests:
+  - recorder-level reconstruction test from JSONL file
+  - container-level startup replay test that verifies run and step visibility through `RunReader`
 
 ### Phase 11: Add JSONL Operational Guards
 
-- [ ] add simple file-rotation policy for long-running local observation output
-- [ ] make JSONL reader tolerant to partial or malformed lines without stopping whole API operation
-- [ ] expose minimum health counters for skipped lines and replay errors
-- [ ] add tests for malformed-line tolerance and continued replay of valid trailing records
+- [x] add simple file-rotation policy for long-running local observation output
+- [x] make JSONL reader tolerant to partial or malformed lines without stopping whole API operation
+- [x] expose minimum health counters for skipped lines and replay errors
+- [x] add tests for malformed-line tolerance and continued replay of valid trailing records
+
+Progress note (2026-04-12):
+
+- JSONL writer now applies a simple size-based rotation policy (`<path>` -> `<path>.1`) once file size reaches a fixed threshold
+- JSONL replay now continues on malformed/invalid lines and reports replay counters instead of aborting whole load
+- replay counters are exposed through `/healthz` under `observation_replay` (`skipped_lines`, `errors`)
+- added tests for malformed-line tolerance and recovery of valid trailing records
 
 ### Phase 12: Stabilize Run Read API Query Contract
 
-- [ ] add filtering and paging query surface for `GET /runs` (for example `partition`, `status`, `since`, `until`, `limit`, `cursor`)
-- [ ] keep response shape compact and backward compatible with current minimum UI usage
-- [ ] define ordering and cursor semantics explicitly for deterministic client pagination
-- [ ] add handler tests for filter combinations and cursor continuity
+- [x] add filtering and paging query surface for `GET /runs` (for example `partition`, `status`, `since`, `until`, `limit`, `cursor`)
+- [x] keep response shape compact and backward compatible with current minimum UI usage
+- [x] define ordering and cursor semantics explicitly for deterministic client pagination
+- [x] add handler tests for filter combinations and cursor continuity
+
+Progress note (2026-04-12):
+
+- `GET /runs` now supports `partition`, `status`, `since`, `until`, `limit`, `cursor`
+- response remains compact and backward compatible with current UI (`items[]` retained) and adds optional `next_cursor`
+- ordering is explicitly deterministic (`started_at desc`, tie-break by `run_id desc`) and cursor semantics are integer-offset based
+- added usecase and handler tests covering filter combinations, invalid cursor handling, and cursor continuity across pages
 
 ### Phase 13: Add Run Comparison API
 

@@ -3,6 +3,9 @@ package handler
 import (
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
+	"time"
 
 	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
 	"dag-observatory/dag-core/internal/interface/http/dag/response"
@@ -29,6 +32,11 @@ func decodePathParam(c echo.Context, name string) (string, error) {
 // @Tags dag
 // @Produce json
 // @Param partition query string false "Runtime partition filter"
+// @Param status query string false "Run status filter"
+// @Param since query string false "Started-at lower bound (RFC3339 or RFC3339Nano, inclusive)"
+// @Param until query string false "Started-at upper bound (RFC3339 or RFC3339Nano, exclusive)"
+// @Param limit query int false "Max items for one page"
+// @Param cursor query string false "Pagination cursor (non-negative integer offset)"
 // @Success 200 {object} response.ListRunsResponse
 // @Failure 501 {object} dto.ErrorResponse
 // @Router /runs [get]
@@ -39,16 +47,50 @@ func (h *Handler) ListRuns(c echo.Context) error {
 			Status: "error",
 		})
 	}
-	items, err := h.listRuns.Execute(c.Request().Context(), usecase.ListRunsRequest{
+	since, err := parseOptionalTimestamp(c.QueryParam("since"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error:  "since must be RFC3339 or RFC3339Nano",
+			Status: "error",
+		})
+	}
+	until, err := parseOptionalTimestamp(c.QueryParam("until"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error:  "until must be RFC3339 or RFC3339Nano",
+			Status: "error",
+		})
+	}
+	limit := 0
+	limitRaw := strings.TrimSpace(c.QueryParam("limit"))
+	if limitRaw != "" {
+		parsed, err := strconv.Atoi(limitRaw)
+		if err != nil || parsed < 0 {
+			return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+				Error:  "limit must be non-negative integer",
+				Status: "error",
+			})
+		}
+		limit = parsed
+	}
+	result, err := h.listRuns.Execute(c.Request().Context(), usecase.ListRunsRequest{
 		Partition: c.QueryParam("partition"),
+		Status:    c.QueryParam("status"),
+		Since:     since,
+		Until:     until,
+		Limit:     limit,
+		Cursor:    c.QueryParam("cursor"),
 	})
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error:  err.Error(),
 			Status: "error",
 		})
 	}
-	return c.JSON(http.StatusOK, response.ListRunsResponse{Items: items})
+	return c.JSON(http.StatusOK, response.ListRunsResponse{
+		Items:      result.Items,
+		NextCursor: result.NextCursor,
+	})
 }
 
 // GetRun
@@ -316,4 +358,21 @@ func (h *Handler) GetRunBacktestSummary(c echo.Context) error {
 	return c.JSON(http.StatusOK, response.RunBacktestSummaryResponse{
 		Summary: summary,
 	})
+}
+
+func parseOptionalTimestamp(raw string) (*time.Time, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return nil, nil
+	}
+	if parsed, err := time.Parse(time.RFC3339Nano, value); err == nil {
+		t := parsed.UTC()
+		return &t, nil
+	}
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return nil, err
+	}
+	t := parsed.UTC()
+	return &t, nil
 }

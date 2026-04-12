@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
+	"time"
 
 	"dag-observatory/dag-core/internal/application/dagruntime/port"
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
@@ -17,6 +19,16 @@ type ListRuns struct {
 
 type ListRunsRequest struct {
 	Partition string
+	Status    string
+	Since     *time.Time
+	Until     *time.Time
+	Limit     int
+	Cursor    string
+}
+
+type ListRunsResult struct {
+	Items      []RunView `json:"items"`
+	NextCursor string    `json:"next_cursor,omitempty"`
 }
 
 type RunView struct {
@@ -33,17 +45,69 @@ type RunView struct {
 	StepCount  int    `json:"step_count"`
 }
 
-func (u *ListRuns) Execute(ctx context.Context, req ListRunsRequest) ([]RunView, error) {
+func (u *ListRuns) Execute(ctx context.Context, req ListRunsRequest) (ListRunsResult, error) {
 	_ = ctx
 	if u == nil || u.Reader == nil {
-		return nil, nil
+		return ListRunsResult{}, nil
 	}
 	records := u.Reader.ListRuns(state.Partition(req.Partition))
-	items := make([]RunView, 0, len(records))
+	filtered := make([]port.RunRecord, 0, len(records))
 	for _, run := range records {
+		if req.Status != "" && !strings.EqualFold(run.Status, req.Status) {
+			continue
+		}
+		if req.Since != nil && run.StartedAt.Before(*req.Since) {
+			continue
+		}
+		if req.Until != nil && !run.StartedAt.Before(*req.Until) {
+			continue
+		}
+		filtered = append(filtered, run)
+	}
+	slices.SortFunc(filtered, func(a, b port.RunRecord) int {
+		if a.StartedAt.After(b.StartedAt) {
+			return -1
+		}
+		if b.StartedAt.After(a.StartedAt) {
+			return 1
+		}
+		if a.RunID > b.RunID {
+			return -1
+		}
+		if a.RunID < b.RunID {
+			return 1
+		}
+		return 0
+	})
+
+	offset := 0
+	if req.Cursor != "" {
+		parsed, err := strconv.Atoi(req.Cursor)
+		if err != nil || parsed < 0 {
+			return ListRunsResult{}, fmt.Errorf("cursor must be non-negative integer offset")
+		}
+		offset = parsed
+	}
+	if offset >= len(filtered) {
+		return ListRunsResult{Items: []RunView{}}, nil
+	}
+	end := len(filtered)
+	if req.Limit > 0 && offset+req.Limit < end {
+		end = offset + req.Limit
+	}
+
+	items := make([]RunView, 0, end-offset)
+	for _, run := range filtered[offset:end] {
 		items = append(items, mapRunView(run, len(u.Reader.ListRunSteps(run.RunID))))
 	}
-	return items, nil
+	nextCursor := ""
+	if end < len(filtered) {
+		nextCursor = strconv.Itoa(end)
+	}
+	return ListRunsResult{
+		Items:      items,
+		NextCursor: nextCursor,
+	}, nil
 }
 
 type GetRun struct {

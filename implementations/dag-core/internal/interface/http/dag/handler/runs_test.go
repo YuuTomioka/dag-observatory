@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -67,7 +68,8 @@ func TestListRunsAndGetRunNodeHTTP(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec1.Code, rec1.Body.String())
 	}
 	var listResp struct {
-		Items []usecase.RunView `json:"items"`
+		Items      []usecase.RunView `json:"items"`
+		NextCursor string            `json:"next_cursor"`
 	}
 	if err := json.Unmarshal(rec1.Body.Bytes(), &listResp); err != nil {
 		t.Fatalf("decode list response: %v", err)
@@ -99,6 +101,101 @@ func TestListRunsAndGetRunNodeHTTP(t *testing.T) {
 	}
 }
 
+func TestListRunsSupportsFiltersAndCursor(t *testing.T) {
+	recorder := recorderinfra.NewInMemoryRecorder()
+	base := time.Date(2026, 4, 12, 1, 0, 0, 0, time.UTC)
+	for i, runID := range []string{"run-a", "run-b", "run-c"} {
+		eventTime := base.Add(time.Duration(i) * time.Minute)
+		eventType := "task.completed"
+		if runID == "run-c" {
+			eventType = "task.failed"
+		}
+		event := events.Event{
+			EventID:   runID,
+			EventTime: eventTime,
+			Partition: state.Partition("p-cursor"),
+			Type:      "task.requested",
+		}
+		recorder.RecordEvent(context.Background(), event)
+		recorder.RecordCycleResult(context.Background(), port.CycleResult{
+			Partition: state.Partition("p-cursor"),
+			Event: events.Event{
+				EventID:   runID,
+				EventTime: eventTime,
+				Partition: state.Partition("p-cursor"),
+				Type:      eventType,
+			},
+			Duration: time.Second,
+			Err: func() error {
+				if runID == "run-c" {
+					return errors.New("synthetic fail")
+				}
+				return nil
+			}(),
+		})
+	}
+
+	h := New(Dependencies{
+		AppLog:   applog.New("info", "stdout", nil),
+		ListRuns: &usecase.ListRuns{Reader: recorder},
+	})
+	e := echo.New()
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/runs?partition=p-cursor&status=succeeded&since=2026-04-12T01:00:00Z&until=2026-04-12T01:03:00Z&limit=1&cursor=0",
+		nil,
+	)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := h.ListRuns(c); err != nil {
+		t.Fatalf("list runs handler error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp1 struct {
+		Items      []usecase.RunView `json:"items"`
+		NextCursor string            `json:"next_cursor"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp1); err != nil {
+		t.Fatalf("decode first page: %v", err)
+	}
+	if len(resp1.Items) != 1 || resp1.Items[0].RunID != "run-b" {
+		t.Fatalf("unexpected first page: %#v", resp1)
+	}
+	if resp1.NextCursor != "1" {
+		t.Fatalf("expected next_cursor=1, got %q", resp1.NextCursor)
+	}
+
+	req2 := httptest.NewRequest(
+		http.MethodGet,
+		"/runs?partition=p-cursor&status=succeeded&since=2026-04-12T01:00:00Z&until=2026-04-12T01:03:00Z&limit=1&cursor="+resp1.NextCursor,
+		nil,
+	)
+	rec2 := httptest.NewRecorder()
+	c2 := e.NewContext(req2, rec2)
+	if err := h.ListRuns(c2); err != nil {
+		t.Fatalf("list runs second page handler error: %v", err)
+	}
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec2.Code, rec2.Body.String())
+	}
+	var resp2 struct {
+		Items      []usecase.RunView `json:"items"`
+		NextCursor string            `json:"next_cursor"`
+	}
+	if err := json.Unmarshal(rec2.Body.Bytes(), &resp2); err != nil {
+		t.Fatalf("decode second page: %v", err)
+	}
+	if len(resp2.Items) != 1 || resp2.Items[0].RunID != "run-a" {
+		t.Fatalf("unexpected second page: %#v", resp2)
+	}
+	if resp2.NextCursor != "" {
+		t.Fatalf("expected empty next_cursor on last page, got %q", resp2.NextCursor)
+	}
+}
+
 func TestGetRunReturnsNotFound(t *testing.T) {
 	h := New(Dependencies{
 		AppLog: applog.New("info", "stdout", nil),
@@ -117,6 +214,24 @@ func TestGetRunReturnsNotFound(t *testing.T) {
 	}
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", rec.Code)
+	}
+}
+
+func TestListRunsRejectsInvalidCursor(t *testing.T) {
+	h := New(Dependencies{
+		AppLog:   applog.New("info", "stdout", nil),
+		ListRuns: &usecase.ListRuns{Reader: recorderinfra.NewInMemoryRecorder()},
+	})
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/runs?cursor=abc", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := h.ListRuns(c); err != nil {
+		t.Fatalf("handler error: %v", err)
+	}
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
 	}
 }
 

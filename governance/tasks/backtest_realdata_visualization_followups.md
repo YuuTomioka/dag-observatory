@@ -30,8 +30,13 @@ This backlog starts after that foundation is available or in parallel only when 
 
 ### Prerequisite Gate
 
-- [ ] confirm `dag_visualization_followups.md` Phase 1-12 are complete or interface-stable
-- [ ] confirm correlation hardening scope (Phase 14) is compatible with planned backtest identifiers
+- [x] confirm `dag_visualization_followups.md` Phase 1-12 are complete or interface-stable
+- [x] confirm correlation hardening scope (Phase 14) is compatible with planned backtest identifiers
+
+Gate note (2026-04-12):
+
+- `dag_visualization_followups.md` Phase 1-12 are now complete in this repository state.
+- Backtest identifier scheme (`run_id`, cycle suffix, `partition`, and step `sequence_no`) is compatible with current correlation model; full cross-surface hardening remains tracked under Phase 14.
 
 ### Phase 1: Structural Clarification
 

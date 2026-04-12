@@ -11,6 +11,7 @@ import (
 	"dag-observatory/dag-core/internal/infrastructure/observability/applog"
 	"dag-observatory/dag-core/internal/infrastructure/persistence/tsdb"
 	artifactsinfra "dag-observatory/dag-core/internal/infrastructure/persistence/tsdb/repository/artifacts"
+	dagruntimetsdb "dag-observatory/dag-core/internal/infrastructure/persistence/tsdb/repository/dagruntime"
 	dbbackupsinfra "dag-observatory/dag-core/internal/infrastructure/persistence/tsdb/repository/dbbackups"
 	miniostore "dag-observatory/dag-core/internal/infrastructure/storage/minio"
 	httpif "dag-observatory/dag-core/internal/interface/http"
@@ -47,6 +48,7 @@ func NewEchoContainer(
 
 	var artifactsRepo artifactsrepository.Reader
 	var dbBackupsRepo dbbackupsrepository.Reader
+	var backtestSummaryRepo *dagruntimetsdb.BacktestSummaryRepository
 	var presigner *miniostore.Presigner
 	if cfg.TSDBURL != "" {
 		client, err := tsdb.New(cfg.TSDBURL)
@@ -55,6 +57,7 @@ func NewEchoContainer(
 		}
 		artifactsRepo = artifactsinfra.NewRepository(client)
 		dbBackupsRepo = dbbackupsinfra.NewRepository(client)
+		backtestSummaryRepo = dagruntimetsdb.NewBacktestSummaryRepository(client)
 	}
 	if cfg.MinIOEndpoint != "" {
 		presigner = miniostore.NewPresigner(miniostore.Config{
@@ -75,6 +78,7 @@ func NewEchoContainer(
 	var backfillTimeframeBars *marketdatausecase.BackfillTimeframeBars
 	var postCTraderTicks *ctraderusecase.PostTicksUsecase
 	listTradeResults := &dagruntimeusecase.ListTradeResults{}
+	getEquitySeries := &dagruntimeusecase.GetEquitySeries{}
 	getStrategySummary := &dagruntimeusecase.GetStrategySummary{}
 	runBacktest := &dagruntimeusecase.RunBacktest{
 		RunWorkflow: dagRuntime.Usecase,
@@ -84,7 +88,11 @@ func NewEchoContainer(
 	listRunSteps := &dagruntimeusecase.ListRunSteps{Reader: dagRuntime.RunReader}
 	getRunNode := &dagruntimeusecase.GetRunNode{Reader: dagRuntime.RunReader}
 	compareRuns := &dagruntimeusecase.CompareRuns{Reader: dagRuntime.RunReader}
-	getRunBacktestSummary := &dagruntimeusecase.GetRunBacktestSummary{Reader: dagRuntime.RunReader}
+	getRunBacktestSummary := &dagruntimeusecase.GetRunBacktestSummary{
+		Reader:      dagRuntime.RunReader,
+		SummaryRepo: backtestSummaryRepo,
+		Writer:      backtestSummaryRepo,
+	}
 	if marketData != nil {
 		createSymbol = marketData.CreateSymbol
 		getSymbolByCode = marketData.GetSymbolByCode
@@ -115,6 +123,7 @@ func NewEchoContainer(
 		GetRunBacktestSummary:     getRunBacktestSummary,
 		StateStore:                dagRuntime.StateStore.Store,
 		ListTradeResults:          listTradeResults,
+		GetEquitySeries:           getEquitySeries,
 		GetStrategySummary:        getStrategySummary,
 		ArtifactsRepo:             artifactsRepo,
 		DBBackupsRepo:             dbBackupsRepo,

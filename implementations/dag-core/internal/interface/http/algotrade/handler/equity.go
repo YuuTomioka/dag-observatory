@@ -1,14 +1,10 @@
 package handler
 
 import (
-	"errors"
 	"net/http"
-	"strconv"
 	"strings"
-	"time"
 
 	dagruntimeusecase "dag-observatory/dag-core/internal/application/dagruntime/usecase"
-	"dag-observatory/dag-core/internal/application/dagruntime/view"
 	"dag-observatory/dag-core/internal/domain/algotrade"
 	domainstate "dag-observatory/dag-core/internal/domain/dagruntime/state"
 	"dag-observatory/dag-core/internal/interface/http/algotrade/response"
@@ -17,9 +13,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// ListTrades
-// @Summary List closed trades
-// @Description Returns closed-trade facts for the given runtime partition or run scope. This is a snapshot read path for result confirmation, not an observability event feed.
+// GetEquitySeries
+// @Summary Get equity/drawdown time series
+// @Description Returns equity and drawdown points reconstructed from closed trades in the selected partition or run scope.
 // @Tags algotrade
 // @Produce json
 // @Param partition query string false "Runtime partition"
@@ -28,22 +24,19 @@ import (
 // @Param side query string false "Position side filter (long/short)"
 // @Param from query string false "Exit-time lower bound (RFC3339 or RFC3339Nano, inclusive)"
 // @Param to query string false "Exit-time upper bound (RFC3339 or RFC3339Nano, exclusive)"
-// @Param limit query int false "Max items"
-// @Param offset query int false "Offset"
-// @Success 200 {object} response.ListTradesResponse
+// @Success 200 {object} response.EquitySeriesResponse
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 404 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
 // @Failure 501 {object} dto.ErrorResponse
-// @Router /algotrade/trades [get]
-func (h *Handler) ListTrades(c echo.Context) error {
-	if h.stateStore == nil || h.listTradeResults == nil {
+// @Router /algotrade/equity [get]
+func (h *Handler) GetEquitySeries(c echo.Context) error {
+	if h.stateStore == nil || h.getEquitySeries == nil {
 		return c.JSON(http.StatusNotImplemented, dto.ErrorResponse{
 			Error:  "algotrade read API not configured",
 			Status: "error",
 		})
 	}
-
 	partition := strings.TrimSpace(c.QueryParam("partition"))
 	runID := strings.TrimSpace(c.QueryParam("run_id"))
 	if partition == "" && runID == "" {
@@ -74,7 +67,6 @@ func (h *Handler) ListTrades(c echo.Context) error {
 		}
 		partition = run.Partition
 	}
-
 	fromTime, err := parseOptionalRFC3339(c.QueryParam("from"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
@@ -89,37 +81,19 @@ func (h *Handler) ListTrades(c echo.Context) error {
 			Status: "error",
 		})
 	}
-	limit, err := parseOptionalNonNegativeInt(c.QueryParam("limit"), 0)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:  "limit must be >= 0",
-			Status: "error",
-		})
-	}
-	offset, err := parseOptionalNonNegativeInt(c.QueryParam("offset"), 0)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:  "offset must be >= 0",
-			Status: "error",
-		})
-	}
 
 	txn := h.stateStore.BeginTxn(domainstate.Partition(partition))
 	defer txn.Rollback()
-
 	closedTrades, ok := domainstate.Get(txn, algotrade.StateClosedTrades)
 	if !ok {
 		closedTrades = algotrade.ClosedTradesState{}
 	}
-
-	items, err := h.listTradeResults.Execute(c.Request().Context(), dagruntimeusecase.ListTradeResultsRequest{
+	series, err := h.getEquitySeries.Execute(c.Request().Context(), dagruntimeusecase.GetEquitySeriesRequest{
 		ClosedTrades: closedTrades,
 		From:         fromTime,
 		To:           toTime,
 		Symbol:       strings.TrimSpace(c.QueryParam("symbol")),
 		Side:         strings.TrimSpace(c.QueryParam("side")),
-		Limit:        limit,
-		Offset:       offset,
 	})
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
@@ -128,67 +102,20 @@ func (h *Handler) ListTrades(c echo.Context) error {
 		})
 	}
 
-	resp := response.ListTradesResponse{
-		Partition: partition,
-		RunID:     runID,
-		Limit:     limit,
-		Offset:    offset,
-		Items:     make([]response.TradeItem, 0, len(items)),
+	resp := response.EquitySeriesResponse{
+		Partition:   partition,
+		RunID:       runID,
+		MaxDrawdown: series.MaxDrawdown,
+		TotalNetPnL: series.TotalNetPnL,
+		Points:      make([]response.EquityPoint, 0, len(series.Points)),
 	}
-	for _, item := range items {
-		resp.Items = append(resp.Items, mapTradeItem(item))
+	for _, point := range series.Points {
+		resp.Points = append(resp.Points, response.EquityPoint{
+			Time:     point.Time,
+			TradeID:  point.TradeID,
+			Equity:   point.Equity,
+			Drawdown: point.Drawdown,
+		})
 	}
 	return c.JSON(http.StatusOK, resp)
-}
-
-func parseOptionalNonNegativeInt(raw string, defaultValue int) (int, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return defaultValue, nil
-	}
-	parsed, err := strconv.Atoi(raw)
-	if err != nil {
-		return 0, err
-	}
-	if parsed < 0 {
-		return 0, errors.New("must be >= 0")
-	}
-	return parsed, nil
-}
-
-func parseOptionalRFC3339(raw string) (*time.Time, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return nil, nil
-	}
-	if parsed, err := time.Parse(time.RFC3339Nano, raw); err == nil {
-		p := parsed.UTC()
-		return &p, nil
-	}
-	parsed, err := time.Parse(time.RFC3339, raw)
-	if err != nil {
-		return nil, err
-	}
-	p := parsed.UTC()
-	return &p, nil
-}
-
-func mapTradeItem(item view.TradeView) response.TradeItem {
-	return response.TradeItem{
-		TradeID:         item.TradeID,
-		IntentID:        item.IntentID,
-		PositionID:      item.PositionID,
-		Symbol:          item.Symbol,
-		Side:            item.Side,
-		Size:            item.Size,
-		EntryTime:       item.EntryTime,
-		ExitTime:        item.ExitTime,
-		EntryPriceRaw:   item.EntryPriceRaw,
-		ExitPriceRaw:    item.ExitPriceRaw,
-		NetPnL:          item.NetPnL,
-		ExitReason:      item.ExitReason,
-		WorkflowName:    item.WorkflowName,
-		WorkflowVersion: item.WorkflowVersion,
-		ParameterSetID:  item.ParameterSetID,
-	}
 }

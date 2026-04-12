@@ -43,6 +43,19 @@ type ArtifactUploadSession struct {
 	UploadedAt    pgtype.Timestamptz `json:"uploaded_at"`
 }
 
+type BacktestRunSummary struct {
+	RunID             string             `json:"run_id"`
+	PartitionKey      string             `json:"partition_key"`
+	TradeCount        int64              `json:"trade_count"`
+	WinRate           float64            `json:"win_rate"`
+	TotalNetPnl       float64            `json:"total_net_pnl"`
+	MaxDrawdown       float64            `json:"max_drawdown"`
+	EquityPointCount  int64              `json:"equity_point_count"`
+	HasStrategyFields bool               `json:"has_strategy_fields"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
 type DbBackup struct {
 	BackupID       pgtype.UUID        `json:"backup_id"`
 	Env            string             `json:"env"`

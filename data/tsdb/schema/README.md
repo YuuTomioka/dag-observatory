@@ -17,7 +17,9 @@ data/tsdb/schema/
 │  ├─ 000010_init_core_tables.sql
 │  ├─ 000020_create_db_backups.sql
 │  ├─ 000030_create_symbol.sql
-│  └─ 000040_create_tick.sql
+│  ├─ 000040_create_tick.sql
+│  ├─ 000050_create_timeframe_bar.sql
+│  └─ 000060_create_backtest_run_summaries.sql
 └─ seed/
    ├─ 000010_reference_symbols.sql
    └─ 000020_sample_ticks.sql

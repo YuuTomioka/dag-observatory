@@ -16,6 +16,7 @@ type Querier interface {
 	CreateSymbol(ctx context.Context, arg CreateSymbolParams) (Symbol, error)
 	DeleteTimeframeBarsBySymbolTimeframeAndRange(ctx context.Context, arg DeleteTimeframeBarsBySymbolTimeframeAndRangeParams) error
 	GetArtifactByID(ctx context.Context, artifactID pgtype.UUID) (Artifact, error)
+	GetBacktestRunSummaryByRunID(ctx context.Context, runID string) (BacktestRunSummary, error)
 	GetDBBackupByID(ctx context.Context, backupID pgtype.UUID) (DbBackup, error)
 	GetLatestTickBySymbol(ctx context.Context, symbolID int64) (Tick, error)
 	GetLatestTimeframeBarBySymbolAndTimeframe(ctx context.Context, arg GetLatestTimeframeBarBySymbolAndTimeframeParams) (TimeframeBar, error)
@@ -42,6 +43,7 @@ type Querier interface {
 	MarkUploadSessionUploaded(ctx context.Context, arg MarkUploadSessionUploadedParams) error
 	UpdateTaskAttemptCompleted(ctx context.Context, arg UpdateTaskAttemptCompletedParams) error
 	UpdateTaskAttemptFailed(ctx context.Context, arg UpdateTaskAttemptFailedParams) error
+	UpsertBacktestRunSummary(ctx context.Context, arg UpsertBacktestRunSummaryParams) error
 	UpsertTaskAttemptStarted(ctx context.Context, arg UpsertTaskAttemptStartedParams) error
 	UpsertTick(ctx context.Context, arg UpsertTickParams) error
 }

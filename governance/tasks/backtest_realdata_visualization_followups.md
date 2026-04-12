@@ -65,8 +65,8 @@ This backlog starts after that foundation is available or in parallel only when 
 ### Phase 6: Backtest Result Model
 
 - [x] define minimum run-level result projection (trade_count, win_rate, net pnl, max drawdown, equity series summary)
-- [ ] persist or reconstruct this projection through repository-approved SQL/query assets
-- [ ] keep SQL assets as source of truth when durable schema/query changes are needed
+- [x] persist or reconstruct this projection through repository-approved SQL/query assets
+- [x] keep SQL assets as source of truth when durable schema/query changes are needed
 
 ### Phase 7: Compare API
 
@@ -76,9 +76,9 @@ This backlog starts after that foundation is available or in parallel only when 
 
 ### Phase 8: Visualization API Extension
 
-- [ ] extend `/algotrade/trades` for run-scoped and range-scoped queries with paging/filter support
-- [ ] add API(s) for equity/drawdown time-series visualization data
-- [ ] align response shape with current minimum UI and avoid UI-owned data truth
+- [x] extend `/algotrade/trades` for run-scoped and range-scoped queries with paging/filter support
+- [x] add API(s) for equity/drawdown time-series visualization data
+- [x] align response shape with current minimum UI and avoid UI-owned data truth
 
 ### Phase 9: UI Compare View
 

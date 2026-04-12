@@ -73,6 +73,88 @@ const docTemplate = `{
                 }
             }
         },
+        "/algotrade/equity": {
+            "get": {
+                "description": "Returns equity and drawdown points reconstructed from closed trades in the selected partition or run scope.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "algotrade"
+                ],
+                "summary": "Get equity/drawdown time series",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Runtime partition",
+                        "name": "partition",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Run ID used to resolve partition scope when partition is omitted",
+                        "name": "run_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Symbol filter",
+                        "name": "symbol",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Position side filter (long/short)",
+                        "name": "side",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exit-time lower bound (RFC3339 or RFC3339Nano, inclusive)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exit-time upper bound (RFC3339 or RFC3339Nano, exclusive)",
+                        "name": "to",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.EquitySeriesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/algotrade/result-reflection:run": {
             "post": {
                 "description": "Triggers the configured runtime workflow as a result-reflection entrypoint. Intended for manual submit/fill/result-reflection verification with explicit partition control.",
@@ -180,7 +262,7 @@ const docTemplate = `{
         },
         "/algotrade/trades": {
             "get": {
-                "description": "Returns closed-trade facts for the given runtime partition. This is a snapshot read path for result confirmation, not an observability event feed.",
+                "description": "Returns closed-trade facts for the given runtime partition or run scope. This is a snapshot read path for result confirmation, not an observability event feed.",
                 "produces": [
                     "application/json"
                 ],
@@ -193,8 +275,49 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Runtime partition",
                         "name": "partition",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Run ID used to resolve partition scope when partition is omitted",
+                        "name": "run_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Symbol filter",
+                        "name": "symbol",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Position side filter (long/short)",
+                        "name": "side",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exit-time lower bound (RFC3339 or RFC3339Nano, inclusive)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exit-time upper bound (RFC3339 or RFC3339Nano, exclusive)",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max items",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -206,6 +329,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -1781,6 +1910,46 @@ const docTemplate = `{
                 }
             }
         },
+        "response.EquityPoint": {
+            "type": "object",
+            "properties": {
+                "drawdown": {
+                    "type": "number"
+                },
+                "equity": {
+                    "type": "number"
+                },
+                "time": {
+                    "type": "string"
+                },
+                "trade_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.EquitySeriesResponse": {
+            "type": "object",
+            "properties": {
+                "max_drawdown": {
+                    "type": "number"
+                },
+                "partition": {
+                    "type": "string"
+                },
+                "points": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/response.EquityPoint"
+                    }
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "total_net_pnl": {
+                    "type": "number"
+                }
+            }
+        },
         "response.GetSummaryResponse": {
             "type": "object",
             "properties": {
@@ -1870,7 +2039,16 @@ const docTemplate = `{
                         "$ref": "#/definitions/response.TradeItem"
                     }
                 },
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
                 "partition": {
+                    "type": "string"
+                },
+                "run_id": {
                     "type": "string"
                 }
             }

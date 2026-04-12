@@ -45,6 +45,7 @@ type Dependencies struct {
 	GetRunBacktestSummary *usecase.GetRunBacktestSummary
 	StateStore            domainstate.Store
 	ListTradeResults      *usecase.ListTradeResults
+	GetEquitySeries       *usecase.GetEquitySeries
 	GetStrategySummary    *usecase.GetStrategySummary
 	ArtifactsRepo         artifactsrepository.Reader
 	Presigner             *miniostore.Presigner
@@ -77,6 +78,8 @@ func RegisterRoutes(e *echo.Echo, d Dependencies) {
 	ath := algotradehandler.New(algotradehandler.Dependencies{
 		StateStore:         d.StateStore,
 		ListTradeResults:   d.ListTradeResults,
+		GetEquitySeries:    d.GetEquitySeries,
+		GetRun:             d.GetRun,
 		GetStrategySummary: d.GetStrategySummary,
 		RunWorkflow:        d.RunWorkflow,
 		RunBacktest:        d.RunBacktest,

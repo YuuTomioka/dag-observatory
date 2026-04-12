@@ -353,6 +353,32 @@ definitions:
       status:
         type: string
     type: object
+  response.EquityPoint:
+    properties:
+      drawdown:
+        type: number
+      equity:
+        type: number
+      time:
+        type: string
+      trade_id:
+        type: string
+    type: object
+  response.EquitySeriesResponse:
+    properties:
+      max_drawdown:
+        type: number
+      partition:
+        type: string
+      points:
+        items:
+          $ref: '#/definitions/response.EquityPoint'
+        type: array
+      run_id:
+        type: string
+      total_net_pnl:
+        type: number
+    type: object
   response.GetSummaryResponse:
     properties:
       partition:
@@ -410,7 +436,13 @@ definitions:
         items:
           $ref: '#/definitions/response.TradeItem'
         type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
       partition:
+        type: string
+      run_id:
         type: string
     type: object
   response.MarketdataInput:
@@ -767,6 +799,61 @@ paths:
       summary: Run real-data backtest workflow
       tags:
       - algotrade
+  /algotrade/equity:
+    get:
+      description: Returns equity and drawdown points reconstructed from closed trades
+        in the selected partition or run scope.
+      parameters:
+      - description: Runtime partition
+        in: query
+        name: partition
+        type: string
+      - description: Run ID used to resolve partition scope when partition is omitted
+        in: query
+        name: run_id
+        type: string
+      - description: Symbol filter
+        in: query
+        name: symbol
+        type: string
+      - description: Position side filter (long/short)
+        in: query
+        name: side
+        type: string
+      - description: Exit-time lower bound (RFC3339 or RFC3339Nano, inclusive)
+        in: query
+        name: from
+        type: string
+      - description: Exit-time upper bound (RFC3339 or RFC3339Nano, exclusive)
+        in: query
+        name: to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.EquitySeriesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get equity/drawdown time series
+      tags:
+      - algotrade
   /algotrade/result-reflection:run:
     post:
       consumes:
@@ -840,15 +927,42 @@ paths:
       - algotrade
   /algotrade/trades:
     get:
-      description: Returns closed-trade facts for the given runtime partition. This
-        is a snapshot read path for result confirmation, not an observability event
-        feed.
+      description: Returns closed-trade facts for the given runtime partition or run
+        scope. This is a snapshot read path for result confirmation, not an observability
+        event feed.
       parameters:
       - description: Runtime partition
         in: query
         name: partition
-        required: true
         type: string
+      - description: Run ID used to resolve partition scope when partition is omitted
+        in: query
+        name: run_id
+        type: string
+      - description: Symbol filter
+        in: query
+        name: symbol
+        type: string
+      - description: Position side filter (long/short)
+        in: query
+        name: side
+        type: string
+      - description: Exit-time lower bound (RFC3339 or RFC3339Nano, inclusive)
+        in: query
+        name: from
+        type: string
+      - description: Exit-time upper bound (RFC3339 or RFC3339Nano, exclusive)
+        in: query
+        name: to
+        type: string
+      - description: Max items
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:
@@ -858,6 +972,10 @@ paths:
             $ref: '#/definitions/response.ListTradesResponse'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
         "500":

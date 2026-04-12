@@ -21,7 +21,9 @@ data/tsdb/query/
 ├─ 000050_artifact_upload_sessions.sql
 ├─ 000060_db_backups.sql
 ├─ 000070_marketdata_symbol.sql
-└─ 000080_marketdata_tick.sql
+├─ 000080_marketdata_tick.sql
+├─ 000090_marketdata_timeframe_bar.sql
+└─ 000100_backtest_run_summaries.sql
 ```
 
 ## Validation

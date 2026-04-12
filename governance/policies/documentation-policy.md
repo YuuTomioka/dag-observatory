@@ -41,3 +41,11 @@ Temporary or migration-era work context should go to `governance/tasks/`.
 Disposable runtime output, caches, and local observation files should go to ignored `var/` instead of implementation-owned paths where practical.
 
 When a document becomes durable, move or rewrite it into the proper permanent location.
+
+## Governance Lifecycle Rule
+
+- `governance/policies/` should contain only durable repository-wide operating rules
+- `governance/contracts/` should remain limited to stable reusable handoff surfaces
+- `governance/guides/` should contain repeated human-facing operating guidance and should be promoted to `governance/policies/` only when the guidance becomes a repository-wide rule
+- `governance/tasks/` should remain temporary shared context and should be promoted, retired, or rewritten once the temporary context is no longer needed
+- directory `README.md` files under `governance/` should be kept aligned with the actual role and contents of each directory

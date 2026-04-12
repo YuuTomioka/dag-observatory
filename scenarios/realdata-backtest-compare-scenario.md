@@ -1,34 +1,32 @@
-# Real-Data Backtest Compare Scenario
+# 実データバックテスト比較シナリオ
 
-## Purpose
+## 目的
 
-This document defines a reproducible validation flow for:
+この文書は、次の流れを再現可能な形で検証するためのシナリオです。
 
-- running a period backtest with real timeframe-bar data
-- comparing two backtest runs
-- inspecting run and node-level differences from the minimum UI
+- 実データの timeframe-bar を使った period backtest 実行
+- 2 つの backtest run の比較
+- minimum UI を使った run 差分の確認
 
-For the promoted integrated flow including normal/skip/fail/retry and JSONL replay checks, use:
+normal、skip、fail、retry、JSONL replay まで含む統合導線は、`scenarios/run-inspection-backtest-integrated-scenario.md` を使います。
 
-- `scenarios/run-inspection-backtest-integrated-scenario.md`
+## 前提条件
 
-## Preconditions
+- ローカルスタックが起動していること: `make dev-up`
+- TSDB migration が適用済みであること: `data/tsdb/README.md`
+- `dag-core-api` が marketdata repository を利用できる設定で起動していること
+- 対象 symbol、timeframe、range に対する historical timeframe bar が存在すること
 
-- local stack is up (`make dev-up`)
-- TSDB migrations are applied (`data/tsdb/README.md`)
-- `dag-core-api` is running with marketdata repositories configured
-- historical timeframe bars exist for the target symbol/timeframe/range
+### 最小 fixture 準備
 
-### Minimum Fixture Setup
-
-Apply seed SQL (includes `USDJPY` symbol and `2026-04-01` M1 bars):
+seed SQL を適用します。`USDJPY` と `2026-04-01` の M1 bar を含みます。
 
 ```bash
 cd /home/user/shiq/dag-observatory
 make tsdb-seed
 ```
 
-Optional gap fixture for `strict` / `skip` behavior checks:
+`strict` / `skip` の gap behavior を確認したい場合は、必要に応じて次を実行します。
 
 ```sql
 DELETE FROM timeframe_bar
@@ -38,9 +36,9 @@ WHERE symbol_id = (SELECT id FROM symbol WHERE code = 'USDJPY')
   AND open_time <  '2026-04-01T02:10:00Z'::timestamptz;
 ```
 
-## Input Metadata Rule
+## 入力メタデータ方針
 
-Each backtest request should include reproducibility metadata in addition to range and symbol:
+各 backtest request には、range や symbol に加えて再現性のための metadata を含めます。
 
 - `workflow_name`
 - `workflow_version`
@@ -49,17 +47,15 @@ Each backtest request should include reproducibility metadata in addition to ran
 - `timezone`
 - `gap_handling`
 
-These values are returned by the backtest API response and should be preserved in test notes.
+これらは backtest API response にも返るため、検証メモに保持します。
 
-## Validation Flow
+## 検証手順
 
-### Step 1. Run base backtest
+### 1. base backtest を実行する
 
-Call:
+`POST /algotrade/backtests:run` を呼びます。
 
-- `POST /algotrade/backtests:run`
-
-Required fields:
+必須項目:
 
 - `partition`
 - `symbol_code`
@@ -67,7 +63,7 @@ Required fields:
 - `from`
 - `to`
 
-Recommended metadata:
+推奨 metadata:
 
 - `run_id`
 - `workflow_name`
@@ -81,81 +77,77 @@ Recommended metadata:
 - `slippage_bps`
 - `min_lot`
 
-Expected outcome:
+期待結果:
 
-- HTTP `200` or `202`
-- response includes base `run_id`
-- response includes `cycle_count` and `window_size_bars`
+- HTTP `200` または `202`
+- response に base `run_id` が含まれる
+- response に `cycle_count` と `window_size_bars` が含まれる
 
-### Step 2. Run target backtest with changed assumptions
+### 2. 条件を変えた target backtest を実行する
 
-Call the same endpoint with either:
+同じ endpoint を使い、次のいずれかを変更して実行します。
 
-- different execution assumptions (`fee_bps`, `slippage_bps`, `spread_bps`, `min_lot`)
-- different parameter metadata (`parameter_set_id` or workflow version)
+- 実行前提: `fee_bps`, `slippage_bps`, `spread_bps`, `min_lot`
+- パラメータ metadata: `parameter_set_id`, `workflow_version`
 
-Expected outcome:
+期待結果:
 
-- second run has a different `run_id`
-- both runs are queryable through run read APIs
+- 2 本目の run が別の `run_id` を持つ
+- 2 つの run を run read API から参照できる
 
-### Step 3. Compare runs
+### 3. run compare API を確認する
 
-Call:
+`GET /runs/compare?base_run_id=<base>&target_run_id=<target>` を呼びます。
 
-- `GET /runs/compare?base_run_id=<base>&target_run_id=<target>`
+期待結果:
 
-Expected checks:
+- `summary_delta` が存在する
+- `state_field_deltas` が存在する
+- 少なくとも 1 つ以上の changed field が見える
 
-- `summary_delta` is present
-- `state_field_deltas` is present
-- changed fields are visible for at least one comparison target
+### 4. minimum UI で確認する
 
-### Step 4. Inspect in minimum UI
+`GET /runs/ui?run_id=<base>&target_run_id=<target>` を開きます。
 
-Open:
+期待結果:
 
-- `GET /runs/ui?run_id=<base>&target_run_id=<target>`
+- run timeline を確認できる
+- compare target selector が表示される
+- detail pane に `Run Compare` section が出る
 
-Expected checks:
+### 5. summary と step 詳細を直接確認する
 
-- run timeline remains available
-- compare target selector is populated
-- detail pane shows `Run Compare` section with delta fields
-
-### Step 5. Verify summary and steps directly
-
-Call:
+次を呼びます。
 
 - `GET /runs/<run_id>/steps`
 - `GET /runs/<run_id>/steps/<sequence_no>`
 - `GET /algotrade/summary?partition=<partition>`
 
-Expected checks:
+期待結果:
 
-- step order and statuses are visible
-- summary remains coherent with compare output direction
+- step の順序と status を確認できる
+- summary が compare output の方向と整合している
 
-### Step 6. Verify success/failure/skip/retry signals
+### 6. success / failure / skip / retry の signal を確認する
 
-Run at least two compare pairs that include:
+少なくとも次を含む比較対象を用意します。
 
-- one mostly-success run pair
-- one pair where target includes failure/skip behavior
-- one pair where retry count differs
+- mostly-success な run pair
+- target 側に failure または skip を含む pair
+- retry count が異なる pair
 
-Concrete API checks:
+具体的な確認項目:
 
-- `GET /runs/compare?...` contains:
+- `GET /runs/compare?...` に次が含まれる
   - `summary_delta.failed_step_delta`
   - `summary_delta.skipped_step_delta`
   - `summary_delta.succeeded_step_delta`
   - `summary_delta.retry_count_delta`
-- when assumptions/parameter set differ, `state_field_deltas` includes changed summary fields such as:
+- assumption や parameter set が異なる場合、`state_field_deltas` に次のような changed field が含まれる
   - `strategy_summary.trade_count`
   - `strategy_summary.total_net_pnl`
 
-## Suggested API Commands
+## 参考コマンド
 
 ```bash
 # base
@@ -205,3 +197,17 @@ curl -s -X POST http://localhost:8080/algotrade/backtests:run \
 # compare
 curl -s "http://localhost:8080/runs/compare?base_run_id=bt-base-001&target_run_id=bt-target-001" | jq
 ```
+
+## 観測確認点
+
+- compare API の差分と UI 上の表示が整合していること
+- run ごとの step と summary が再現可能に読めること
+- success / failure / skip / retry の差分が API 上で確認できること
+
+## 更新条件
+
+次のいずれかが変わったときに更新します。
+
+- backtest compare の推奨導線
+- 最低限確認すべき API
+- 再現に必要な fixture や metadata 方針

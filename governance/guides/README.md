@@ -20,6 +20,15 @@
 - 一時的な作業文脈は `governance/tasks/`
 - 検証導線や代表フローは `scenarios/`
 
+## 現在の主なガイド
+
+- `document-routing-guide.md`
+- `change-intake-and-handoff-guide.md`
+- `scenario-usage-guide.md`
+- `task-writing-guide.md`
+- `codex-working-guide.md`
+- `review-flow-guide.md`
+
 ## 命名方針
 
 - ガイド名は対象と用途が分かる形にする

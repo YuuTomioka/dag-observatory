@@ -1,131 +1,142 @@
-# Representative Scenario
+# 代表シナリオ
 
-## Purpose
+## 目的
 
-This document defines the repository's representative end-to-end validation flow.
+この文書は、このリポジトリにおける代表的な end-to-end 検証導線を定義します。
 
-The scenario is intentionally concrete enough to run as a smoke test, while remaining reusable for derivative projects.
+smoke test として実行できる具体性を持ちながら、派生先でも再利用しやすい形を保つことを目的とします。
 
-## Representative As-Is Scenario
+## 対象フロー
 
-The current representative flow is **marketdata timeframe-bar backfill with workflow execution**:
+現在の代表フローは、**marketdata timeframe-bar backfill を workflow 実行する流れ**です。
 
-1. a caller submits a backfill request
-2. the API translates the request into runtime events
-3. task requests are published for asynchronous execution
-4. worker-side processing emits result events
-5. runtime consumes result events and advances state
-6. telemetry and time-series records make run progress observable
+流れの全体像:
 
-This scenario validates both execution correctness and cross-signal observability.
+1. 呼び出し元が backfill リクエストを送る
+2. API がその要求を runtime event に変換する
+3. 非同期実行のための task request が publish される
+4. worker 側の処理が result event を発行する
+5. runtime が result event を消費して state を進める
+6. telemetry と時系列データにより進行状況が観測可能になる
 
-Related scenario:
+このシナリオは、実行の正しさと observability の相関確認を同時に検証します。
 
-- `scenarios/realdata-backtest-compare-scenario.md` for period backtest and run-to-run comparison flow
-- `scenarios/run-inspection-backtest-integrated-scenario.md` for unified run-inspection + backtest-compare + JSONL replay verification
+関連シナリオ:
 
-## Entrypoint Priority
+- `scenarios/realdata-backtest-compare-scenario.md`
+- `scenarios/run-inspection-backtest-integrated-scenario.md`
 
-When both feature-local and generic runtime entrypoints exist, use this order:
+## 前提条件
 
-1. feature-local direct endpoint for immediate domain results
-2. feature-local workflow endpoint for namespaced workflow execution
-3. generic runtime endpoint only when feature-local workflow entrypoints are unavailable or runtime-level operation is intentional
+- ローカルスタックが起動していること: `make dev-up`
+- migration と schema の適用が完了していること: `data/tsdb/README.md`
+- API と worker が正常に起動していること
+- observability サービス群が到達可能であること
+  - collector
+  - Loki
+  - Tempo
+  - Grafana
 
-For marketdata timeframe-bar backfill:
+## 推奨エントリポイント
+
+feature-local な endpoint と generic runtime endpoint が共存する場合は、次の優先順で使います。
+
+1. 即時にドメイン結果を得るための feature-local direct endpoint
+2. namespaced workflow 実行のための feature-local workflow endpoint
+3. feature-local endpoint が無い場合、または runtime-level operation が意図されている場合のみ generic runtime endpoint
+
+marketdata timeframe-bar backfill に対する対応:
 
 - primary direct entrypoint: `POST /marketdata/timeframe-bars:backfill`
 - primary workflow entrypoint: `POST /marketdata/timeframe-bars:backfill-workflow`
-- generic runtime entrypoint (fallback): `POST /dag/run`
+- fallback runtime entrypoint: `POST /dag/run`
 
-## Precondition Checklist
+## 検証手順
 
-Before running the scenario:
+### 1. workflow backfill request を送る
 
-- local stack is up (`make dev-up`)
-- migration and schema setup are complete (`data/tsdb/README.md`)
-- API and worker services are healthy
-- observability services (collector, Loki, Tempo, Grafana) are reachable
+`POST /marketdata/timeframe-bars:backfill-workflow` を使い、時間範囲を bounded にし、mode を明示して送ります。
 
-## Validation Flow
+期待結果:
 
-### Step 1. Submit workflow backfill request
+- response に run identifier が含まれる
+- 重い処理を同期実行せずに request が受理される
 
-Use `POST /marketdata/timeframe-bars:backfill-workflow` with a bounded time range and explicit mode.
+### 2. 非同期 task/event の進行を確認する
 
-Expected immediate outcome:
+task request と result event が runtime model に沿って進行することを確認します。
 
-- response includes a run identifier
-- request is accepted without synchronous heavy processing
-
-### Step 2. Confirm asynchronous task/event progression
-
-Confirm that task request and result events progress through the runtime model.
-
-Representative event progression:
+代表的な event progression:
 
 - `task.requested`
-- `task.completed` or `task.failed`
+- `task.completed` または `task.failed`
 
-Expected outcome:
+期待結果:
 
-- run state advances consistently with consumed result events
+- consumed result event に応じて run state が一貫して進む
 
-### Step 3. Confirm data-side effects
+### 3. データ書き込み結果を確認する
 
-Verify that expected timeframe-bar outputs are written for the requested symbol/timeframe/range.
+指定した symbol、timeframe、range に対する timeframe-bar 出力が書き込まれたことを確認します。
 
-Expected outcome:
+期待結果:
 
-- durable records exist in the time-series store
-- write shape matches requested mode semantics
+- 時系列ストアに durable record が存在する
+- write shape が指定 mode の意味論と一致する
 
-### Step 4. Confirm observability correlation
+### 4. observability の相関を確認する
 
-Verify cross-signal correlation by run and trace context.
+run と trace context によって cross-signal correlation が取れることを確認します。
 
-Expected checks:
+確認点:
 
-- intent logs are searchable by event type and `dag.run_id`
-- traces can be reached from log correlation fields (`trace_id`, `span_id`)
-- errors/timeouts surface as explicit failure semantics in traces and logs
-- relevant HTTP and runtime metrics increase
+- intent log を event type と `dag.run_id` で検索できる
+- log の相関フィールド `trace_id`, `span_id` から trace へ辿れる
+- error や timeout が trace と log 上で明示的な failure semantic として現れる
+- 関連する HTTP metric と runtime metric が増加する
 
-### Step 5. Confirm artifact/outbox consistency when applicable
+### 5. artifact/outbox の整合を必要時に確認する
 
-For workflows that emit artifacts:
+artifact を出力する workflow の場合は、次も確認します。
 
-- artifact metadata is written after worker-side completion
-- outbox publication follows database confirmation
-- presigned retrieval flow is available when artifact storage is enabled
+- worker 完了後に artifact metadata が書かれる
+- outbox publication が database confirmation の後に進む
+- artifact storage を有効にしている場合は presigned retrieval flow が利用できる
 
-## Smoke Test Modes
+## 観測確認点
 
-The representative scenario should cover multiple execution outcomes over time:
+- 非同期 task/event flow が end-to-end で観測できること
+- data-side effect が run と対応づけて確認できること
+- log、trace、metric が run context で相互に辿れること
+- failure semantic が明示的で検索可能であること
 
-- success path
-- failure path
-- timeout path
-- skip path
+## 受け入れ条件
 
-If a mode is not currently reproducible in a stable automated way, record that gap in task-level notes under `governance/tasks/` and keep this scenario document as the stable target shape.
+次がすべて満たされた場合、この代表シナリオは検証済みとみなします。
 
-## Acceptance Checklist
+- 推奨エントリポイントの優先順に従っている
+- 非同期 task/event flow を end-to-end で観測できる
+- 指定 range に対する data-side effect を確認できる
+- log、trace、metric が run context で相互参照できる
+- failure semantic が明示的で検索できる
 
-A representative run is considered validated when all are true:
+## 補足
 
-- recommended entrypoint priority is followed
-- asynchronous task/event flow is observable end-to-end
-- data-side effects are confirmed for the requested range
-- logs/traces/metrics are mutually correlatable by run context
-- failure semantics are explicit and searchable
+時間経過とともに次の execution outcome をカバーできるのが望ましいです。
 
-## Maintenance Rule
+- success
+- failure
+- timeout
+- skip
 
-Update this document when one of the following changes:
+安定して再現できないものがある場合は、`governance/tasks/` に gap を記録し、この文書は安定した目標形として保ちます。
 
-- recommended entry flow
-- representative repository use case
-- operational validation steps
+## 更新条件
 
-Repository-level structural changes still belong first in `blueprint/` and policy changes in `governance/policies/`.
+次のいずれかが変わったときに更新します。
+
+- 推奨エントリフロー
+- このリポジトリの代表ユースケース
+- 運用上の検証手順
+
+構造変更は `blueprint/`、ポリシー変更は `governance/policies/` を先に更新します。

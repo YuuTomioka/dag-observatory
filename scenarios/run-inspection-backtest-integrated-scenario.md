@@ -1,123 +1,135 @@
-# Run Inspection And Backtest Integrated Scenario
+# Run Inspection と Backtest の統合シナリオ
 
-## Purpose
+## 目的
 
-This document unifies:
+この文書は、次の確認を 1 つの再現可能な流れに統合したシナリオです。
 
-- run inspection (normal/skip/fail/retry)
-- real-data backtest compare
-- minimum UI verification
-- JSONL replay verification
+- run inspection
+- normal / skip / fail / retry の確認
+- 実データバックテスト比較
+- minimum UI の確認
+- JSONL replay の確認
 
-It is the promoted reproducible flow for `implementations/dag-core` run observability.
+`implementations/dag-core` の run observability を確認するための昇格済みシナリオとして扱います。
 
-## Preconditions
+## 前提条件
 
-- local stack is up (`make dev-up`)
-- `dag-core-api` is running
-- timeframe bars exist for the test range
-- optional JSONL path is enabled when replay checks are needed:
-  - `DAGRUNTIME_OBSERVATION_JSONL_PATH=<path>`
+- ローカルスタックが起動していること: `make dev-up`
+- `dag-core-api` が起動していること
+- 対象 range の timeframe bar が存在すること
+- JSONL replay を確認する場合は `DAGRUNTIME_OBSERVATION_JSONL_PATH=<path>` を有効にしていること
 
-### Minimum Data Setup
+### 最小データ準備
 
 ```bash
 cd /home/user/shiq/dag-observatory
 make tsdb-seed
 ```
 
-The seed set includes:
+seed には次が含まれます。
 
-- `USDJPY` symbol master row
-- `m1` timeframe bars for `2026-04-01T00:00:00Z` to `2026-04-01T05:59:00Z`
+- `USDJPY` symbol master
+- `2026-04-01T00:00:00Z` から `2026-04-01T05:59:00Z` までの `m1` timeframe bar
 
-## Flow
+## 検証手順
 
-### 1. Create two comparable backtest runs
+### 1. 比較可能な backtest run を 2 本作る
 
-Run:
+次を実行します。
 
-- `POST /algotrade/backtests:run` (base)
-- `POST /algotrade/backtests:run` (target, changed cost/parameter assumptions)
+- `POST /algotrade/backtests:run` を base 条件で実行
+- `POST /algotrade/backtests:run` を changed cost または parameter 条件で実行
 
-Capture:
+保持する値:
 
 - `run_id`
 - `partition`
-- `workflow_name`, `workflow_version`, `parameter_set_id`
-- `source`, `timezone`, `gap_handling`
+- `workflow_name`
+- `workflow_version`
+- `parameter_set_id`
+- `source`
+- `timezone`
+- `gap_handling`
 
-### 2. Verify run list/detail/step path
+期待結果:
 
-Check:
+- 比較可能な 2 つの run が揃う
+- run ごとの metadata を後続 API で追える
+
+### 2. run list / detail / step 導線を確認する
+
+次を確認します。
 
 - `GET /runs?partition=<partition>&limit=200`
 - `GET /runs/<run_id>`
 - `GET /runs/<run_id>/steps`
 - `GET /runs/<run_id>/steps/<sequence_no>`
 
-Validation points:
+期待結果:
 
-- step order uses `sequence_no`
-- node detail includes correlation IDs:
-  - `partition`, `intent_id`, `execution_id`, `trade_id`
+- step order が `sequence_no` で読める
+- node detail に correlation ID が含まれる
+  - `partition`
+  - `intent_id`
+  - `execution_id`
+  - `trade_id`
 
-### 3. Verify compare and visualization APIs
+### 3. compare と visualization API を確認する
 
-Check:
+次を確認します。
 
 - `GET /runs/compare?base_run_id=<base>&target_run_id=<target>`
 - `GET /algotrade/trades?run_id=<base>&limit=100&offset=0`
 - `GET /algotrade/equity?run_id=<base>`
 - `GET /runs/<run_id>/backtest-summary`
 
-Validation points:
+期待結果:
 
-- compare has summary deltas and changed fields
-- trades/equity are run-scoped and reproducible from the same partition state
+- compare に summary delta と changed field が出る
+- trades と equity が run scope で再現可能に読める
 
-### 4. Verify UI path with bounded fetch
+### 4. UI 導線を bounded fetch 前提で確認する
 
-Open:
+`/runs/ui?partition=<partition>&run_id=<base>&target_run_id=<target>` を開きます。
 
-- `/runs/ui?partition=<partition>&run_id=<base>&target_run_id=<target>`
+期待結果:
 
-Validation points:
+- compare selector と diff summary が見える
+- UI が bounded run fetch と bounded step rendering を前提に動いている
 
-- compare selector and diff summary are visible
-- UI uses bounded run fetch (`limit`) and bounded step rendering
+### 5. normal / skip / fail / retry を確認する
 
-### 5. Verify normal/skip/fail/retry coverage
+少なくとも次を含む run pair または run set を確認します。
 
-Confirm at least one pair/set where:
+- normal: target が概ね成功している
+- skip: skip reason が step や compare delta に現れる
+- fail: failed step が反映される
+- retry: retry count の差分が出る
 
-- normal: target mostly succeeds
-- skip: skip reason appears in steps/compare deltas
-- fail: failed steps are reflected
-- retry: retry count differs
-
-Concrete fields:
+具体的な確認項目:
 
 - `summary_delta.failed_step_delta`
 - `summary_delta.skipped_step_delta`
 - `summary_delta.retry_count_delta`
 
-### 6. Verify JSONL replay (when enabled)
+### 6. JSONL replay を確認する
 
-1. stop API after runs are recorded
-2. restart API with same `DAGRUNTIME_OBSERVATION_JSONL_PATH`
-3. call:
-  - `GET /runs?partition=<partition>`
-  - `GET /healthz`
+JSONL replay を有効にしている場合は次を行います。
 
-Validation points:
+1. run 記録後に API を停止する
+2. 同じ `DAGRUNTIME_OBSERVATION_JSONL_PATH` で API を再起動する
+3. 次を呼ぶ
+   - `GET /runs?partition=<partition>`
+   - `GET /healthz`
 
-- previously recorded runs/steps are readable after restart
-- `/healthz.observation_replay` exposes counters:
+期待結果:
+
+- 再起動後も recorded run と step を読み出せる
+- `/healthz.observation_replay` に次の counter が出る
   - `skipped_lines`
   - `errors`
 
-## Suggested Commands
+## 参考コマンド
 
 ```bash
 curl -s "http://localhost:8080/runs?partition=bt:USDJPY:m1:v1&limit=200" | jq
@@ -126,3 +138,18 @@ curl -s "http://localhost:8080/algotrade/trades?run_id=bt-base-001&limit=100&off
 curl -s "http://localhost:8080/algotrade/equity?run_id=bt-base-001" | jq
 curl -s "http://localhost:8080/healthz" | jq
 ```
+
+## 観測確認点
+
+- run list、detail、steps が partition と run_id で安定して読めること
+- compare delta と visualization API が整合していること
+- skip / fail / retry の差分が summary と steps で追えること
+- JSONL replay 有効時に再起動後も run observability を再構成できること
+
+## 更新条件
+
+次のいずれかが変わったときに更新します。
+
+- 統合 run inspection 導線
+- compare / visualization API の最小確認面
+- JSONL replay の確認手順

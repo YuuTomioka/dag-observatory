@@ -61,8 +61,13 @@ func main() {
 			}
 		}()
 		go func() {
-			if err := app.DAGRuntime.Driver.RunWithContext(consumerCtx, driverStream); err != nil && consumerCtx.Err() == nil {
-				log.Printf("dag driver stopped: %v", err)
+			for consumerCtx.Err() == nil {
+				if err := app.DAGRuntime.Driver.RunWithContext(consumerCtx, driverStream); err != nil && consumerCtx.Err() == nil {
+					log.Printf("dag driver stopped: %v", err)
+					time.Sleep(200 * time.Millisecond)
+					continue
+				}
+				return
 			}
 		}()
 	}

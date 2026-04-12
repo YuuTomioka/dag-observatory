@@ -3,6 +3,7 @@ package eventstore
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"dag-observatory/dag-core/internal/application/dagruntime/port"
 	"dag-observatory/dag-core/internal/domain/dagruntime/driver"
@@ -32,7 +33,19 @@ func (s *KafkaEventStream) Subscribe(ctx context.Context) (<-chan port.StreamEve
 	}()
 	go func() {
 		defer close(raw)
-		_ = s.consumer.RunWithContext(ctx, raw)
+		for {
+			if ctx.Err() != nil {
+				return
+			}
+			if err := s.consumer.RunWithContext(ctx, raw); err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				time.Sleep(200 * time.Millisecond)
+				continue
+			}
+			return
+		}
 	}()
 	return out, nil
 }

@@ -155,6 +155,9 @@ Progress note (2026-04-12):
 - left pane focuses on run selection plus execution timeline
 - right pane focuses on node detail, refs, and compact state diff
 - graph canvas, path highlighting, and broader frontend framework choices remain deferred
+- UI now tolerates short read-model lag after enqueue:
+  - when `step_count > 0` but `/runs/:run_id/steps` is temporarily empty, the UI keeps polling briefly and auto-hydrates steps/node detail once available
+  - step area shows a transitional message (`Waiting for step records to become available...`) instead of a hard terminal empty state
 
 ### Phase 8: Fix Correlation IDs
 
@@ -169,6 +172,10 @@ Progress note (2026-04-12):
 - legacy `GET /runs/:run_id/nodes/:execution_id` remains as a deprecated compatibility alias, but it still resolves by sequence number
 - runner now records artifact refs for `input_ref` / `output_ref` and extracts correlation IDs from known algotrade artifacts such as `TradeIntent`, `ExecutionResult`, and `ClosedTrade`
 - tests verify sequence-based step lookup and correlation propagation through runner-recorded node events
+- path-encoded run IDs are now decoded at HTTP handler boundaries (`%3A` etc.) before lookup so UI/network clients can safely call:
+  - `GET /runs/:run_id/steps`
+  - `GET /runs/:run_id/steps/:sequence_no`
+  - `GET /runs/:run_id/nodes/:execution_id`
 
 ### Phase 9: Choose The Initial Storage Format
 
@@ -224,6 +231,11 @@ curl -s http://localhost:8080/runs/<run_id>/steps | jq
 curl -s http://localhost:8080/runs/<run_id>/steps/1 | jq
 curl -s http://localhost:8080/runs/<run_id>/nodes/1 | jq
 curl -s "http://localhost:8080/algotrade/summary?partition=<partition>" | jq
+
+# optional: validate URL-encoded run_id compatibility (e.g. run IDs containing `:`)
+ENCODED_RUN_ID=$(printf '%s' "<run_id>" | jq -sRr @uri)
+curl -s "http://localhost:8080/runs/${ENCODED_RUN_ID}/steps" | jq
+curl -s "http://localhost:8080/runs/${ENCODED_RUN_ID}/steps/1" | jq
 ```
 
 Recommended UI check:
@@ -243,6 +255,7 @@ Verification points:
 
 - `GET /runs/:run_id/steps/:sequence_no` resolves step detail by `sequence_no`
 - compatibility alias `GET /runs/:run_id/nodes/:execution_id` still resolves the same step when passed the sequence number
+- path-encoded run IDs (such as `%3A`) resolve identically to decoded run IDs
 - node detail exposes `intent_id`, `execution_id`, `trade_id`, `input_ref`, and `output_ref` when available
 - state changes appear under `state_diff`
 - JSON Lines output appends `run_event`, `node_execution`, and `cycle_result` records without replacing the in-memory read model

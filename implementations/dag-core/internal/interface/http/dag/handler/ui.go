@@ -403,6 +403,8 @@ const runsUIPage = `<!DOCTYPE html>
       runs: [],
       selectedRun: null,
       steps: [],
+      stepsSyncing: false,
+      stepsSyncToken: 0,
       selectedSequenceNo: "",
       selectedNode: null,
       summary: null
@@ -492,9 +494,17 @@ const runsUIPage = `<!DOCTYPE html>
         render();
         return;
       }
+      state.stepsSyncToken += 1;
+      const syncToken = state.stepsSyncToken;
       const runID = state.selectedRun.run_id;
-      const stepsPayload = await getJSON("/runs/" + encodeURIComponent(runID) + "/steps");
-      state.steps = stepsPayload.items || [];
+      const expectedCount = Number(state.selectedRun.step_count || 0);
+      state.stepsSyncing = false;
+      state.steps = await fetchRunStepsWithRetry(runID, expectedCount);
+      if (!state.steps.length && expectedCount > 0) {
+        state.stepsSyncing = true;
+        render();
+        hydrateStepsEventually(runID, expectedCount, syncToken);
+      }
       const requestedSequenceNo = qs("sequence_no");
       const initialStep = state.steps.find(function(step) {
         return step.node_execution_id === requestedSequenceNo;
@@ -504,6 +514,44 @@ const runsUIPage = `<!DOCTYPE html>
         loadSelectedNode(),
         loadSummary()
       ]);
+    }
+
+    async function fetchRunStepsWithRetry(runID, expectedCount) {
+      const maxRetry = expectedCount > 0 ? 3 : 0;
+      for (let attempt = 0; attempt <= maxRetry; attempt++) {
+        const stepsPayload = await getJSON("/runs/" + encodeURIComponent(runID) + "/steps");
+        const items = stepsPayload.items || [];
+        if (items.length > 0 || expectedCount <= 0 || attempt === maxRetry) {
+          return items;
+        }
+        await new Promise(function(resolve) { setTimeout(resolve, 200); });
+      }
+      return [];
+    }
+
+    async function hydrateStepsEventually(runID, expectedCount, syncToken) {
+      const maxRetry = expectedCount > 0 ? 30 : 0;
+      for (let attempt = 0; attempt < maxRetry; attempt++) {
+        if (state.stepsSyncToken !== syncToken) return;
+        await new Promise(function(resolve) { setTimeout(resolve, 300); });
+        if (state.stepsSyncToken !== syncToken) return;
+        const stepsPayload = await getJSON("/runs/" + encodeURIComponent(runID) + "/steps");
+        const items = stepsPayload.items || [];
+        if (!items.length) continue;
+        if (state.stepsSyncToken !== syncToken) return;
+        state.steps = items;
+        const requestedSequenceNo = qs("sequence_no");
+        const initialStep = state.steps.find(function(step) {
+          return step.node_execution_id === requestedSequenceNo;
+        }) || state.steps[0] || null;
+        state.selectedSequenceNo = initialStep ? initialStep.node_execution_id : "";
+        state.stepsSyncing = false;
+        await loadSelectedNode();
+        return;
+      }
+      if (state.stepsSyncToken !== syncToken) return;
+      state.stepsSyncing = false;
+      render();
     }
 
     async function loadSelectedNode() {
@@ -581,7 +629,7 @@ const runsUIPage = `<!DOCTYPE html>
             "</div>",
             "</button>"
           ].join("");
-        }).join("") : '<div class="hint">No steps recorded for this run.</div>',
+        }).join("") : ('<div class="hint">' + (state.stepsSyncing ? "Waiting for step records to become available..." : "No steps recorded for this run.") + '</div>'),
         "</div>"
       ].join("");
 

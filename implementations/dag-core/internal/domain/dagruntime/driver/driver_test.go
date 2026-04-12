@@ -3,6 +3,7 @@ package driver
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -22,6 +23,22 @@ type eventNode struct {
 	mu          sync.Mutex
 	successRuns int
 	failRuns    int
+}
+
+type panicNode struct{}
+
+func (n *panicNode) Name() string                { return "panic.node" }
+func (n *panicNode) Requires() []artifact.AnyKey { return nil }
+func (n *panicNode) Provides() []artifact.AnyKey { return nil }
+func (n *panicNode) Reads() []state.AnyKey       { return nil }
+func (n *panicNode) Writes() []state.AnyKey      { return nil }
+func (n *panicNode) Spec() node.ExecutionSpec    { return node.ExecutionSpec{} }
+func (n *panicNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
+	_ = ctx
+	_ = av
+	_ = aw
+	_ = txn
+	panic("boom")
 }
 
 func (n *eventNode) Name() string                { return "event.node" }
@@ -116,5 +133,35 @@ func TestDriverStopsOnError(t *testing.T) {
 	success, fail := n.Counts()
 	if success != 0 || fail != 1 {
 		t.Fatalf("unexpected counts: success=%d fail=%d", success, fail)
+	}
+}
+
+func TestDriverConvertsNodePanicToError(t *testing.T) {
+	n := &panicNode{}
+	compiled := pipeline.Compiled{
+		Name:  "driver-panic",
+		Order: []node.Node{n},
+		Nodes: []node.Node{n},
+	}
+	runner := &engine.Runner{
+		ArtifactStore: artifactinfra.NewMemoryStore(),
+		StateStore:    stateinfra.NewMemoryStore(),
+		Policy:        policy.Policy{DefaultRetry: policy.RetryPolicy{MaxAttempts: 1}},
+	}
+	d := &Driver{
+		Runner:   runner,
+		Compiled: compiled,
+	}
+
+	stream := make(chan events.Event, 1)
+	stream <- events.Event{EventID: "panic-event", EventTime: time.Now()}
+	close(stream)
+
+	err := d.Run(context.Background(), stream)
+	if err == nil {
+		t.Fatal("expected error for panic node")
+	}
+	if got := err.Error(); got == "" || !strings.Contains(got, "panic-event") {
+		t.Fatalf("unexpected error message: %v", err)
 	}
 }

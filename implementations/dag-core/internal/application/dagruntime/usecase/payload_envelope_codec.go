@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"dag-observatory/dag-core/internal/domain/dagruntime/artifact"
@@ -253,8 +254,8 @@ func encodeEnvelopes(values map[string]any) ([]events.PayloadEnvelope, error) {
 func decodeEnvelopes(envelopes []events.PayloadEnvelope) (engine.InputMap, error) {
 	inputs := engine.InputMap{}
 	for _, env := range envelopes {
-		if env.Key == PayloadKeyInput.Raw() {
-			value, err := events.DecodePayload(PayloadKeyInput, env)
+		if env.Key == PayloadKeyInput.Raw() || env.Key.Name == PayloadKeyInput.Name {
+			value, err := decodeInputEnvelopeCompat(env)
 			if err != nil {
 				return nil, err
 			}
@@ -272,6 +273,18 @@ func decodeEnvelopes(envelopes []events.PayloadEnvelope) (engine.InputMap, error
 		}
 	}
 	return inputs, nil
+}
+
+func decodeInputEnvelopeCompat(env events.PayloadEnvelope) (map[string]any, error) {
+	if env.Key == PayloadKeyInput.Raw() {
+		return events.DecodePayload(PayloadKeyInput, env)
+	}
+	// Compatibility for producers that emit only key name without stable ID.
+	var out map[string]any
+	if err := json.Unmarshal(env.Data, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func encodeSymbolFromInput(value any) (events.PayloadEnvelope, error) {

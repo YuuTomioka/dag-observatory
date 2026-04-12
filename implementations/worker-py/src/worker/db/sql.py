@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+import re
 
 
 def _find_query_dir() -> Path:
@@ -33,7 +34,13 @@ def _parse_sql_file(path: Path) -> dict[str, str]:
             continue
         if current_name:
             queries[current_name].append(line)
-    return {name: "".join(lines).strip() for name, lines in queries.items()}
+    return {name: _normalize_placeholders("".join(lines).strip()) for name, lines in queries.items()}
+
+
+def _normalize_placeholders(query: str) -> str:
+    # Shared SQL assets use PostgreSQL-style placeholders ($1, $2, ...).
+    # psycopg expects %s style parameters for execute(..., params).
+    return re.sub(r"\$\d+", "%s", query)
 
 
 @lru_cache

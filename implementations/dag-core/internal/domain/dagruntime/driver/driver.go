@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"fmt"
 
 	"dag-observatory/dag-core/internal/domain/dagruntime/engine"
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
@@ -49,7 +50,14 @@ func (d *Driver) RunWithContext(ctx context.Context, stream <-chan StreamEvent) 
 			if inputs == nil {
 				inputs = engine.InputMap{}
 			}
-			err := d.Runner.RunCycle(runCtx, d.Compiled, inputs, event.Partition, event)
+			err := func() (err error) {
+				defer func() {
+					if recovered := recover(); recovered != nil {
+						err = fmt.Errorf("driver: panic while processing event %q: %v", event.EventID, recovered)
+					}
+				}()
+				return d.Runner.RunCycle(runCtx, d.Compiled, inputs, event.Partition, event)
+			}()
 			if err != nil {
 				if d.Options.ContinueOnError {
 					continue

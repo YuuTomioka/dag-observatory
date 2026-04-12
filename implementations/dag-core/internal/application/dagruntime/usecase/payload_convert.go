@@ -23,6 +23,11 @@ func toInputMap(payload any) (engine.InputMap, error) {
 	}
 }
 
+// ToInputMap normalizes transport payloads into runtime input map.
+func ToInputMap(payload any) (engine.InputMap, error) {
+	return toInputMap(payload)
+}
+
 func toPayloadEnvelopes(payload any) ([]events.PayloadEnvelope, error) {
 	if payload == nil {
 		return nil, nil

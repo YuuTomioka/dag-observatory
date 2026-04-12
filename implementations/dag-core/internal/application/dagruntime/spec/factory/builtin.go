@@ -141,8 +141,14 @@ func (n *heavyCalcNode) Spec() node.ExecutionSpec    { return node.ExecutionSpec
 func (n *heavyCalcNode) Run(ctx context.Context, av artifact.View, aw artifact.Writer, txn state.Txn) error {
 	_ = ctx
 	_ = txn
-	symbol := artifact.MustGet(av, usecase.InputKeySymbol)
-	mode := artifact.MustGet(av, usecase.InputKeyMode)
+	symbol, ok := artifact.Get(av, usecase.InputKeySymbol)
+	if !ok {
+		return fmt.Errorf("heavy_calc: missing required input key %s", usecase.InputKeySymbol.String())
+	}
+	mode, ok := artifact.Get(av, usecase.InputKeyMode)
+	if !ok {
+		return fmt.Errorf("heavy_calc: missing required input key %s", usecase.InputKeyMode.String())
+	}
 	artifact.Set(aw, heavyCalcResultKey, fmt.Sprintf("%s:%s", symbol, mode))
 	return nil
 }

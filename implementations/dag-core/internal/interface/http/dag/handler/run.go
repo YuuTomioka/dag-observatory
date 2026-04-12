@@ -32,7 +32,9 @@ func (h *Handler) DagRun(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	if h.runWF == nil {
-		h.appLog.Error(ctx, "dag runtime usecase not configured")
+		if h.appLog != nil {
+			h.appLog.Error(ctx, "dag runtime usecase not configured")
+		}
 		return c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error: "dag runtime not configured",
 		})
@@ -40,9 +42,11 @@ func (h *Handler) DagRun(c echo.Context) error {
 
 	var req request.RunRequest
 	if err := c.Bind(&req); err != nil {
-		h.appLog.Warn(ctx, "dag run request bind failed",
-			slog.String("error", err.Error()),
-		)
+		if h.appLog != nil {
+			h.appLog.Warn(ctx, "dag run request bind failed",
+				slog.String("error", err.Error()),
+			)
+		}
 		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error: "invalid request",
 		})
@@ -62,10 +66,13 @@ func (h *Handler) DagRun(c echo.Context) error {
 		Marketdata:     mapMarketdataInput(req.Marketdata),
 	})
 	if err != nil {
-		h.appLog.Error(ctx, "dag run failed",
-			slog.String("error", err.Error()),
-		)
+		if h.appLog != nil {
+			h.appLog.Error(ctx, "dag run failed",
+				slog.String("error", err.Error()),
+			)
+		}
 		return c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error:  err.Error(),
 			Status: "failed",
 			Symbol: result.Symbol,
 			RunID:  result.RunID,

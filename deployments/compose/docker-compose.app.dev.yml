@@ -38,7 +38,7 @@ services:
       - KAFKA_TASK_TOPIC=dagruntime-tasks
       - KAFKA_EVENT_TOPIC=dagruntime-events
       - KAFKA_TOPIC=dagruntime-events
-      - KAFKA_GROUP_ID=dagruntime-worker
+      - KAFKA_GROUP_ID=dagruntime-worker-v2
       - TSDB_URL=postgres://dag:dag@timescaledb:5432/dag?sslmode=disable
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=minio
@@ -57,6 +57,7 @@ services:
       - redpanda
       - otel-collector
       - loki
+    restart: on-failure
     networks:
       - default
 
@@ -71,6 +72,7 @@ services:
       - KAFKA_TOPIC=dagruntime-events
       - KAFKA_GROUP_ID=dagruntime-worker-py
       - TSDB_URL=postgres://dag:dag@timescaledb:5432/dag?sslmode=disable
+      - TSDB_QUERY_DIR=/app/data/tsdb/query
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=minio
       - MINIO_SECRET_KEY=minio123
@@ -84,6 +86,9 @@ services:
       - minio
       - redpanda
       - otel-collector
+    volumes:
+      - ${REPO_ROOT:-../..}/data/tsdb/query:/app/data/tsdb/query:ro
+    restart: on-failure
     networks:
       - default
 
@@ -98,6 +103,7 @@ services:
       - KAFKA_TOPIC=dagruntime-events
       - KAFKA_GROUP_ID=dagruntime-worker-py-outbox
       - TSDB_URL=postgres://dag:dag@timescaledb:5432/dag?sslmode=disable
+      - TSDB_QUERY_DIR=/app/data/tsdb/query
       - OUTBOX_POLL_INTERVAL_SEC=1.0
       - OUTBOX_BATCH_SIZE=100
       - SERVICE_NAME=dag-observatory-worker-py-outbox
@@ -107,6 +113,9 @@ services:
       - timescaledb
       - redpanda
       - otel-collector
+    volumes:
+      - ${REPO_ROOT:-../..}/data/tsdb/query:/app/data/tsdb/query:ro
+    restart: on-failure
     networks:
       - default
 
@@ -119,6 +128,7 @@ services:
       - SERVICE_NAME=dag-observatory-worker-py-gc
       - ENV=dev
       - TSDB_URL=postgres://dag:dag@timescaledb:5432/dag?sslmode=disable
+      - TSDB_QUERY_DIR=/app/data/tsdb/query
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=minio
       - MINIO_SECRET_KEY=minio123
@@ -130,6 +140,9 @@ services:
     depends_on:
       - timescaledb
       - minio
+    volumes:
+      - ${REPO_ROOT:-../..}/data/tsdb/query:/app/data/tsdb/query:ro
+    restart: on-failure
     networks:
       - default
 

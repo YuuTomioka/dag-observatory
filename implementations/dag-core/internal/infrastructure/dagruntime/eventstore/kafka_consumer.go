@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	dagruntimeusecase "dag-observatory/dag-core/internal/application/dagruntime/usecase"
 	"dag-observatory/dag-core/internal/domain/dagruntime/driver"
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
 	"dag-observatory/dag-core/internal/domain/observability/semantics"
@@ -46,8 +47,13 @@ func (c *KafkaConsumer) Run(ctx context.Context, out chan<- events.Event) error 
 		}
 		event, err := DecodeEvent(msg.Key, msg.Value)
 		if err != nil {
-			return err
+			continue
 		}
+		inputs, err := dagruntimeusecase.ToInputMap(event.Payload)
+		if err != nil {
+			continue
+		}
+		event.Payload = inputs
 		select {
 		case out <- event:
 		case <-ctx.Done():
@@ -67,8 +73,13 @@ func (c *KafkaConsumer) RunWithContext(ctx context.Context, out chan<- driver.St
 		}
 		event, err := DecodeEvent(msg.Key, msg.Value)
 		if err != nil {
-			return err
+			continue
 		}
+		inputs, err := dagruntimeusecase.ToInputMap(event.Payload)
+		if err != nil {
+			continue
+		}
+		event.Payload = inputs
 		carrier := headerCarrierFromKafka(msg.Headers)
 		msgCtx := otel.GetTextMapPropagator().Extract(ctx, carrier)
 		tracer := otel.Tracer("dag-observatory-dag-core")

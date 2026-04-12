@@ -2,6 +2,7 @@ package factory
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"dag-observatory/dag-core/internal/application/dagruntime/spec"
@@ -180,5 +181,22 @@ func TestSMAAndCrossAndSignalRun(t *testing.T) {
 	}
 	if got := artifact.MustGet(view, signalOutputKey("emit")); got != "buy" {
 		t.Fatalf("expected buy signal, got %q", got)
+	}
+}
+
+func TestHeavyCalcRunMissingRequiredInputReturnsError(t *testing.T) {
+	t.Parallel()
+
+	node := &heavyCalcNode{}
+	artifacts := artifactinfra.NewMemoryStore()
+	writer := artifacts
+	txn := stateinfra.NewMemoryStore().BeginTxn("test")
+
+	err := node.Run(context.Background(), artifacts.View(), writer, txn)
+	if err == nil {
+		t.Fatal("expected error for missing required input")
+	}
+	if !strings.Contains(err.Error(), usecase.InputKeySymbol.String()) {
+		t.Fatalf("expected missing symbol key error, got %v", err)
 	}
 }

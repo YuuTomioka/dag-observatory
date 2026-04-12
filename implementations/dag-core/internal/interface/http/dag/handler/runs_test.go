@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -115,5 +116,109 @@ func TestGetRunReturnsNotFound(t *testing.T) {
 	}
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", rec.Code)
+	}
+}
+
+func TestGetRunNodeByDeprecatedExecutionIDPath(t *testing.T) {
+	recorder := recorderinfra.NewInMemoryRecorder()
+	runEvent := events.Event{
+		EventID:   "run-compat",
+		EventTime: time.Date(2026, 4, 12, 2, 0, 0, 0, time.UTC),
+		Partition: state.Partition("p-compat"),
+		Type:      "task.requested",
+	}
+	recorder.RecordEvent(context.Background(), runEvent)
+	recorder.RecordNodeExecution(context.Background(), events.NodeExecutionEvent{
+		RunID:       "run-compat",
+		Partition:   state.Partition("p-compat"),
+		EventTime:   runEvent.EventTime,
+		SequenceNo:  10,
+		ExecutionID: "exec:intent:entry:10",
+		NodeID:      "n-compat",
+		NodeName:    "node.compat",
+		Status:      events.NodeExecutionStatusSucceeded,
+	})
+
+	h := New(Dependencies{
+		AppLog:     applog.New("info", "stdout", nil),
+		GetRunNode: &usecase.GetRunNode{Reader: recorder},
+	})
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/runs/run-compat/nodes/exec:intent:entry:10", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath("/runs/:run_id/nodes/:execution_id")
+	c.SetParamNames("run_id", "execution_id")
+	c.SetParamValues("run-compat", "exec:intent:entry:10")
+
+	if err := h.GetRunNode(c); err != nil {
+		t.Fatalf("get run node handler error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var nodeResp struct {
+		Node usecase.RunStepView `json:"node"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &nodeResp); err != nil {
+		t.Fatalf("decode node response: %v", err)
+	}
+	if nodeResp.Node.ExecutionID != "exec:intent:entry:10" {
+		t.Fatalf("unexpected node response: %#v", nodeResp.Node)
+	}
+}
+
+func TestListRunStepsDecodesEncodedRunID(t *testing.T) {
+	recorder := recorderinfra.NewInMemoryRecorder()
+	runID := "partition-1:heavy_calc:1"
+	runEvent := events.Event{
+		EventID:   runID,
+		EventTime: time.Date(2026, 4, 12, 3, 0, 0, 0, time.UTC),
+		Partition: state.Partition("partition-1"),
+		Type:      "task.requested",
+	}
+	recorder.RecordEvent(context.Background(), runEvent)
+	recorder.RecordNodeExecution(context.Background(), events.NodeExecutionEvent{
+		RunID:       runID,
+		Partition:   state.Partition("partition-1"),
+		EventTime:   runEvent.EventTime,
+		SequenceNo:  1,
+		ExecutionID: "exec:intent:entry:1",
+		NodeID:      "n1",
+		NodeName:    "node.one",
+		Status:      events.NodeExecutionStatusSucceeded,
+	})
+
+	h := New(Dependencies{
+		AppLog:       applog.New("info", "stdout", nil),
+		ListRunSteps: &usecase.ListRunSteps{Reader: recorder},
+	})
+	e := echo.New()
+	encodedRunID := url.PathEscape(runID)
+	req := httptest.NewRequest(http.MethodGet, "/runs/"+encodedRunID+"/steps", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath("/runs/:run_id/steps")
+	c.SetParamNames("run_id")
+	c.SetParamValues(encodedRunID)
+
+	if err := h.ListRunSteps(c); err != nil {
+		t.Fatalf("list run steps handler error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		RunID string                `json:"run_id"`
+		Items []usecase.RunStepView `json:"items"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.RunID != runID {
+		t.Fatalf("expected decoded run_id %q, got %q", runID, resp.RunID)
+	}
+	if len(resp.Items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(resp.Items))
 	}
 }

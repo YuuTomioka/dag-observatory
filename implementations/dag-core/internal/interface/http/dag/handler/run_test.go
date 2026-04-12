@@ -103,3 +103,54 @@ func TestDagRunHTTPWithMarketdataInput(t *testing.T) {
 		t.Fatalf("expected timeframe_code M1, got %v", marketdataResp["timeframe_code"])
 	}
 }
+
+func TestDagRunHTTPRunWorkflowNotConfiguredWithoutLogger(t *testing.T) {
+	h := New(Dependencies{})
+	e := echo.New()
+
+	req := httptest.NewRequest(http.MethodPost, "/dag/run", bytes.NewReader([]byte(`{}`)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := h.DagRun(c); err != nil {
+		t.Fatalf("handler error: %v", err)
+	}
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", rec.Code)
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp["error"] != "dag runtime not configured" {
+		t.Fatalf("unexpected error response: %v", resp["error"])
+	}
+}
+
+func TestDagRunHTTPIncludesErrorMessageOnExecutionFailure(t *testing.T) {
+	h := New(Dependencies{
+		AppLog:      applog.New("info", "stdout", nil),
+		RunWorkflow: &usecase.RunWorkflow{},
+	})
+	e := echo.New()
+
+	req := httptest.NewRequest(http.MethodPost, "/dag/run", bytes.NewReader([]byte(`{"symbol":"USDJPY"}`)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := h.DagRun(c); err != nil {
+		t.Fatalf("handler error: %v", err)
+	}
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", rec.Code)
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp["error"] == "" {
+		t.Fatalf("expected non-empty error response, got %#v", resp)
+	}
+}

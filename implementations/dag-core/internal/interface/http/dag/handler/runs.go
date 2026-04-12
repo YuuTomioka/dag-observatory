@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"net/url"
 
 	"dag-observatory/dag-core/internal/application/dagruntime/usecase"
 	"dag-observatory/dag-core/internal/interface/http/dag/response"
@@ -9,6 +10,18 @@ import (
 
 	"github.com/labstack/echo/v4"
 )
+
+func decodePathParam(c echo.Context, name string) (string, error) {
+	raw := c.Param(name)
+	if raw == "" {
+		return "", nil
+	}
+	decoded, err := url.PathUnescape(raw)
+	if err != nil {
+		return "", err
+	}
+	return decoded, nil
+}
 
 // ListRuns
 // @Summary List workflow runs
@@ -55,7 +68,13 @@ func (h *Handler) GetRun(c echo.Context) error {
 			Status: "error",
 		})
 	}
-	runID := c.Param("run_id")
+	runID, err := decodePathParam(c, "run_id")
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error:  "invalid run_id",
+			Status: "error",
+		})
+	}
 	if runID == "" {
 		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error:  "run_id is required",
@@ -95,7 +114,13 @@ func (h *Handler) ListRunSteps(c echo.Context) error {
 			Status: "error",
 		})
 	}
-	runID := c.Param("run_id")
+	runID, err := decodePathParam(c, "run_id")
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error:  "invalid run_id",
+			Status: "error",
+		})
+	}
 	if runID == "" {
 		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error:  "run_id is required",
@@ -136,16 +161,34 @@ func (h *Handler) GetRunNode(c echo.Context) error {
 			Status: "error",
 		})
 	}
-	runID := c.Param("run_id")
+	runID, err := decodePathParam(c, "run_id")
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error:  "invalid run_id",
+			Status: "error",
+		})
+	}
 	if runID == "" {
 		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error:  "run_id is required",
 			Status: "error",
 		})
 	}
-	sequenceNo := c.Param("sequence_no")
+	sequenceNo, err := decodePathParam(c, "sequence_no")
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error:  "invalid sequence_no",
+			Status: "error",
+		})
+	}
 	if sequenceNo == "" {
-		sequenceNo = c.Param("execution_id")
+		sequenceNo, err = decodePathParam(c, "execution_id")
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+				Error:  "invalid execution_id",
+				Status: "error",
+			})
+		}
 	}
 	if sequenceNo == "" {
 		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{

@@ -130,17 +130,26 @@ func (u *GetRunNode) Execute(ctx context.Context, req GetRunNodeRequest) (RunSte
 	if u == nil || u.Reader == nil {
 		return RunStepView{}, false, nil
 	}
+	steps := u.Reader.ListRunSteps(req.RunID)
 	sequenceNo, err := strconv.ParseInt(req.SequenceNo, 10, 64)
-	if err != nil {
-		return RunStepView{}, false, fmt.Errorf("sequence_no must be int64")
+	if err == nil {
+		for _, step := range steps {
+			if step.SequenceNo != sequenceNo {
+				continue
+			}
+			return mapRunStep(step), true, nil
+		}
+		return RunStepView{}, false, nil
 	}
-	for _, step := range u.Reader.ListRunSteps(req.RunID) {
-		if step.SequenceNo != sequenceNo {
+
+	// Compatibility path for legacy /nodes/:execution_id callers.
+	for _, step := range steps {
+		if step.ExecutionID != req.SequenceNo {
 			continue
 		}
 		return mapRunStep(step), true, nil
 	}
-	return RunStepView{}, false, nil
+	return RunStepView{}, false, fmt.Errorf("sequence_no must be int64")
 }
 
 func mapRunView(record port.RunRecord, stepCount int) RunView {

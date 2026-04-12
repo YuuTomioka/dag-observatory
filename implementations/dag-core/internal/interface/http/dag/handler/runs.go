@@ -266,3 +266,54 @@ func (h *Handler) CompareRuns(c echo.Context) error {
 		Compare: view,
 	})
 }
+
+// GetRunBacktestSummary
+// @Summary Get run backtest summary
+// @Description Returns run-level backtest summary projection reconstructed from run-step state diff fields.
+// @Tags dag
+// @Produce json
+// @Param run_id path string true "Run ID"
+// @Success 200 {object} response.RunBacktestSummaryResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Failure 501 {object} dto.ErrorResponse
+// @Router /runs/{run_id}/backtest-summary [get]
+func (h *Handler) GetRunBacktestSummary(c echo.Context) error {
+	if h.getBacktestSummary == nil {
+		return c.JSON(http.StatusNotImplemented, dto.ErrorResponse{
+			Error:  "run backtest summary API not configured",
+			Status: "error",
+		})
+	}
+	runID, err := decodePathParam(c, "run_id")
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error:  "invalid run_id",
+			Status: "error",
+		})
+	}
+	if runID == "" {
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error:  "run_id is required",
+			Status: "error",
+		})
+	}
+	summary, ok, err := h.getBacktestSummary.Execute(c.Request().Context(), usecase.GetRunBacktestSummaryRequest{
+		RunID: runID,
+	})
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error:  err.Error(),
+			Status: "error",
+		})
+	}
+	if !ok {
+		return c.JSON(http.StatusNotFound, dto.ErrorResponse{
+			Error:  "run not found",
+			Status: "error",
+		})
+	}
+	return c.JSON(http.StatusOK, response.RunBacktestSummaryResponse{
+		Summary: summary,
+	})
+}

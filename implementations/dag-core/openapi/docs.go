@@ -1058,6 +1058,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/runs/{run_id}/backtest-summary": {
+            "get": {
+                "description": "Returns run-level backtest summary projection reconstructed from run-step state diff fields.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dag"
+                ],
+                "summary": "Get run backtest summary",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.RunBacktestSummaryResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/runs/{run_id}/steps": {
             "get": {
                 "description": "Returns node execution steps for one run.",
@@ -1262,6 +1309,9 @@ const docTemplate = `{
                 "mode": {
                     "type": "string"
                 },
+                "parameter_set_id": {
+                    "type": "string"
+                },
                 "partition": {
                     "type": "string"
                 },
@@ -1287,6 +1337,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "to": {
+                    "type": "string"
+                },
+                "workflow_name": {
+                    "type": "string"
+                },
+                "workflow_version": {
                     "type": "string"
                 }
             }
@@ -1657,6 +1713,9 @@ const docTemplate = `{
                 "mode": {
                     "type": "string"
                 },
+                "parameter_set_id": {
+                    "type": "string"
+                },
                 "partition": {
                     "type": "string"
                 },
@@ -1671,6 +1730,12 @@ const docTemplate = `{
                 },
                 "window_size_bars": {
                     "type": "integer"
+                },
+                "workflow_name": {
+                    "type": "string"
+                },
+                "workflow_version": {
+                    "type": "string"
                 }
             }
         },
@@ -1883,6 +1948,14 @@ const docTemplate = `{
                 }
             }
         },
+        "response.RunBacktestSummaryResponse": {
+            "type": "object",
+            "properties": {
+                "summary": {
+                    "$ref": "#/definitions/usecase.BacktestSummaryView"
+                }
+            }
+        },
         "response.RunCompareResponse": {
             "type": "object",
             "properties": {
@@ -2082,6 +2155,35 @@ const docTemplate = `{
             "properties": {
                 "upserted": {
                     "type": "integer"
+                }
+            }
+        },
+        "usecase.BacktestSummaryView": {
+            "type": "object",
+            "properties": {
+                "equity_point_count": {
+                    "type": "integer"
+                },
+                "has_strategy_fields": {
+                    "type": "boolean"
+                },
+                "max_drawdown": {
+                    "type": "number"
+                },
+                "partition": {
+                    "type": "string"
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "total_net_pnl": {
+                    "type": "number"
+                },
+                "trade_count": {
+                    "type": "integer"
+                },
+                "win_rate": {
+                    "type": "number"
                 }
             }
         },

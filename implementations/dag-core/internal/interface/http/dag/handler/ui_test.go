@@ -32,4 +32,13 @@ func TestRunsUIReturnsHTML(t *testing.T) {
 	if !strings.Contains(body, "/runs/") {
 		t.Fatalf("expected ui to reference run APIs")
 	}
+	if !strings.Contains(body, "/runs/compare") {
+		t.Fatalf("expected ui to reference compare API")
+	}
+	if !strings.Contains(body, "compareRunSelect") {
+		t.Fatalf("expected ui to include compare target selector")
+	}
+	if !strings.Contains(body, "target_run_id") {
+		t.Fatalf("expected ui to keep target_run_id in query state")
+	}
 }

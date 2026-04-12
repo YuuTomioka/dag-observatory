@@ -41,13 +41,23 @@ func (f fakeBacktestTimeframeBarLister) Execute(
 }
 
 type fakeBacktestWorkflowRunner struct {
-	calls []RunWorkflowRequest
-	errAt int
+	calls        []RunWorkflowRequest
+	errAt        int
+	syntheticPnL map[string]float64
 }
 
 func (f *fakeBacktestWorkflowRunner) Execute(ctx context.Context, req RunWorkflowRequest) (RunWorkflowResult, error) {
 	_ = ctx
 	f.calls = append(f.calls, req)
+	if f.syntheticPnL != nil {
+		basePnL := 10.0
+		costPenalty := req.SpreadBps + req.FeeBps + req.SlippageBps
+		sizePenalty := 0.0
+		if req.MinLot > 0 {
+			sizePenalty = req.MinLot * 0.1
+		}
+		f.syntheticPnL[req.RunID] = basePnL - costPenalty - sizePenalty
+	}
 	if f.errAt > 0 && len(f.calls) == f.errAt {
 		return RunWorkflowResult{}, fmt.Errorf("run failed at call %d", f.errAt)
 	}
@@ -57,6 +67,77 @@ func (f *fakeBacktestWorkflowRunner) Execute(ctx context.Context, req RunWorkflo
 		Mode:        req.Mode,
 		EnqueueMode: false,
 	}, nil
+}
+
+func TestRunBacktestExecutionAssumptionsAffectSyntheticPnL(t *testing.T) {
+	t.Parallel()
+
+	runner := &fakeBacktestWorkflowRunner{
+		syntheticPnL: map[string]float64{},
+	}
+	u := &RunBacktest{
+		RunWorkflow: runner,
+		GetSymbolByCode: fakeBacktestSymbolGetter{
+			out: marketdata.Symbol{ID: 100, Code: "USDJPY"},
+		},
+		ListTimeframeBars: fakeBacktestTimeframeBarLister{
+			out: []marketdata.TimeframeBar{
+				{
+					SymbolID:      100,
+					TimeframeCode: "m1",
+					OHLCV: marketdata.OHLCV{
+						Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
+						Closetime: marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
+						Open:      marketdata.NewPriceFromRaw(1000),
+						High:      marketdata.NewPriceFromRaw(1002),
+						Low:       marketdata.NewPriceFromRaw(999),
+						Close:     marketdata.NewPriceFromRaw(1001),
+						Volume:    10,
+					},
+				},
+			},
+		},
+		WindowSizeBars: 1,
+	}
+
+	_, err := u.Execute(context.Background(), RunBacktestRequest{
+		RunID:         "bt-low-cost",
+		Partition:     "bt:USDJPY:m1",
+		SymbolCode:    "USDJPY",
+		TimeframeCode: "m1",
+		From:          marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
+		To:            marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
+		Mode:          "backtest",
+		SpreadBps:     0.5,
+		FeeBps:        0.2,
+		SlippageBps:   0.3,
+		MinLot:        0.01,
+	})
+	if err != nil {
+		t.Fatalf("low-cost run failed: %v", err)
+	}
+	_, err = u.Execute(context.Background(), RunBacktestRequest{
+		RunID:         "bt-high-cost",
+		Partition:     "bt:USDJPY:m1",
+		SymbolCode:    "USDJPY",
+		TimeframeCode: "m1",
+		From:          marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
+		To:            marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
+		Mode:          "backtest",
+		SpreadBps:     2.0,
+		FeeBps:        1.0,
+		SlippageBps:   1.2,
+		MinLot:        0.10,
+	})
+	if err != nil {
+		t.Fatalf("high-cost run failed: %v", err)
+	}
+
+	low := runner.syntheticPnL["bt-low-cost:000001"]
+	high := runner.syntheticPnL["bt-high-cost:000001"]
+	if !(high < low) {
+		t.Fatalf("expected higher costs to reduce synthetic pnl: low=%f high=%f", low, high)
+	}
 }
 
 func TestRunBacktestValidatesRange(t *testing.T) {

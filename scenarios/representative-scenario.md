@@ -19,6 +19,10 @@ The current representative flow is **marketdata timeframe-bar backfill with work
 
 This scenario validates both execution correctness and cross-signal observability.
 
+Related scenario:
+
+- `scenarios/realdata-backtest-compare-scenario.md` for period backtest and run-to-run comparison flow
+
 ## Entrypoint Priority
 
 When both feature-local and generic runtime entrypoints exist, use this order:

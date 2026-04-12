@@ -44,18 +44,21 @@ type RunBacktest struct {
 }
 
 type RunBacktestRequest struct {
-	RunID          string
-	Partition      string
-	SymbolCode     string
-	TimeframeCode  string
-	From           marketdata.UTCTime
-	To             marketdata.UTCTime
-	Mode           string
-	SpreadBps      float64
-	FeeBps         float64
-	SlippageBps    float64
-	MinLot         float64
-	AccountBalance float64
+	RunID           string
+	Partition       string
+	SymbolCode      string
+	TimeframeCode   string
+	From            marketdata.UTCTime
+	To              marketdata.UTCTime
+	Mode            string
+	SpreadBps       float64
+	FeeBps          float64
+	SlippageBps     float64
+	MinLot          float64
+	WorkflowName    string
+	WorkflowVersion string
+	ParameterSetID  string
+	AccountBalance  float64
 }
 
 type RunBacktestResult struct {
@@ -127,16 +130,19 @@ func (u *RunBacktest) Execute(ctx context.Context, req RunBacktestRequest) (RunB
 		}
 		cycleRunID := fmt.Sprintf("%s:%06d", baseRunID, end)
 		result, err := u.RunWorkflow.Execute(ctx, RunWorkflowRequest{
-			RunID:          cycleRunID,
-			Partition:      req.Partition,
-			Symbol:         symbol.Code,
-			Mode:           req.Mode,
-			OHLCVBars:      cycleBars,
-			SpreadBps:      req.SpreadBps,
-			FeeBps:         req.FeeBps,
-			SlippageBps:    req.SlippageBps,
-			MinLot:         req.MinLot,
-			AccountBalance: req.AccountBalance,
+			RunID:           cycleRunID,
+			Partition:       req.Partition,
+			Symbol:          symbol.Code,
+			Mode:            req.Mode,
+			OHLCVBars:       cycleBars,
+			SpreadBps:       req.SpreadBps,
+			FeeBps:          req.FeeBps,
+			SlippageBps:     req.SlippageBps,
+			MinLot:          req.MinLot,
+			WorkflowName:    req.WorkflowName,
+			WorkflowVersion: req.WorkflowVersion,
+			ParameterSetID:  req.ParameterSetID,
+			AccountBalance:  req.AccountBalance,
 			Marketdata: &MarketdataRunInput{
 				SymbolID:      int64(symbol.ID),
 				SymbolCode:    symbol.Code,

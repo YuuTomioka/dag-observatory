@@ -84,6 +84,7 @@ func NewEchoContainer(
 	listRunSteps := &dagruntimeusecase.ListRunSteps{Reader: dagRuntime.RunReader}
 	getRunNode := &dagruntimeusecase.GetRunNode{Reader: dagRuntime.RunReader}
 	compareRuns := &dagruntimeusecase.CompareRuns{Reader: dagRuntime.RunReader}
+	getRunBacktestSummary := &dagruntimeusecase.GetRunBacktestSummary{Reader: dagRuntime.RunReader}
 	if marketData != nil {
 		createSymbol = marketData.CreateSymbol
 		getSymbolByCode = marketData.GetSymbolByCode
@@ -111,6 +112,7 @@ func NewEchoContainer(
 		ListRunSteps:              listRunSteps,
 		GetRunNode:                getRunNode,
 		CompareRuns:               compareRuns,
+		GetRunBacktestSummary:     getRunBacktestSummary,
 		StateStore:                dagRuntime.StateStore.Store,
 		ListTradeResults:          listTradeResults,
 		GetStrategySummary:        getStrategySummary,

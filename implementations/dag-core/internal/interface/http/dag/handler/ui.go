@@ -350,6 +350,9 @@ const runsUIPage = `<!DOCTYPE html>
           </div>
           <form class="controls" id="controls">
             <input id="partitionInput" name="partition" type="text" placeholder="partition filter">
+            <select id="compareRunSelect" name="target_run_id" title="compare target run">
+              <option value="">Compare target (optional)</option>
+            </select>
             <button type="submit">Load Runs</button>
           </form>
         </div>
@@ -407,12 +410,15 @@ const runsUIPage = `<!DOCTYPE html>
       stepsSyncToken: 0,
       selectedSequenceNo: "",
       selectedNode: null,
-      summary: null
+      summary: null,
+      compareTargetRunID: "",
+      compare: null
     };
 
     const timelineEl = document.getElementById("timeline");
     const detailEl = document.getElementById("detail");
     const partitionInput = document.getElementById("partitionInput");
+    const compareRunSelect = document.getElementById("compareRunSelect");
     const runLabelEl = document.getElementById("runLabel");
     const partitionLabelEl = document.getElementById("partitionLabel");
     const summaryLabelEl = document.getElementById("summaryLabel");
@@ -478,6 +484,8 @@ const runsUIPage = `<!DOCTYPE html>
         state.steps = [];
         state.selectedNode = null;
         state.summary = null;
+        state.compare = null;
+        state.compareTargetRunID = "";
         state.selectedSequenceNo = "";
         render();
         return;
@@ -486,6 +494,8 @@ const runsUIPage = `<!DOCTYPE html>
       state.selectedRun = state.runs.find(function(run) {
         return run.run_id === requestedRunID;
       }) || state.runs[0];
+      const requestedTargetRunID = qs("target_run_id");
+      state.compareTargetRunID = requestedTargetRunID;
       await loadSelectedRun();
     }
 
@@ -510,9 +520,16 @@ const runsUIPage = `<!DOCTYPE html>
         return step.node_execution_id === requestedSequenceNo;
       }) || state.steps[0] || null;
       state.selectedSequenceNo = initialStep ? initialStep.node_execution_id : "";
+      if (!state.compareTargetRunID || !state.runs.find(function(run) { return run.run_id === state.compareTargetRunID; })) {
+        const fallback = state.runs.find(function(run) {
+          return run.run_id !== state.selectedRun.run_id;
+        });
+        state.compareTargetRunID = fallback ? fallback.run_id : "";
+      }
       await Promise.all([
         loadSelectedNode(),
-        loadSummary()
+        loadSummary(),
+        loadCompare()
       ]);
     }
 
@@ -582,6 +599,24 @@ const runsUIPage = `<!DOCTYPE html>
       render();
     }
 
+    async function loadCompare() {
+      if (!state.selectedRun || !state.compareTargetRunID || state.selectedRun.run_id === state.compareTargetRunID) {
+        state.compare = null;
+        render();
+        return;
+      }
+      try {
+        const payload = await getJSON(
+          "/runs/compare?base_run_id=" + encodeURIComponent(state.selectedRun.run_id) +
+          "&target_run_id=" + encodeURIComponent(state.compareTargetRunID)
+        );
+        state.compare = payload.compare || null;
+      } catch (err) {
+        state.compare = null;
+      }
+      render();
+    }
+
     function renderTimeline() {
       if (!state.runs.length) {
         timelineEl.innerHTML = '<div class="hint">No runs found for the current filter.</div>';
@@ -634,6 +669,15 @@ const runsUIPage = `<!DOCTYPE html>
       ].join("");
 
       timelineEl.innerHTML = runHeader + stepHeader;
+      compareRunSelect.innerHTML = ['<option value="">Compare target (optional)</option>'].concat(
+        state.runs.filter(function(run) {
+          return !state.selectedRun || run.run_id !== state.selectedRun.run_id;
+        }).map(function(run) {
+          const selected = run.run_id === state.compareTargetRunID ? ' selected' : '';
+          return '<option value="' + escapeHTML(run.run_id) + '"' + selected + '>' +
+            escapeHTML(run.run_id + " (" + (run.status || "unknown") + ")") + "</option>";
+        })
+      ).join("");
       timelineEl.querySelectorAll("[data-run-id]").forEach(function(button) {
         button.addEventListener("click", async function() {
           const runID = button.getAttribute("data-run-id");
@@ -644,7 +688,8 @@ const runsUIPage = `<!DOCTYPE html>
           setQuery({
             partition: state.partition,
             run_id: next.run_id,
-            sequence_no: ""
+            sequence_no: "",
+            target_run_id: state.compareTargetRunID
           });
           timelineEl.innerHTML = '<div class="hint">Loading steps...</div>';
           await loadSelectedRun();
@@ -656,7 +701,8 @@ const runsUIPage = `<!DOCTYPE html>
           setQuery({
             partition: state.partition,
             run_id: state.selectedRun ? state.selectedRun.run_id : "",
-            sequence_no: state.selectedSequenceNo
+            sequence_no: state.selectedSequenceNo,
+            target_run_id: state.compareTargetRunID
           });
           detailEl.innerHTML = '<div class="hint">Loading node detail...</div>';
           await loadSelectedNode();
@@ -706,7 +752,38 @@ const runsUIPage = `<!DOCTYPE html>
         "</div>",
         '<div class="detail-grid">' + refs + "</div>",
         '<div class="section"><h3>State Diff</h3><div class="diff-list">' + diffs + "</div></div>",
+        state.compare ? renderCompare() : "",
         state.summary ? renderSummary() : ""
+      ].join("");
+    }
+
+    function renderCompare() {
+      const c = state.compare;
+      const changed = (c.state_field_deltas || []).filter(function(item) { return item.changed; });
+      const changedPreview = changed.slice(0, 8).map(function(item) {
+        return [
+          '<div class="diff-item">',
+          "<strong>" + escapeHTML(item.field || "-") + "</strong>",
+          '<div class="diff-columns">',
+          '<div class="diff-box"><span class="label">Base After</span><pre>' + escapeHTML(pretty(item.base_after)) + "</pre></div>",
+          '<div class="diff-box"><span class="label">Target After</span><pre>' + escapeHTML(pretty(item.target_after)) + "</pre></div>",
+          "</div>",
+          "</div>"
+        ].join("");
+      }).join("");
+      return [
+        '<div class="section">',
+        "<h3>Run Compare</h3>",
+        '<div class="detail-grid">',
+        field("Base Run", c.base ? c.base.run_id : "-"),
+        field("Target Run", c.target ? c.target.run_id : "-"),
+        field("Duration Delta (ms)", c.summary_delta ? String(c.summary_delta.duration_ms_delta || 0) : "0"),
+        field("Failed Step Delta", c.summary_delta ? String(c.summary_delta.failed_step_delta || 0) : "0"),
+        field("Skipped Step Delta", c.summary_delta ? String(c.summary_delta.skipped_step_delta || 0) : "0"),
+        field("Changed State Fields", String(changed.length)),
+        "</div>",
+        '<div class="section"><h3>Changed State Fields (Top 8)</h3><div class="diff-list">' + (changedPreview || '<div class="hint">No changed fields.</div>') + "</div></div>",
+        "</div>"
       ].join("");
     }
 
@@ -735,7 +812,11 @@ const runsUIPage = `<!DOCTYPE html>
       runLabelEl.textContent = state.selectedRun ? state.selectedRun.run_id : "No run selected";
       partitionLabelEl.textContent = state.selectedRun ? state.selectedRun.partition || "-" : "-";
       if (state.summary) {
-        summaryLabelEl.textContent = "trades " + String(state.summary.trade_count || 0) + " / pnl " + String(state.summary.total_net_pnl || 0);
+        let text = "trades " + String(state.summary.trade_count || 0) + " / pnl " + String(state.summary.total_net_pnl || 0);
+        if (state.compare && state.compare.summary_delta) {
+          text += " / failΔ " + String(state.compare.summary_delta.failed_step_delta || 0);
+        }
+        summaryLabelEl.textContent = text;
       } else {
         summaryLabelEl.textContent = "-";
       }
@@ -760,7 +841,8 @@ const runsUIPage = `<!DOCTYPE html>
         setQuery({
           partition: state.partition,
           run_id: "",
-          sequence_no: ""
+          sequence_no: "",
+          target_run_id: state.compareTargetRunID
         });
         timelineEl.innerHTML = '<div class="hint">Loading runs...</div>';
         detailEl.innerHTML = '<div class="hint">Select a node execution to inspect detail and diff.</div>';
@@ -769,6 +851,16 @@ const runsUIPage = `<!DOCTYPE html>
         } catch (err) {
           timelineEl.innerHTML = '<div class="error">' + escapeHTML(err.message) + "</div>";
         }
+      });
+      compareRunSelect.addEventListener("change", async function() {
+        state.compareTargetRunID = compareRunSelect.value || "";
+        setQuery({
+          partition: state.partition,
+          run_id: state.selectedRun ? state.selectedRun.run_id : "",
+          sequence_no: state.selectedSequenceNo,
+          target_run_id: state.compareTargetRunID
+        });
+        await loadCompare();
       });
       try {
         await loadRuns();

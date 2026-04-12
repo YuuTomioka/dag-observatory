@@ -227,7 +227,7 @@ Progress note (2026-04-12):
 - [x] add a compact compare endpoint such as `GET /runs/compare?base_run_id=...&target_run_id=...`
 - [x] include summary-level deltas and per-field state-diff deltas as minimum comparison output
 - [x] ensure comparison output can explain meaningful result differences without requiring UI-first interpretation
-- [ ] add tests covering common comparison cases such as pnl divergence, trade-count divergence, and skip/fail path differences
+- [x] add tests covering common comparison cases such as pnl divergence, trade-count divergence, and skip/fail path differences
 
 ### Phase 14: Strengthen Correlation Across APIs, Logs, And Traces
 
@@ -239,10 +239,10 @@ Progress note (2026-04-12):
 ### Phase 15: Extend Minimum UI With Compare View
 
 - [ ] execute this phase under `governance/tasks/backtest_realdata_visualization_followups.md` and keep this document aligned only for base run-inspector compatibility
-- [ ] keep the current two-pane shape and add side-by-side run comparison without introducing full DAG canvas work
-- [ ] drive compare view only from existing and new read APIs rather than adding UI-owned state truth
+- [x] keep the current two-pane shape and add side-by-side run comparison without introducing full DAG canvas work
+- [x] drive compare view only from existing and new read APIs rather than adding UI-owned state truth
 - [ ] keep performance acceptable for near-term run volumes through compact rendering and bounded fetch size
-- [ ] add minimum UI integration checks for selecting two runs and inspecting diff highlights
+- [x] add minimum UI integration checks for selecting two runs and inspecting diff highlights
 
 ### Phase 16: Promote Run-Inspection Scenario Coverage
 

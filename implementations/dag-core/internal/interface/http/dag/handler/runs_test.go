@@ -291,3 +291,50 @@ func TestCompareRunsHTTP(t *testing.T) {
 		t.Fatalf("expected state field delta in response: %s", rec.Body.String())
 	}
 }
+
+func TestGetRunBacktestSummaryHTTP(t *testing.T) {
+	recorder := recorderinfra.NewInMemoryRecorder()
+	runEvent := events.Event{
+		EventID:   "run-summary",
+		EventTime: time.Date(2026, 4, 12, 4, 0, 0, 0, time.UTC),
+		Partition: state.Partition("p-summary"),
+		Type:      "task.requested",
+	}
+	recorder.RecordEvent(context.Background(), runEvent)
+	recorder.RecordNodeExecution(context.Background(), events.NodeExecutionEvent{
+		RunID:      "run-summary",
+		Partition:  state.Partition("p-summary"),
+		SequenceNo: 1,
+		StateDiff: []events.StateDiffField{
+			{Field: "strategy_summary.trade_count", After: 4.0},
+			{Field: "strategy_summary.total_net_pnl", After: 15.0},
+		},
+	})
+	recorder.RecordCycleResult(context.Background(), port.CycleResult{
+		Partition: state.Partition("p-summary"),
+		Event:     runEvent,
+		Duration:  2 * time.Second,
+	})
+
+	h := New(Dependencies{
+		AppLog:             applog.New("info", "stdout", nil),
+		GetBacktestSummary: &usecase.GetRunBacktestSummary{Reader: recorder},
+	})
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/runs/run-summary/backtest-summary", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath("/runs/:run_id/backtest-summary")
+	c.SetParamNames("run_id")
+	c.SetParamValues("run-summary")
+
+	if err := h.GetRunBacktestSummary(c); err != nil {
+		t.Fatalf("get run backtest summary handler error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"trade_count":4`) {
+		t.Fatalf("expected trade_count in response: %s", rec.Body.String())
+	}
+}

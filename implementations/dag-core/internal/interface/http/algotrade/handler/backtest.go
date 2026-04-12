@@ -21,21 +21,24 @@ const (
 )
 
 type backtestRunRequest struct {
-	RunID          string             `json:"run_id,omitempty"`
-	Partition      string             `json:"partition"`
-	SymbolCode     string             `json:"symbol_code"`
-	TimeframeCode  string             `json:"timeframe_code"`
-	From           marketdata.UTCTime `json:"from"`
-	To             marketdata.UTCTime `json:"to"`
-	Source         string             `json:"source,omitempty"`
-	Timezone       string             `json:"timezone,omitempty"`
-	GapHandling    string             `json:"gap_handling,omitempty"`
-	Mode           string             `json:"mode,omitempty"`
-	SpreadBps      float64            `json:"spread_bps,omitempty"`
-	FeeBps         float64            `json:"fee_bps,omitempty"`
-	SlippageBps    float64            `json:"slippage_bps,omitempty"`
-	MinLot         float64            `json:"min_lot,omitempty"`
-	AccountBalance float64            `json:"account_balance,omitempty"`
+	RunID           string             `json:"run_id,omitempty"`
+	Partition       string             `json:"partition"`
+	SymbolCode      string             `json:"symbol_code"`
+	TimeframeCode   string             `json:"timeframe_code"`
+	From            marketdata.UTCTime `json:"from"`
+	To              marketdata.UTCTime `json:"to"`
+	Source          string             `json:"source,omitempty"`
+	Timezone        string             `json:"timezone,omitempty"`
+	GapHandling     string             `json:"gap_handling,omitempty"`
+	Mode            string             `json:"mode,omitempty"`
+	SpreadBps       float64            `json:"spread_bps,omitempty"`
+	FeeBps          float64            `json:"fee_bps,omitempty"`
+	SlippageBps     float64            `json:"slippage_bps,omitempty"`
+	MinLot          float64            `json:"min_lot,omitempty"`
+	WorkflowName    string             `json:"workflow_name,omitempty"`
+	WorkflowVersion string             `json:"workflow_version,omitempty"`
+	ParameterSetID  string             `json:"parameter_set_id,omitempty"`
+	AccountBalance  float64            `json:"account_balance,omitempty"`
 }
 
 // RunBacktest
@@ -97,13 +100,16 @@ func (h *Handler) RunBacktest(c echo.Context) error {
 	}
 
 	resp := response.BacktestRunResponse{
-		Status:     "completed",
-		Entrypoint: "backtest",
-		Partition:  req.Partition,
-		Symbol:     req.SymbolCode,
-		Mode:       mode,
-		CycleCount: 1,
-		WindowSize: 1,
+		Status:          "completed",
+		Entrypoint:      "backtest",
+		Partition:       req.Partition,
+		Symbol:          req.SymbolCode,
+		Mode:            mode,
+		CycleCount:      1,
+		WindowSize:      1,
+		WorkflowName:    req.WorkflowName,
+		WorkflowVersion: req.WorkflowVersion,
+		ParameterSetID:  req.ParameterSetID,
 		Marketdata: response.BacktestMarketdataInput{
 			SymbolCode:    req.SymbolCode,
 			TimeframeCode: req.TimeframeCode,
@@ -117,18 +123,21 @@ func (h *Handler) RunBacktest(c echo.Context) error {
 
 	if canUsePeriodLoop {
 		result, err := h.runBacktest.Execute(c.Request().Context(), dagruntimeusecase.RunBacktestRequest{
-			RunID:          req.RunID,
-			Partition:      req.Partition,
-			SymbolCode:     req.SymbolCode,
-			TimeframeCode:  req.TimeframeCode,
-			From:           req.From,
-			To:             req.To,
-			Mode:           mode,
-			SpreadBps:      req.SpreadBps,
-			FeeBps:         req.FeeBps,
-			SlippageBps:    req.SlippageBps,
-			MinLot:         req.MinLot,
-			AccountBalance: req.AccountBalance,
+			RunID:           req.RunID,
+			Partition:       req.Partition,
+			SymbolCode:      req.SymbolCode,
+			TimeframeCode:   req.TimeframeCode,
+			From:            req.From,
+			To:              req.To,
+			Mode:            mode,
+			SpreadBps:       req.SpreadBps,
+			FeeBps:          req.FeeBps,
+			SlippageBps:     req.SlippageBps,
+			MinLot:          req.MinLot,
+			WorkflowName:    req.WorkflowName,
+			WorkflowVersion: req.WorkflowVersion,
+			ParameterSetID:  req.ParameterSetID,
+			AccountBalance:  req.AccountBalance,
 		})
 		if err != nil {
 			status := http.StatusInternalServerError
@@ -156,15 +165,18 @@ func (h *Handler) RunBacktest(c echo.Context) error {
 	}
 
 	result, err := h.runWF.Execute(c.Request().Context(), dagruntimeusecase.RunWorkflowRequest{
-		RunID:          req.RunID,
-		Partition:      req.Partition,
-		Symbol:         req.SymbolCode,
-		Mode:           mode,
-		SpreadBps:      req.SpreadBps,
-		FeeBps:         req.FeeBps,
-		SlippageBps:    req.SlippageBps,
-		MinLot:         req.MinLot,
-		AccountBalance: req.AccountBalance,
+		RunID:           req.RunID,
+		Partition:       req.Partition,
+		Symbol:          req.SymbolCode,
+		Mode:            mode,
+		SpreadBps:       req.SpreadBps,
+		FeeBps:          req.FeeBps,
+		SlippageBps:     req.SlippageBps,
+		MinLot:          req.MinLot,
+		WorkflowName:    req.WorkflowName,
+		WorkflowVersion: req.WorkflowVersion,
+		ParameterSetID:  req.ParameterSetID,
+		AccountBalance:  req.AccountBalance,
 		Marketdata: &dagruntimeusecase.MarketdataRunInput{
 			SymbolCode:    req.SymbolCode,
 			TimeframeCode: req.TimeframeCode,

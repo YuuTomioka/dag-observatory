@@ -11,18 +11,21 @@ type MarketdataRunInput struct {
 }
 
 type RunWorkflowRequest struct {
-	Symbol         string
-	Mode           string
-	Partition      string
-	Bars           []float64
-	OHLCVBars      []marketdata.OHLCV
-	SpreadBps      float64
-	FeeBps         float64
-	SlippageBps    float64
-	MinLot         float64
-	AccountBalance float64
-	Marketdata     *MarketdataRunInput
-	RunID          string
+	Symbol          string
+	Mode            string
+	Partition       string
+	Bars            []float64
+	OHLCVBars       []marketdata.OHLCV
+	SpreadBps       float64
+	FeeBps          float64
+	SlippageBps     float64
+	MinLot          float64
+	WorkflowName    string
+	WorkflowVersion string
+	ParameterSetID  string
+	AccountBalance  float64
+	Marketdata      *MarketdataRunInput
+	RunID           string
 }
 
 type RunWorkflowResult struct {

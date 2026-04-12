@@ -167,6 +167,15 @@ func buildRunEvent(req RunWorkflowRequest, now time.Time) (RunWorkflowResult, ev
 		payload["input"].(map[string]any)["execution.min_lot"] = req.MinLot
 		payload["execution_min_lot"] = req.MinLot
 	}
+	if req.WorkflowName != "" {
+		payload["input"].(map[string]any)["strategy.workflow_name"] = req.WorkflowName
+	}
+	if req.WorkflowVersion != "" {
+		payload["input"].(map[string]any)["strategy.workflow_version"] = req.WorkflowVersion
+	}
+	if req.ParameterSetID != "" {
+		payload["input"].(map[string]any)["strategy.parameter_set_id"] = req.ParameterSetID
+	}
 	if req.AccountBalance > 0 {
 		payload["input"].(map[string]any)["account.balance"] = req.AccountBalance
 		payload["account_balance"] = req.AccountBalance

@@ -24,3 +24,7 @@ type RunNodeDetailResponse struct {
 type RunCompareResponse struct {
 	Compare usecase.RunCompareView `json:"compare"`
 }
+
+type RunBacktestSummaryResponse struct {
+	Summary usecase.BacktestSummaryView `json:"summary"`
+}

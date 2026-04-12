@@ -60,11 +60,11 @@ This backlog starts after that foundation is available or in parallel only when 
 
 - [x] add explicit inputs for spread/slippage/fee/min-lot constraints
 - [x] ensure applied execution assumptions are persisted or emitted for run auditability
-- [ ] add tests covering pnl sensitivity to execution-assumption changes
+- [x] add tests covering pnl sensitivity to execution-assumption changes
 
 ### Phase 6: Backtest Result Model
 
-- [ ] define minimum run-level result projection (trade_count, win_rate, net pnl, max drawdown, equity series summary)
+- [x] define minimum run-level result projection (trade_count, win_rate, net pnl, max drawdown, equity series summary)
 - [ ] persist or reconstruct this projection through repository-approved SQL/query assets
 - [ ] keep SQL assets as source of truth when durable schema/query changes are needed
 
@@ -72,7 +72,7 @@ This backlog starts after that foundation is available or in parallel only when 
 
 - [x] add compare endpoint such as `GET /runs/compare?base_run_id=...&target_run_id=...`
 - [x] include summary-level deltas and key field-level divergences
-- [ ] add tests for pnl divergence, trade-count divergence, and skip/fail path differences
+- [x] add tests for pnl divergence, trade-count divergence, and skip/fail path differences
 
 ### Phase 8: Visualization API Extension
 
@@ -82,22 +82,22 @@ This backlog starts after that foundation is available or in parallel only when 
 
 ### Phase 9: UI Compare View
 
-- [ ] extend `/runs/ui` with side-by-side run comparison using read APIs only
-- [ ] show summary delta and step-level differences without introducing a full DAG canvas requirement
-- [ ] add minimum integration checks for selecting two runs and inspecting diff highlights
+- [x] extend `/runs/ui` with side-by-side run comparison using read APIs only
+- [x] show summary delta and step-level differences without introducing a full DAG canvas requirement
+- [x] add minimum integration checks for selecting two runs and inspecting diff highlights
 
 ### Phase 10: Reproducibility And Scenario Coverage
 
-- [ ] record reproducibility metadata (workflow version, parameter set, data range, source identifiers)
-- [ ] add scenario guidance under `scenarios/` for real-data backtest -> compare -> visualize flow
-- [ ] verify success/failure/skip/retry cases are reproducible with concrete API checks
+- [x] record reproducibility metadata (workflow version, parameter set, data range, source identifiers)
+- [x] add scenario guidance under `scenarios/` for real-data backtest -> compare -> visualize flow
+- [x] verify success/failure/skip/retry cases are reproducible with concrete API checks
 
 ### MVP Slice (Recommended First)
 
 - [x] `POST /algotrade/backtests:run`
-- [ ] real-data period-loop execution path
+- [x] real-data period-loop execution path
 - [x] `GET /runs/compare`
-- [ ] `/runs/ui` compare mode
+- [x] `/runs/ui` compare mode
 
 ## Acceptance Criteria
 

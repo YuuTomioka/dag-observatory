@@ -136,7 +136,12 @@ func TestCompareRunsExecute(t *testing.T) {
 					Status:     events.NodeExecutionStatusSucceeded,
 					StateDiff: []events.StateDiffField{
 						{Field: "strategy_summary.trade_count", After: 1.0},
+						{Field: "strategy_summary.total_net_pnl", After: 12.0},
 					},
+				},
+				{
+					SequenceNo: 2,
+					Status:     events.NodeExecutionStatusSkipped,
 				},
 			},
 			"run-target": {
@@ -145,6 +150,7 @@ func TestCompareRunsExecute(t *testing.T) {
 					Status:     events.NodeExecutionStatusFailed,
 					StateDiff: []events.StateDiffField{
 						{Field: "strategy_summary.trade_count", After: 3.0},
+						{Field: "strategy_summary.total_net_pnl", After: -5.0},
 					},
 				},
 			},
@@ -168,10 +174,29 @@ func TestCompareRunsExecute(t *testing.T) {
 	if view.SummaryDelta.DurationMSDelta != 2000 {
 		t.Fatalf("expected duration delta 2000ms, got %d", view.SummaryDelta.DurationMSDelta)
 	}
-	if len(view.StateFieldDeltas) != 1 {
-		t.Fatalf("expected 1 state field delta, got %d", len(view.StateFieldDeltas))
+	if view.SummaryDelta.RetryCountDelta != 1 {
+		t.Fatalf("expected retry_count_delta=1, got %d", view.SummaryDelta.RetryCountDelta)
 	}
-	if view.StateFieldDeltas[0].Field != "strategy_summary.trade_count" || !view.StateFieldDeltas[0].Changed {
-		t.Fatalf("unexpected state field delta: %#v", view.StateFieldDeltas[0])
+	if len(view.StateFieldDeltas) != 2 {
+		t.Fatalf("expected 2 state field deltas, got %d", len(view.StateFieldDeltas))
+	}
+	if view.SummaryDelta.FailedStepDelta != 1 {
+		t.Fatalf("expected failed_step_delta=1, got %d", view.SummaryDelta.FailedStepDelta)
+	}
+	if view.SummaryDelta.SkippedStepDelta != -1 {
+		t.Fatalf("expected skipped_step_delta=-1, got %d", view.SummaryDelta.SkippedStepDelta)
+	}
+	if view.SummaryDelta.SucceededStepDelta != -1 {
+		t.Fatalf("expected succeeded_step_delta=-1, got %d", view.SummaryDelta.SucceededStepDelta)
+	}
+	deltaByField := map[string]bool{}
+	for _, delta := range view.StateFieldDeltas {
+		deltaByField[delta.Field] = delta.Changed
+	}
+	if !deltaByField["strategy_summary.trade_count"] {
+		t.Fatalf("expected strategy_summary.trade_count to be changed: %#v", view.StateFieldDeltas)
+	}
+	if !deltaByField["strategy_summary.total_net_pnl"] {
+		t.Fatalf("expected strategy_summary.total_net_pnl to be changed: %#v", view.StateFieldDeltas)
 	}
 }

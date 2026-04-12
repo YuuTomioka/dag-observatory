@@ -11,13 +11,16 @@ type BacktestMarketdataInput struct {
 }
 
 type BacktestRunResponse struct {
-	Status     string                  `json:"status"`
-	Entrypoint string                  `json:"entrypoint"`
-	RunID      string                  `json:"run_id"`
-	Partition  string                  `json:"partition"`
-	Symbol     string                  `json:"symbol,omitempty"`
-	Mode       string                  `json:"mode"`
-	CycleCount int                     `json:"cycle_count"`
-	WindowSize int                     `json:"window_size_bars"`
-	Marketdata BacktestMarketdataInput `json:"marketdata"`
+	Status          string                  `json:"status"`
+	Entrypoint      string                  `json:"entrypoint"`
+	RunID           string                  `json:"run_id"`
+	Partition       string                  `json:"partition"`
+	Symbol          string                  `json:"symbol,omitempty"`
+	Mode            string                  `json:"mode"`
+	CycleCount      int                     `json:"cycle_count"`
+	WindowSize      int                     `json:"window_size_bars"`
+	WorkflowName    string                  `json:"workflow_name,omitempty"`
+	WorkflowVersion string                  `json:"workflow_version,omitempty"`
+	ParameterSetID  string                  `json:"parameter_set_id,omitempty"`
+	Marketdata      BacktestMarketdataInput `json:"marketdata"`
 }

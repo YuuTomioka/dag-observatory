@@ -32,6 +32,8 @@ definitions:
         type: number
       mode:
         type: string
+      parameter_set_id:
+        type: string
       partition:
         type: string
       run_id:
@@ -49,6 +51,10 @@ definitions:
       timezone:
         type: string
       to:
+        type: string
+      workflow_name:
+        type: string
+      workflow_version:
         type: string
     type: object
   handler.resultReflectionRunRequest:
@@ -302,6 +308,8 @@ definitions:
         $ref: '#/definitions/response.BacktestMarketdataInput'
       mode:
         type: string
+      parameter_set_id:
+        type: string
       partition:
         type: string
       run_id:
@@ -312,6 +320,10 @@ definitions:
         type: string
       window_size_bars:
         type: integer
+      workflow_name:
+        type: string
+      workflow_version:
+        type: string
     type: object
   response.DBBackupItem:
     properties:
@@ -450,6 +462,11 @@ definitions:
       symbol:
         type: string
     type: object
+  response.RunBacktestSummaryResponse:
+    properties:
+      summary:
+        $ref: '#/definitions/usecase.BacktestSummaryView'
+    type: object
   response.RunCompareResponse:
     properties:
       compare:
@@ -582,6 +599,25 @@ definitions:
     properties:
       upserted:
         type: integer
+    type: object
+  usecase.BacktestSummaryView:
+    properties:
+      equity_point_count:
+        type: integer
+      has_strategy_fields:
+        type: boolean
+      max_drawdown:
+        type: number
+      partition:
+        type: string
+      run_id:
+        type: string
+      total_net_pnl:
+        type: number
+      trade_count:
+        type: integer
+      win_rate:
+        type: number
     type: object
   usecase.RunCompareView:
     properties:
@@ -1355,6 +1391,38 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
       summary: Get run detail
+      tags:
+      - dag
+  /runs/{run_id}/backtest-summary:
+    get:
+      description: Returns run-level backtest summary projection reconstructed from
+        run-step state diff fields.
+      parameters:
+      - description: Run ID
+        in: path
+        name: run_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.RunBacktestSummaryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get run backtest summary
       tags:
       - dag
   /runs/{run_id}/steps:

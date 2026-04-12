@@ -31,23 +31,24 @@ import (
 )
 
 type Dependencies struct {
-	IntentLog          port.IntentLog
-	AppLog             *applog.Logger
-	Tracer             trace.Tracer
-	Metrics            *metrics.Instruments
-	RunWorkflow        *usecase.RunWorkflow
-	RunBacktest        *usecase.RunBacktest
-	ListRuns           *usecase.ListRuns
-	GetRun             *usecase.GetRun
-	ListRunSteps       *usecase.ListRunSteps
-	GetRunNode         *usecase.GetRunNode
-	CompareRuns        *usecase.CompareRuns
-	StateStore         domainstate.Store
-	ListTradeResults   *usecase.ListTradeResults
-	GetStrategySummary *usecase.GetStrategySummary
-	ArtifactsRepo      artifactsrepository.Reader
-	Presigner          *miniostore.Presigner
-	DBBackupsRepo      dbbackupsrepository.Reader
+	IntentLog             port.IntentLog
+	AppLog                *applog.Logger
+	Tracer                trace.Tracer
+	Metrics               *metrics.Instruments
+	RunWorkflow           *usecase.RunWorkflow
+	RunBacktest           *usecase.RunBacktest
+	ListRuns              *usecase.ListRuns
+	GetRun                *usecase.GetRun
+	ListRunSteps          *usecase.ListRunSteps
+	GetRunNode            *usecase.GetRunNode
+	CompareRuns           *usecase.CompareRuns
+	GetRunBacktestSummary *usecase.GetRunBacktestSummary
+	StateStore            domainstate.Store
+	ListTradeResults      *usecase.ListTradeResults
+	GetStrategySummary    *usecase.GetStrategySummary
+	ArtifactsRepo         artifactsrepository.Reader
+	Presigner             *miniostore.Presigner
+	DBBackupsRepo         dbbackupsrepository.Reader
 
 	CreateSymbol              *marketdatausecase.CreateSymbol
 	GetSymbolByCode           *marketdatausecase.GetSymbolByCode
@@ -62,15 +63,16 @@ type Dependencies struct {
 func RegisterRoutes(e *echo.Echo, d Dependencies) {
 	hh := healthhandler.New()
 	dh := daghandler.New(daghandler.Dependencies{
-		AppLog:       d.AppLog,
-		Tracer:       d.Tracer,
-		Metrics:      d.Metrics,
-		RunWorkflow:  d.RunWorkflow,
-		ListRuns:     d.ListRuns,
-		GetRun:       d.GetRun,
-		ListRunSteps: d.ListRunSteps,
-		GetRunNode:   d.GetRunNode,
-		CompareRuns:  d.CompareRuns,
+		AppLog:             d.AppLog,
+		Tracer:             d.Tracer,
+		Metrics:            d.Metrics,
+		RunWorkflow:        d.RunWorkflow,
+		ListRuns:           d.ListRuns,
+		GetRun:             d.GetRun,
+		ListRunSteps:       d.ListRunSteps,
+		GetRunNode:         d.GetRunNode,
+		CompareRuns:        d.CompareRuns,
+		GetBacktestSummary: d.GetRunBacktestSummary,
 	})
 	ath := algotradehandler.New(algotradehandler.Dependencies{
 		StateStore:         d.StateStore,

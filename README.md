@@ -2,9 +2,13 @@
 
 Clock + DAG 実行基盤、時系列データ設計、観測性設計を扱う親リポジトリです。
 
-このリポジトリは単一プロダクトの完成品ではなく、DAG + time-series システムの派生プロジェクト向けに、再利用可能な構造原則と参照実装を保持するための土台です。
-
 `README.md` は入口です。構造や仕様の正本は `blueprint/`、変更ルールは `governance/`、実装の正本は `implementations/` にあります。
+
+文書運用の基本方針:
+
+- 正本となる構造・仕様ドキュメントは英語
+- 人間向けの要求伝達、手順、検証導線は日本語
+- 詳細ルールは `governance/policies/documentation-policy.md` を参照
 
 ## 最初に読むもの
 
@@ -25,11 +29,13 @@ AI ペアプロ向けの読解順と変更原則は `AGENTS.md` にあります�
 
 - `blueprint/`: 親リポジトリとして継承させたい設計原則と ADR の正本
 - `governance/`: 変更分類、文書配置、共有タスク文脈の管理
+- `governance/contracts/`: 人間向けの要求受理、実装ハンドオフ、検証報告テンプレート
 - `implementations/`: 参照実装の正本
 - `platform/`: 観測性などの恒久的な運用基盤リファレンス
 - `deployments/`: ローカル実行や移行のための実行ラッパ
 - `data/`: 時系列・分析向け SQL 資産と設計資産
-- `scenarios/`: 代表ユースケースと推奨導線
+- `scenarios/`: 日本語で管理する代表ユースケースと推奨導線
+- `.agents/skills/`: このリポジトリで使う Codex の repository-scoped skills
 - `scripts/`: 補助スクリプト
 - `.codex/`: AI ローカル補助
 - `var/`: 共有しないローカル runtime 出力・キャッシュ置き場
@@ -71,6 +77,12 @@ AI ペアプロ向けの読解順と変更原則は `AGENTS.md` にあります�
 
 実装固有の API 詳細や handler、workflow、worker handler などはここで管理します。
 
+### `governance/contracts/`
+
+要求受理、実装依頼、検証報告のような人間向けの受け渡し面を置く場所です。
+
+ここは日本語のテンプレートを置く面であり、構造や仕様の正本は持ちません。必要な技術的根拠は `blueprint/` や各実装の正本を参照します。
+
 ### `platform/`
 
 恒久的な運用基盤の参照置き場です。現在は `platform/observability/` が主要対象です。
@@ -87,7 +99,13 @@ Collector、Loki、Tempo、Prometheus、Promtail、Grafana などの観測基盤
 
 ### `scenarios/`
 
-代表ユースケースと検証導線です。どの入口を推奨するか、何を確認すべきかをここで示します。
+代表ユースケースと検証導線です。どの入口を推奨するか、何を確認すべきかを日本語で示します。
+
+### `.agents/skills/`
+
+このリポジトリ専用の Codex skills を置く場所です。
+
+変更分類、blueprint から実装への落とし込み、scenario ベースの検証のような反復作業をここで定義します。
 
 ## 開発時の変更判断
 
@@ -123,7 +141,9 @@ Collector、Loki、Tempo、Prometheus、Promtail、Grafana などの観測基盤
 - 構造原則の正本: `blueprint/`
 - API 実装の正本: `implementations/dag-core/`
 - SQL 設計の正本: `data/tsdb/`
+- 人間向けの要求・報告テンプレート: `governance/contracts/`
 - 一時的な共有作業文脈: `governance/tasks/`
+- repository-scoped Codex skills: `.agents/skills/`
 - ローカル専用の生成物: `var/`
 
 `README.md` 自体は要約と導線のための文書であり、詳細仕様の正本ではありません。

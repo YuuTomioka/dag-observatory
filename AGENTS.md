@@ -42,12 +42,14 @@ If the task falls into a higher class, update that layer first before editing lo
 
 - `blueprint/`: long-lived design truth, boundaries, conventions, and ADRs
 - `governance/policies/`: repository-wide change-handling and documentation rules
+- `governance/contracts/`: reusable human-facing request and handoff templates
 - `governance/tasks/`: shared temporary task context
 - `implementations/`: implementation-local code and guidance
 - `platform/`: operating environment and observability reference assets
 - `deployments/`: local stack wiring and execution wrappers
 - `data/`: durable SQL, migration, and analysis assets
-- `scenarios/`: representative flows and validation guidance
+- `scenarios/`: Japanese-facing representative flows and validation guidance
+- `.agents/skills/`: repository-scoped Codex skills
 - `.codex/`: AI-local helpers only
 - `var/`: untracked local runtime outputs and caches
 
@@ -55,6 +57,8 @@ If the task falls into a higher class, update that layer first before editing lo
 
 - Promote durable conclusions into the proper permanent location.
 - Keep temporary planning notes in `governance/tasks/` until promoted or retired.
+- Keep durable source-of-truth documents in English.
+- Keep direct human-interface surfaces such as `scenarios/` and `governance/contracts/` in Japanese.
 - Do not use `.wrk/` as a tracked or referenced documentation surface.
 - Do not reintroduce `.docs/`.
 - Do not treat generated artifacts or runtime output as structural truth.
@@ -64,6 +68,7 @@ If the task falls into a higher class, update that layer first before editing lo
 - Update `blueprint/` first when a change affects structure, boundaries, conventions, or derivative inheritance.
 - Update `blueprint/adr/` when repository-level rationale or durable decisions change.
 - Update `governance/policies/` when repository-wide contributor rules change.
+- Update `governance/contracts/` when reusable human-facing request or handoff templates change.
 - Update `scenarios/` when the recommended entry flow or validation procedure changes.
 - Keep implementation-specific details under `implementations/`.
 - Keep platform topology and backend configuration under `platform/`.

@@ -32,6 +32,9 @@ type backtestRunRequest struct {
 	GapHandling    string             `json:"gap_handling,omitempty"`
 	Mode           string             `json:"mode,omitempty"`
 	SpreadBps      float64            `json:"spread_bps,omitempty"`
+	FeeBps         float64            `json:"fee_bps,omitempty"`
+	SlippageBps    float64            `json:"slippage_bps,omitempty"`
+	MinLot         float64            `json:"min_lot,omitempty"`
 	AccountBalance float64            `json:"account_balance,omitempty"`
 }
 
@@ -49,7 +52,12 @@ type backtestRunRequest struct {
 // @Failure 501 {object} dto.ErrorResponse
 // @Router /algotrade/backtests:run [post]
 func (h *Handler) RunBacktest(c echo.Context) error {
-	if h.runWF == nil {
+	canUsePeriodLoop := h.runBacktest != nil &&
+		h.runBacktest.RunWorkflow != nil &&
+		h.runBacktest.GetSymbolByCode != nil &&
+		h.runBacktest.ListTimeframeBars != nil
+
+	if h.runWF == nil && !canUsePeriodLoop {
 		return c.JSON(http.StatusNotImplemented, dto.ErrorResponse{
 			Error:  "backtest API not configured",
 			Status: "error",
@@ -88,12 +96,74 @@ func (h *Handler) RunBacktest(c echo.Context) error {
 		})
 	}
 
+	resp := response.BacktestRunResponse{
+		Status:     "completed",
+		Entrypoint: "backtest",
+		Partition:  req.Partition,
+		Symbol:     req.SymbolCode,
+		Mode:       mode,
+		CycleCount: 1,
+		WindowSize: 1,
+		Marketdata: response.BacktestMarketdataInput{
+			SymbolCode:    req.SymbolCode,
+			TimeframeCode: req.TimeframeCode,
+			From:          req.From.String(),
+			To:            req.To.String(),
+			Source:        source,
+			Timezone:      timezone,
+			GapHandling:   gapHandling,
+		},
+	}
+
+	if canUsePeriodLoop {
+		result, err := h.runBacktest.Execute(c.Request().Context(), dagruntimeusecase.RunBacktestRequest{
+			RunID:          req.RunID,
+			Partition:      req.Partition,
+			SymbolCode:     req.SymbolCode,
+			TimeframeCode:  req.TimeframeCode,
+			From:           req.From,
+			To:             req.To,
+			Mode:           mode,
+			SpreadBps:      req.SpreadBps,
+			FeeBps:         req.FeeBps,
+			SlippageBps:    req.SlippageBps,
+			MinLot:         req.MinLot,
+			AccountBalance: req.AccountBalance,
+		})
+		if err != nil {
+			status := http.StatusInternalServerError
+			if errors.Is(err, dagruntimeusecase.ErrBacktestInput) {
+				status = http.StatusBadRequest
+			}
+			return c.JSON(status, dto.ErrorResponse{
+				Error:  err.Error(),
+				Status: "failed",
+				Symbol: result.Symbol,
+				RunID:  result.RunID,
+			})
+		}
+		resp.RunID = result.RunID
+		resp.Partition = result.Partition
+		resp.Symbol = result.Symbol
+		resp.Mode = result.Mode
+		resp.CycleCount = result.CycleCount
+		resp.WindowSize = result.WindowSizeBars
+		if result.EnqueueMode {
+			resp.Status = "enqueued"
+			return c.JSON(http.StatusAccepted, resp)
+		}
+		return c.JSON(http.StatusOK, resp)
+	}
+
 	result, err := h.runWF.Execute(c.Request().Context(), dagruntimeusecase.RunWorkflowRequest{
 		RunID:          req.RunID,
 		Partition:      req.Partition,
 		Symbol:         req.SymbolCode,
 		Mode:           mode,
 		SpreadBps:      req.SpreadBps,
+		FeeBps:         req.FeeBps,
+		SlippageBps:    req.SlippageBps,
+		MinLot:         req.MinLot,
 		AccountBalance: req.AccountBalance,
 		Marketdata: &dagruntimeusecase.MarketdataRunInput{
 			SymbolCode:    req.SymbolCode,
@@ -110,24 +180,8 @@ func (h *Handler) RunBacktest(c echo.Context) error {
 			RunID:  result.RunID,
 		})
 	}
-
-	resp := response.BacktestRunResponse{
-		Status:     "completed",
-		Entrypoint: "backtest",
-		RunID:      result.RunID,
-		Partition:  req.Partition,
-		Symbol:     result.Symbol,
-		Mode:       mode,
-		Marketdata: response.BacktestMarketdataInput{
-			SymbolCode:    req.SymbolCode,
-			TimeframeCode: req.TimeframeCode,
-			From:          req.From.String(),
-			To:            req.To.String(),
-			Source:        source,
-			Timezone:      timezone,
-			GapHandling:   gapHandling,
-		},
-	}
+	resp.RunID = result.RunID
+	resp.Symbol = result.Symbol
 	if result.EnqueueMode {
 		resp.Status = "enqueued"
 		return c.JSON(http.StatusAccepted, resp)
@@ -161,6 +215,15 @@ func validateBacktestRunRequest(req backtestRunRequest, timezone, gapHandling st
 	case backtestGapHandlingStrict, backtestGapHandlingSkip:
 	default:
 		return errors.New("gap_handling must be strict or skip")
+	}
+	if req.FeeBps < 0 {
+		return errors.New("fee_bps must be >= 0")
+	}
+	if req.SlippageBps < 0 {
+		return errors.New("slippage_bps must be >= 0")
+	}
+	if req.MinLot < 0 {
+		return errors.New("min_lot must be >= 0")
 	}
 	return nil
 }

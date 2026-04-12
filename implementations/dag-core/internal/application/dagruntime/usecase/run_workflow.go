@@ -155,6 +155,18 @@ func buildRunEvent(req RunWorkflowRequest, now time.Time) (RunWorkflowResult, ev
 		payload["input"].(map[string]any)["market.spread_bps"] = req.SpreadBps
 		payload["market_spread_bps"] = req.SpreadBps
 	}
+	if req.FeeBps > 0 {
+		payload["input"].(map[string]any)["execution.fee_bps"] = req.FeeBps
+		payload["execution_fee_bps"] = req.FeeBps
+	}
+	if req.SlippageBps > 0 {
+		payload["input"].(map[string]any)["execution.slippage_bps"] = req.SlippageBps
+		payload["execution_slippage_bps"] = req.SlippageBps
+	}
+	if req.MinLot > 0 {
+		payload["input"].(map[string]any)["execution.min_lot"] = req.MinLot
+		payload["execution_min_lot"] = req.MinLot
+	}
 	if req.AccountBalance > 0 {
 		payload["input"].(map[string]any)["account.balance"] = req.AccountBalance
 		payload["account_balance"] = req.AccountBalance

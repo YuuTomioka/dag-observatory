@@ -17,5 +17,7 @@ type BacktestRunResponse struct {
 	Partition  string                  `json:"partition"`
 	Symbol     string                  `json:"symbol,omitempty"`
 	Mode       string                  `json:"mode"`
+	CycleCount int                     `json:"cycle_count"`
+	WindowSize int                     `json:"window_size_bars"`
 	Marketdata BacktestMarketdataInput `json:"marketdata"`
 }

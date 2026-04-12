@@ -17,6 +17,7 @@ type Handler struct {
 	getRun       *usecase.GetRun
 	listRunSteps *usecase.ListRunSteps
 	getRunNode   *usecase.GetRunNode
+	compareRuns  *usecase.CompareRuns
 }
 
 type Dependencies struct {
@@ -28,6 +29,7 @@ type Dependencies struct {
 	GetRun       *usecase.GetRun
 	ListRunSteps *usecase.ListRunSteps
 	GetRunNode   *usecase.GetRunNode
+	CompareRuns  *usecase.CompareRuns
 }
 
 func New(d Dependencies) *Handler {
@@ -40,5 +42,6 @@ func New(d Dependencies) *Handler {
 		getRun:       d.GetRun,
 		listRunSteps: d.ListRunSteps,
 		getRunNode:   d.GetRunNode,
+		compareRuns:  d.CompareRuns,
 	}
 }

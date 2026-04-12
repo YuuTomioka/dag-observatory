@@ -218,3 +218,51 @@ func (h *Handler) GetRunNode(c echo.Context) error {
 		Node:       item,
 	})
 }
+
+// CompareRuns
+// @Summary Compare two workflow runs
+// @Description Returns summary deltas and state-field deltas between base and target run IDs.
+// @Tags dag
+// @Produce json
+// @Param base_run_id query string true "Base run ID"
+// @Param target_run_id query string true "Target run ID"
+// @Success 200 {object} response.RunCompareResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Failure 501 {object} dto.ErrorResponse
+// @Router /runs/compare [get]
+func (h *Handler) CompareRuns(c echo.Context) error {
+	if h.compareRuns == nil {
+		return c.JSON(http.StatusNotImplemented, dto.ErrorResponse{
+			Error:  "run compare API not configured",
+			Status: "error",
+		})
+	}
+	baseRunID := c.QueryParam("base_run_id")
+	targetRunID := c.QueryParam("target_run_id")
+	if baseRunID == "" || targetRunID == "" {
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error:  "base_run_id and target_run_id are required",
+			Status: "error",
+		})
+	}
+	view, ok, err := h.compareRuns.Execute(c.Request().Context(), usecase.CompareRunsRequest{
+		BaseRunID:   baseRunID,
+		TargetRunID: targetRunID,
+	})
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Error:  err.Error(),
+			Status: "error",
+		})
+	}
+	if !ok {
+		return c.JSON(http.StatusNotFound, dto.ErrorResponse{
+			Error:  "run not found",
+			Status: "error",
+		})
+	}
+	return c.JSON(http.StatusOK, response.RunCompareResponse{
+		Compare: view,
+	})
+}

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -220,5 +221,73 @@ func TestListRunStepsDecodesEncodedRunID(t *testing.T) {
 	}
 	if len(resp.Items) != 1 {
 		t.Fatalf("expected 1 item, got %d", len(resp.Items))
+	}
+}
+
+func TestCompareRunsHTTP(t *testing.T) {
+	reader := recorderinfra.NewInMemoryRecorder()
+	baseEvent := events.Event{
+		EventID:   "base",
+		EventTime: time.Date(2026, 4, 12, 1, 0, 0, 0, time.UTC),
+		Partition: state.Partition("p1"),
+		Type:      "task.requested",
+	}
+	targetEvent := events.Event{
+		EventID:   "target",
+		EventTime: time.Date(2026, 4, 12, 1, 1, 0, 0, time.UTC),
+		Partition: state.Partition("p1"),
+		Type:      "task.requested",
+	}
+	reader.RecordEvent(context.Background(), baseEvent)
+	reader.RecordEvent(context.Background(), targetEvent)
+	reader.RecordNodeExecution(context.Background(), events.NodeExecutionEvent{
+		RunID:      "base",
+		Partition:  state.Partition("p1"),
+		SequenceNo: 1,
+		Status:     events.NodeExecutionStatusSucceeded,
+		StateDiff: []events.StateDiffField{
+			{Field: "strategy_summary.trade_count", After: 1.0},
+		},
+	})
+	reader.RecordNodeExecution(context.Background(), events.NodeExecutionEvent{
+		RunID:      "target",
+		Partition:  state.Partition("p1"),
+		SequenceNo: 1,
+		Status:     events.NodeExecutionStatusFailed,
+		StateDiff: []events.StateDiffField{
+			{Field: "strategy_summary.trade_count", After: 3.0},
+		},
+	})
+	reader.RecordCycleResult(context.Background(), port.CycleResult{
+		Partition: state.Partition("p1"),
+		Event:     baseEvent,
+		Duration:  2 * time.Second,
+	})
+	reader.RecordCycleResult(context.Background(), port.CycleResult{
+		Partition: state.Partition("p1"),
+		Event:     targetEvent,
+		Duration:  4 * time.Second,
+	})
+
+	h := New(Dependencies{
+		AppLog:      applog.New("info", "stdout", nil),
+		CompareRuns: &usecase.CompareRuns{Reader: reader},
+	})
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/runs/compare?base_run_id=base&target_run_id=target", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := h.CompareRuns(c); err != nil {
+		t.Fatalf("compare runs handler error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"failed_step_delta":1`) {
+		t.Fatalf("expected failed_step_delta=1 in response: %s", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"strategy_summary.trade_count"`) {
+		t.Fatalf("expected state field delta in response: %s", rec.Body.String())
 	}
 }

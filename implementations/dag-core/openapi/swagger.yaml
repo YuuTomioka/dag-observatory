@@ -22,16 +22,22 @@ definitions:
     properties:
       account_balance:
         type: number
+      fee_bps:
+        type: number
       from:
         type: string
       gap_handling:
         type: string
+      min_lot:
+        type: number
       mode:
         type: string
       partition:
         type: string
       run_id:
         type: string
+      slippage_bps:
+        type: number
       source:
         type: string
       spread_bps:
@@ -288,6 +294,8 @@ definitions:
     type: object
   response.BacktestRunResponse:
     properties:
+      cycle_count:
+        type: integer
       entrypoint:
         type: string
       marketdata:
@@ -302,6 +310,8 @@ definitions:
         type: string
       symbol:
         type: string
+      window_size_bars:
+        type: integer
     type: object
   response.DBBackupItem:
     properties:
@@ -440,6 +450,11 @@ definitions:
       symbol:
         type: string
     type: object
+  response.RunCompareResponse:
+    properties:
+      compare:
+        $ref: '#/definitions/usecase.RunCompareView'
+    type: object
   response.RunDetailResponse:
     properties:
       run:
@@ -568,6 +583,28 @@ definitions:
       upserted:
         type: integer
     type: object
+  usecase.RunCompareView:
+    properties:
+      base:
+        $ref: '#/definitions/usecase.RunView'
+      state_field_deltas:
+        items:
+          $ref: '#/definitions/usecase.RunStateFieldDeltaView'
+        type: array
+      summary_delta:
+        $ref: '#/definitions/usecase.RunSummaryDeltaView'
+      target:
+        $ref: '#/definitions/usecase.RunView'
+    type: object
+  usecase.RunStateFieldDeltaView:
+    properties:
+      base_after: {}
+      changed:
+        type: boolean
+      field:
+        type: string
+      target_after: {}
+    type: object
   usecase.RunStepView:
     properties:
       duration_ns:
@@ -606,6 +643,23 @@ definitions:
         type: string
       trigger_reason:
         type: string
+    type: object
+  usecase.RunSummaryDeltaView:
+    properties:
+      duration_ms_delta:
+        type: integer
+      failed_step_delta:
+        type: integer
+      retry_count_delta:
+        type: integer
+      skipped_step_delta:
+        type: integer
+      status_changed:
+        type: boolean
+      step_count_delta:
+        type: integer
+      succeeded_step_delta:
+        type: integer
     type: object
   usecase.RunView:
     properties:
@@ -1364,6 +1418,43 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
       summary: Get run node execution detail
+      tags:
+      - dag
+  /runs/compare:
+    get:
+      description: Returns summary deltas and state-field deltas between base and
+        target run IDs.
+      parameters:
+      - description: Base run ID
+        in: query
+        name: base_run_id
+        required: true
+        type: string
+      - description: Target run ID
+        in: query
+        name: target_run_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.RunCompareResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Compare two workflow runs
       tags:
       - dag
   /workflow-runs/{workflow_run_id}/artifacts:

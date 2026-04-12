@@ -963,6 +963,60 @@ const docTemplate = `{
                 }
             }
         },
+        "/runs/compare": {
+            "get": {
+                "description": "Returns summary deltas and state-field deltas between base and target run IDs.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dag"
+                ],
+                "summary": "Compare two workflow runs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Base run ID",
+                        "name": "base_run_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Target run ID",
+                        "name": "target_run_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.RunCompareResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/runs/{run_id}": {
             "get": {
                 "description": "Returns one run-level read model by run id.",
@@ -1193,11 +1247,17 @@ const docTemplate = `{
                 "account_balance": {
                     "type": "number"
                 },
+                "fee_bps": {
+                    "type": "number"
+                },
                 "from": {
                     "type": "string"
                 },
                 "gap_handling": {
                     "type": "string"
+                },
+                "min_lot": {
+                    "type": "number"
                 },
                 "mode": {
                     "type": "string"
@@ -1207,6 +1267,9 @@ const docTemplate = `{
                 },
                 "run_id": {
                     "type": "string"
+                },
+                "slippage_bps": {
+                    "type": "number"
                 },
                 "source": {
                     "type": "string"
@@ -1582,6 +1645,9 @@ const docTemplate = `{
         "response.BacktestRunResponse": {
             "type": "object",
             "properties": {
+                "cycle_count": {
+                    "type": "integer"
+                },
                 "entrypoint": {
                     "type": "string"
                 },
@@ -1602,6 +1668,9 @@ const docTemplate = `{
                 },
                 "symbol": {
                     "type": "string"
+                },
+                "window_size_bars": {
+                    "type": "integer"
                 }
             }
         },
@@ -1814,6 +1883,14 @@ const docTemplate = `{
                 }
             }
         },
+        "response.RunCompareResponse": {
+            "type": "object",
+            "properties": {
+                "compare": {
+                    "$ref": "#/definitions/usecase.RunCompareView"
+                }
+            }
+        },
         "response.RunDetailResponse": {
             "type": "object",
             "properties": {
@@ -2008,6 +2085,39 @@ const docTemplate = `{
                 }
             }
         },
+        "usecase.RunCompareView": {
+            "type": "object",
+            "properties": {
+                "base": {
+                    "$ref": "#/definitions/usecase.RunView"
+                },
+                "state_field_deltas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/usecase.RunStateFieldDeltaView"
+                    }
+                },
+                "summary_delta": {
+                    "$ref": "#/definitions/usecase.RunSummaryDeltaView"
+                },
+                "target": {
+                    "$ref": "#/definitions/usecase.RunView"
+                }
+            }
+        },
+        "usecase.RunStateFieldDeltaView": {
+            "type": "object",
+            "properties": {
+                "base_after": {},
+                "changed": {
+                    "type": "boolean"
+                },
+                "field": {
+                    "type": "string"
+                },
+                "target_after": {}
+            }
+        },
         "usecase.RunStepView": {
             "type": "object",
             "properties": {
@@ -2064,6 +2174,32 @@ const docTemplate = `{
                 },
                 "trigger_reason": {
                     "type": "string"
+                }
+            }
+        },
+        "usecase.RunSummaryDeltaView": {
+            "type": "object",
+            "properties": {
+                "duration_ms_delta": {
+                    "type": "integer"
+                },
+                "failed_step_delta": {
+                    "type": "integer"
+                },
+                "retry_count_delta": {
+                    "type": "integer"
+                },
+                "skipped_step_delta": {
+                    "type": "integer"
+                },
+                "status_changed": {
+                    "type": "boolean"
+                },
+                "step_count_delta": {
+                    "type": "integer"
+                },
+                "succeeded_step_delta": {
+                    "type": "integer"
                 }
             }
         },

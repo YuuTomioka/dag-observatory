@@ -9,6 +9,7 @@ import (
 func Register(e *echo.Echo, h *daghandler.Handler) {
 	e.POST("/dag/run", h.DagRun)
 	e.GET("/runs", h.ListRuns)
+	e.GET("/runs/compare", h.CompareRuns)
 	e.GET("/runs/ui", h.RunsUI)
 	e.GET("/runs/:run_id", h.GetRun)
 	e.GET("/runs/:run_id/steps", h.ListRunSteps)

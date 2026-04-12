@@ -20,3 +20,7 @@ type RunNodeDetailResponse struct {
 	SequenceNo string              `json:"sequence_no"`
 	Node       usecase.RunStepView `json:"node"`
 }
+
+type RunCompareResponse struct {
+	Compare usecase.RunCompareView `json:"compare"`
+}

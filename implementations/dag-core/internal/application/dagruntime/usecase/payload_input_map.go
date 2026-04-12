@@ -93,6 +93,27 @@ func applyStructuredInputValues(inputs engine.InputMap, values map[string]any) e
 		}
 		inputs[InputKeyMarketSpreadBps] = spread
 	}
+	if raw, ok := values["execution.fee_bps"]; ok {
+		feeBps, err := parseFloat64Value(raw, "execution.fee_bps")
+		if err != nil {
+			return err
+		}
+		inputs[InputKeyExecutionFeeBps] = feeBps
+	}
+	if raw, ok := values["execution.slippage_bps"]; ok {
+		slippageBps, err := parseFloat64Value(raw, "execution.slippage_bps")
+		if err != nil {
+			return err
+		}
+		inputs[InputKeyExecutionSlippageBps] = slippageBps
+	}
+	if raw, ok := values["execution.min_lot"]; ok {
+		minLot, err := parseFloat64Value(raw, "execution.min_lot")
+		if err != nil {
+			return err
+		}
+		inputs[InputKeyExecutionMinLot] = minLot
+	}
 	if raw, ok := values["account.balance"]; ok {
 		balance, err := parseFloat64Value(raw, "account.balance")
 		if err != nil {
@@ -215,6 +236,48 @@ func applyTopLevelInputValues(inputs engine.InputMap, values map[string]any) err
 			return err
 		}
 		inputs[InputKeyMarketSpreadBps] = spread
+	}
+	if raw, ok := values["execution_fee_bps"]; ok {
+		feeBps, err := parseFloat64Value(raw, "execution_fee_bps")
+		if err != nil {
+			return err
+		}
+		inputs[InputKeyExecutionFeeBps] = feeBps
+	}
+	if raw, ok := values["execution.fee_bps"]; ok {
+		feeBps, err := parseFloat64Value(raw, "execution.fee_bps")
+		if err != nil {
+			return err
+		}
+		inputs[InputKeyExecutionFeeBps] = feeBps
+	}
+	if raw, ok := values["execution_slippage_bps"]; ok {
+		slippageBps, err := parseFloat64Value(raw, "execution_slippage_bps")
+		if err != nil {
+			return err
+		}
+		inputs[InputKeyExecutionSlippageBps] = slippageBps
+	}
+	if raw, ok := values["execution.slippage_bps"]; ok {
+		slippageBps, err := parseFloat64Value(raw, "execution.slippage_bps")
+		if err != nil {
+			return err
+		}
+		inputs[InputKeyExecutionSlippageBps] = slippageBps
+	}
+	if raw, ok := values["execution_min_lot"]; ok {
+		minLot, err := parseFloat64Value(raw, "execution_min_lot")
+		if err != nil {
+			return err
+		}
+		inputs[InputKeyExecutionMinLot] = minLot
+	}
+	if raw, ok := values["execution.min_lot"]; ok {
+		minLot, err := parseFloat64Value(raw, "execution.min_lot")
+		if err != nil {
+			return err
+		}
+		inputs[InputKeyExecutionMinLot] = minLot
 	}
 	if raw, ok := values["account_balance"]; ok {
 		balance, err := parseFloat64Value(raw, "account_balance")

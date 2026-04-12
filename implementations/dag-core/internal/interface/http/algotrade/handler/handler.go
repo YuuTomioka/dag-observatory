@@ -10,6 +10,7 @@ type Handler struct {
 	listTradeResults *usecase.ListTradeResults
 	getSummary       *usecase.GetStrategySummary
 	runWF            *usecase.RunWorkflow
+	runBacktest      *usecase.RunBacktest
 }
 
 type Dependencies struct {
@@ -17,6 +18,7 @@ type Dependencies struct {
 	ListTradeResults   *usecase.ListTradeResults
 	GetStrategySummary *usecase.GetStrategySummary
 	RunWorkflow        *usecase.RunWorkflow
+	RunBacktest        *usecase.RunBacktest
 }
 
 func New(d Dependencies) *Handler {
@@ -25,5 +27,6 @@ func New(d Dependencies) *Handler {
 		listTradeResults: d.ListTradeResults,
 		getSummary:       d.GetStrategySummary,
 		runWF:            d.RunWorkflow,
+		runBacktest:      d.RunBacktest,
 	}
 }

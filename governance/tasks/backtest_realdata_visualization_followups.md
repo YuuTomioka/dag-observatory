@@ -52,14 +52,14 @@ This backlog starts after that foundation is available or in parallel only when 
 
 ### Phase 4: Real-Data Execution Path
 
-- [ ] add workflow/node path to load timeframe bars from TSDB by bounded windows
-- [ ] implement period-loop orchestration for multi-cycle execution over historical range
-- [ ] keep deterministic replay assumptions explicit (state initialization, ordering, retry behavior)
+- [x] add workflow/node path to load timeframe bars from TSDB by bounded windows
+- [x] implement period-loop orchestration for multi-cycle execution over historical range
+- [x] keep deterministic replay assumptions explicit (state initialization, ordering, retry behavior)
 
 ### Phase 5: Execution Realism Controls
 
-- [ ] add explicit inputs for spread/slippage/fee/min-lot constraints
-- [ ] ensure applied execution assumptions are persisted or emitted for run auditability
+- [x] add explicit inputs for spread/slippage/fee/min-lot constraints
+- [x] ensure applied execution assumptions are persisted or emitted for run auditability
 - [ ] add tests covering pnl sensitivity to execution-assumption changes
 
 ### Phase 6: Backtest Result Model
@@ -70,8 +70,8 @@ This backlog starts after that foundation is available or in parallel only when 
 
 ### Phase 7: Compare API
 
-- [ ] add compare endpoint such as `GET /runs/compare?base_run_id=...&target_run_id=...`
-- [ ] include summary-level deltas and key field-level divergences
+- [x] add compare endpoint such as `GET /runs/compare?base_run_id=...&target_run_id=...`
+- [x] include summary-level deltas and key field-level divergences
 - [ ] add tests for pnl divergence, trade-count divergence, and skip/fail path differences
 
 ### Phase 8: Visualization API Extension
@@ -96,7 +96,7 @@ This backlog starts after that foundation is available or in parallel only when 
 
 - [x] `POST /algotrade/backtests:run`
 - [ ] real-data period-loop execution path
-- [ ] `GET /runs/compare`
+- [x] `GET /runs/compare`
 - [ ] `/runs/ui` compare mode
 
 ## Acceptance Criteria

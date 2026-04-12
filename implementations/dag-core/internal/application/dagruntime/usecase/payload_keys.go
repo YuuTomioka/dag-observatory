@@ -64,6 +64,18 @@ var (
 		Name:     "market_spread_bps",
 		StableID: "event:input.market.spread_bps.v1",
 	}
+	PayloadKeyExecutionFeeBps = events.PayloadKey[float64]{
+		Name:     "execution_fee_bps",
+		StableID: "event:input.execution.fee_bps.v1",
+	}
+	PayloadKeyExecutionSlippageBps = events.PayloadKey[float64]{
+		Name:     "execution_slippage_bps",
+		StableID: "event:input.execution.slippage_bps.v1",
+	}
+	PayloadKeyExecutionMinLot = events.PayloadKey[float64]{
+		Name:     "execution_min_lot",
+		StableID: "event:input.execution.min_lot.v1",
+	}
 	PayloadKeyAccountBalance = events.PayloadKey[float64]{
 		Name:     "account_balance",
 		StableID: "event:input.account.balance.v1",
@@ -89,13 +101,22 @@ var (
 		StableID: "event:input.marketdata.to.v1",
 	}
 
-	InputKeySymbol             = artifact.Key[string]{Name: "symbol", StableID: "artifact:input.symbol.v1"}
-	InputKeyMode               = artifact.Key[string]{Name: "mode", StableID: "artifact:input.mode.v1"}
-	InputKeyMarketBars         = artifact.Key[[]float64]{Name: "market.bars", StableID: "artifact:input.market.bars.v1"}
-	InputKeyMarketOHLCVBars    = artifact.Key[[]marketdata.OHLCV]{Name: "market.ohlcv_bars", StableID: "artifact:input.market.ohlcv_bars.v1"}
-	InputKeyMarketOHLCVBarsH1  = artifact.Key[[]marketdata.OHLCV]{Name: "market.ohlcv_bars.h1", StableID: "artifact:input.market.ohlcv_bars.h1.v1"}
-	InputKeyMarketTick         = artifact.Key[marketdata.Tick]{Name: "market.tick", StableID: "artifact:input.market.tick.v1"}
-	InputKeyMarketSpreadBps    = artifact.Key[float64]{Name: "market.spread_bps", StableID: "artifact:input.market.spread_bps.v1"}
+	InputKeySymbol               = artifact.Key[string]{Name: "symbol", StableID: "artifact:input.symbol.v1"}
+	InputKeyMode                 = artifact.Key[string]{Name: "mode", StableID: "artifact:input.mode.v1"}
+	InputKeyMarketBars           = artifact.Key[[]float64]{Name: "market.bars", StableID: "artifact:input.market.bars.v1"}
+	InputKeyMarketOHLCVBars      = artifact.Key[[]marketdata.OHLCV]{Name: "market.ohlcv_bars", StableID: "artifact:input.market.ohlcv_bars.v1"}
+	InputKeyMarketOHLCVBarsH1    = artifact.Key[[]marketdata.OHLCV]{Name: "market.ohlcv_bars.h1", StableID: "artifact:input.market.ohlcv_bars.h1.v1"}
+	InputKeyMarketTick           = artifact.Key[marketdata.Tick]{Name: "market.tick", StableID: "artifact:input.market.tick.v1"}
+	InputKeyMarketSpreadBps      = artifact.Key[float64]{Name: "market.spread_bps", StableID: "artifact:input.market.spread_bps.v1"}
+	InputKeyExecutionFeeBps      = artifact.Key[float64]{Name: "execution.fee_bps", StableID: "artifact:input.execution.fee_bps.v1"}
+	InputKeyExecutionSlippageBps = artifact.Key[float64]{
+		Name:     "execution.slippage_bps",
+		StableID: "artifact:input.execution.slippage_bps.v1",
+	}
+	InputKeyExecutionMinLot = artifact.Key[float64]{
+		Name:     "execution.min_lot",
+		StableID: "artifact:input.execution.min_lot.v1",
+	}
 	InputKeyAccountBalance     = artifact.Key[float64]{Name: "account.balance", StableID: "artifact:input.account.balance.v1"}
 	InputKeyMarketdataSymbolID = artifact.Key[int64]{
 		Name:     "marketdata.symbol_id",

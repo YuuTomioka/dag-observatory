@@ -18,6 +18,9 @@ var inputEnvelopeEncoders = map[artifact.RawKey]func(any) (events.PayloadEnvelop
 	InputKeyMarketOHLCVBarsH1.Raw():       encodeMarketOHLCVBarsH1FromInput,
 	InputKeyMarketTick.Raw():              encodeMarketTickFromInput,
 	InputKeyMarketSpreadBps.Raw():         encodeMarketSpreadBpsFromInput,
+	InputKeyExecutionFeeBps.Raw():         encodeExecutionFeeBpsFromInput,
+	InputKeyExecutionSlippageBps.Raw():    encodeExecutionSlippageBpsFromInput,
+	InputKeyExecutionMinLot.Raw():         encodeExecutionMinLotFromInput,
 	InputKeyAccountBalance.Raw():          encodeAccountBalanceFromInput,
 	InputKeyMarketdataSymbolID.Raw():      encodeMarketdataSymbolIDFromInput,
 	InputKeyMarketdataSymbolCode.Raw():    encodeMarketdataSymbolCodeFromInput,
@@ -34,6 +37,9 @@ var envelopeDecoders = map[events.RawPayloadKey]func(events.PayloadEnvelope, eng
 	PayloadKeyMarketOHLCVBarsH1.Raw():       decodeMarketOHLCVBarsH1Envelope,
 	PayloadKeyMarketTick.Raw():              decodeMarketTickEnvelope,
 	PayloadKeyMarketSpreadBps.Raw():         decodeMarketSpreadBpsEnvelope,
+	PayloadKeyExecutionFeeBps.Raw():         decodeExecutionFeeBpsEnvelope,
+	PayloadKeyExecutionSlippageBps.Raw():    decodeExecutionSlippageBpsEnvelope,
+	PayloadKeyExecutionMinLot.Raw():         decodeExecutionMinLotEnvelope,
 	PayloadKeyAccountBalance.Raw():          decodeAccountBalanceEnvelope,
 	PayloadKeyMarketdataSymbolID.Raw():      decodeMarketdataSymbolIDEnvelope,
 	PayloadKeyMarketdataSymbolCode.Raw():    decodeMarketdataSymbolCodeEnvelope,
@@ -177,6 +183,39 @@ func encodeEnvelopes(values map[string]any) ([]events.PayloadEnvelope, error) {
 			return nil, err
 		}
 		env, err := events.EncodePayload(PayloadKeyMarketSpreadBps, spread)
+		if err != nil {
+			return nil, err
+		}
+		envelopes = append(envelopes, env)
+	}
+	if raw, ok := values["execution_fee_bps"]; ok {
+		feeBps, err := parseFloat64Value(raw, "execution_fee_bps")
+		if err != nil {
+			return nil, err
+		}
+		env, err := events.EncodePayload(PayloadKeyExecutionFeeBps, feeBps)
+		if err != nil {
+			return nil, err
+		}
+		envelopes = append(envelopes, env)
+	}
+	if raw, ok := values["execution_slippage_bps"]; ok {
+		slippageBps, err := parseFloat64Value(raw, "execution_slippage_bps")
+		if err != nil {
+			return nil, err
+		}
+		env, err := events.EncodePayload(PayloadKeyExecutionSlippageBps, slippageBps)
+		if err != nil {
+			return nil, err
+		}
+		envelopes = append(envelopes, env)
+	}
+	if raw, ok := values["execution_min_lot"]; ok {
+		minLot, err := parseFloat64Value(raw, "execution_min_lot")
+		if err != nil {
+			return nil, err
+		}
+		env, err := events.EncodePayload(PayloadKeyExecutionMinLot, minLot)
 		if err != nil {
 			return nil, err
 		}
@@ -343,6 +382,30 @@ func encodeMarketSpreadBpsFromInput(value any) (events.PayloadEnvelope, error) {
 	return events.EncodePayload(PayloadKeyMarketSpreadBps, spread)
 }
 
+func encodeExecutionFeeBpsFromInput(value any) (events.PayloadEnvelope, error) {
+	feeBps, ok := value.(float64)
+	if !ok {
+		return events.PayloadEnvelope{}, fmt.Errorf("dagruntime: execution.fee_bps must be number")
+	}
+	return events.EncodePayload(PayloadKeyExecutionFeeBps, feeBps)
+}
+
+func encodeExecutionSlippageBpsFromInput(value any) (events.PayloadEnvelope, error) {
+	slippageBps, ok := value.(float64)
+	if !ok {
+		return events.PayloadEnvelope{}, fmt.Errorf("dagruntime: execution.slippage_bps must be number")
+	}
+	return events.EncodePayload(PayloadKeyExecutionSlippageBps, slippageBps)
+}
+
+func encodeExecutionMinLotFromInput(value any) (events.PayloadEnvelope, error) {
+	minLot, ok := value.(float64)
+	if !ok {
+		return events.PayloadEnvelope{}, fmt.Errorf("dagruntime: execution.min_lot must be number")
+	}
+	return events.EncodePayload(PayloadKeyExecutionMinLot, minLot)
+}
+
 func encodeAccountBalanceFromInput(value any) (events.PayloadEnvelope, error) {
 	balance, ok := value.(float64)
 	if !ok {
@@ -451,6 +514,33 @@ func decodeMarketSpreadBpsEnvelope(env events.PayloadEnvelope, inputs engine.Inp
 		return err
 	}
 	inputs[InputKeyMarketSpreadBps] = value
+	return nil
+}
+
+func decodeExecutionFeeBpsEnvelope(env events.PayloadEnvelope, inputs engine.InputMap) error {
+	value, err := events.DecodePayload(PayloadKeyExecutionFeeBps, env)
+	if err != nil {
+		return err
+	}
+	inputs[InputKeyExecutionFeeBps] = value
+	return nil
+}
+
+func decodeExecutionSlippageBpsEnvelope(env events.PayloadEnvelope, inputs engine.InputMap) error {
+	value, err := events.DecodePayload(PayloadKeyExecutionSlippageBps, env)
+	if err != nil {
+		return err
+	}
+	inputs[InputKeyExecutionSlippageBps] = value
+	return nil
+}
+
+func decodeExecutionMinLotEnvelope(env events.PayloadEnvelope, inputs engine.InputMap) error {
+	value, err := events.DecodePayload(PayloadKeyExecutionMinLot, env)
+	if err != nil {
+		return err
+	}
+	inputs[InputKeyExecutionMinLot] = value
 	return nil
 }
 

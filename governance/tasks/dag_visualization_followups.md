@@ -224,9 +224,9 @@ Progress note (2026-04-12):
 ### Phase 13: Add Run Comparison API
 
 - [ ] execute this phase under `governance/tasks/backtest_realdata_visualization_followups.md` and keep this document aligned only for run-read compatibility constraints
-- [ ] add a compact compare endpoint such as `GET /runs/compare?base_run_id=...&target_run_id=...`
-- [ ] include summary-level deltas and per-field state-diff deltas as minimum comparison output
-- [ ] ensure comparison output can explain meaningful result differences without requiring UI-first interpretation
+- [x] add a compact compare endpoint such as `GET /runs/compare?base_run_id=...&target_run_id=...`
+- [x] include summary-level deltas and per-field state-diff deltas as minimum comparison output
+- [x] ensure comparison output can explain meaningful result differences without requiring UI-first interpretation
 - [ ] add tests covering common comparison cases such as pnl divergence, trade-count divergence, and skip/fail path differences
 
 ### Phase 14: Strengthen Correlation Across APIs, Logs, And Traces

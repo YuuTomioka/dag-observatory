@@ -187,6 +187,9 @@ func TestBuildRunEventWithMarketOHLCVBars(t *testing.T) {
 			},
 		},
 		SpreadBps:      3.4,
+		FeeBps:         0.8,
+		SlippageBps:    1.2,
+		MinLot:         0.01,
 		AccountBalance: 15000,
 	}
 	now := time.Date(2026, 3, 29, 9, 35, 0, 0, time.UTC)
@@ -208,6 +211,15 @@ func TestBuildRunEventWithMarketOHLCVBars(t *testing.T) {
 	}
 	if got, ok := payload["market_spread_bps"]; !ok || got != 3.4 {
 		t.Fatalf("expected market_spread_bps=3.4, got %v", got)
+	}
+	if got, ok := payload["execution_fee_bps"]; !ok || got != 0.8 {
+		t.Fatalf("expected execution_fee_bps=0.8, got %v", got)
+	}
+	if got, ok := payload["execution_slippage_bps"]; !ok || got != 1.2 {
+		t.Fatalf("expected execution_slippage_bps=1.2, got %v", got)
+	}
+	if got, ok := payload["execution_min_lot"]; !ok || got != 0.01 {
+		t.Fatalf("expected execution_min_lot=0.01, got %v", got)
 	}
 	if got, ok := payload["account_balance"]; !ok || got != 15000.0 {
 		t.Fatalf("expected account_balance=15000, got %v", got)

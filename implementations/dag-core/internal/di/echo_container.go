@@ -76,10 +76,14 @@ func NewEchoContainer(
 	var postCTraderTicks *ctraderusecase.PostTicksUsecase
 	listTradeResults := &dagruntimeusecase.ListTradeResults{}
 	getStrategySummary := &dagruntimeusecase.GetStrategySummary{}
+	runBacktest := &dagruntimeusecase.RunBacktest{
+		RunWorkflow: dagRuntime.Usecase,
+	}
 	listRuns := &dagruntimeusecase.ListRuns{Reader: dagRuntime.RunReader}
 	getRun := &dagruntimeusecase.GetRun{Reader: dagRuntime.RunReader}
 	listRunSteps := &dagruntimeusecase.ListRunSteps{Reader: dagRuntime.RunReader}
 	getRunNode := &dagruntimeusecase.GetRunNode{Reader: dagRuntime.RunReader}
+	compareRuns := &dagruntimeusecase.CompareRuns{Reader: dagRuntime.RunReader}
 	if marketData != nil {
 		createSymbol = marketData.CreateSymbol
 		getSymbolByCode = marketData.GetSymbolByCode
@@ -91,6 +95,8 @@ func NewEchoContainer(
 		postCTraderTicks = &ctraderusecase.PostTicksUsecase{
 			UnitOfWork: marketData.UnitOfWork,
 		}
+		runBacktest.GetSymbolByCode = marketData.GetSymbolByCode
+		runBacktest.ListTimeframeBars = marketData.ListTimeframeBars
 	}
 
 	httpif.RegisterRoutes(e, httpif.Dependencies{
@@ -99,10 +105,12 @@ func NewEchoContainer(
 		Tracer:                    otelc.Tracer,
 		Metrics:                   otelc.Metrics,
 		RunWorkflow:               dagRuntime.Usecase,
+		RunBacktest:               runBacktest,
 		ListRuns:                  listRuns,
 		GetRun:                    getRun,
 		ListRunSteps:              listRunSteps,
 		GetRunNode:                getRunNode,
+		CompareRuns:               compareRuns,
 		StateStore:                dagRuntime.StateStore.Store,
 		ListTradeResults:          listTradeResults,
 		GetStrategySummary:        getStrategySummary,

@@ -36,10 +36,12 @@ type Dependencies struct {
 	Tracer             trace.Tracer
 	Metrics            *metrics.Instruments
 	RunWorkflow        *usecase.RunWorkflow
+	RunBacktest        *usecase.RunBacktest
 	ListRuns           *usecase.ListRuns
 	GetRun             *usecase.GetRun
 	ListRunSteps       *usecase.ListRunSteps
 	GetRunNode         *usecase.GetRunNode
+	CompareRuns        *usecase.CompareRuns
 	StateStore         domainstate.Store
 	ListTradeResults   *usecase.ListTradeResults
 	GetStrategySummary *usecase.GetStrategySummary
@@ -68,12 +70,14 @@ func RegisterRoutes(e *echo.Echo, d Dependencies) {
 		GetRun:       d.GetRun,
 		ListRunSteps: d.ListRunSteps,
 		GetRunNode:   d.GetRunNode,
+		CompareRuns:  d.CompareRuns,
 	})
 	ath := algotradehandler.New(algotradehandler.Dependencies{
 		StateStore:         d.StateStore,
 		ListTradeResults:   d.ListTradeResults,
 		GetStrategySummary: d.GetStrategySummary,
 		RunWorkflow:        d.RunWorkflow,
+		RunBacktest:        d.RunBacktest,
 	})
 	ah := artifactshandler.New(artifactshandler.Dependencies{
 		ArtifactsRepo: d.ArtifactsRepo,

@@ -88,8 +88,8 @@ func TestGetRunNodeExecute(t *testing.T) {
 	uc := &GetRunNode{Reader: reader}
 
 	item, ok, err := uc.Execute(context.Background(), GetRunNodeRequest{
-		RunID:       "run-1",
-		ExecutionID: "2",
+		RunID:      "run-1",
+		SequenceNo: "2",
 	})
 	if err != nil {
 		t.Fatalf("get run node failed: %v", err)
@@ -97,7 +97,7 @@ func TestGetRunNodeExecute(t *testing.T) {
 	if !ok {
 		t.Fatal("expected run node to exist")
 	}
-	if item.NodeName != "n2" || item.ExecutionID != "2" {
+	if item.NodeName != "n2" || item.NodeExecutionID != "2" {
 		t.Fatalf("unexpected run step view: %#v", item)
 	}
 }

@@ -591,6 +591,33 @@ func TestRunBreakoutSubmitFillAndResultReflectionAcrossSeparateWorkflows(t *test
 			t.Fatalf("expected recorded node execution events for run_id=%s", runID)
 		}
 	}
+
+	hasIntentID := false
+	hasExecutionID := false
+	hasTradeID := false
+	for _, e := range gotNodeEvents {
+		if e.SequenceNo <= 0 {
+			t.Fatalf("expected positive sequence_no, got %+v", e)
+		}
+		if e.IntentID != "" {
+			hasIntentID = true
+		}
+		if e.ExecutionID != "" {
+			hasExecutionID = true
+		}
+		if e.TradeID != "" {
+			hasTradeID = true
+		}
+	}
+	if !hasIntentID {
+		t.Fatal("expected at least one node execution event with intent_id")
+	}
+	if !hasExecutionID {
+		t.Fatal("expected at least one node execution event with execution_id")
+	}
+	if !hasTradeID {
+		t.Fatal("expected at least one node execution event with trade_id")
+	}
 }
 
 func TestRunBreakoutResultReflectionMinimalWorkflowE2E(t *testing.T) {

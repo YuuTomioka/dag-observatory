@@ -310,3 +310,36 @@ func TestExecuteDriverPayloadIsInputMap(t *testing.T) {
 		t.Fatalf("expected input map payload, got %T", recorder.last.Payload)
 	}
 }
+
+func TestExecuteTreatsTypedNilEnqueuerAsDriverMode(t *testing.T) {
+	recorder := &recordingRecorder{}
+	runner := &engine.Runner{
+		ArtifactStore: artifactinfra.NewMemoryStore(),
+		StateStore:    stateinfra.NewMemoryStore(),
+		Policy:        policy.Policy{DefaultRetry: policy.RetryPolicy{MaxAttempts: 1}},
+		Recorder:      recorder,
+	}
+	drv := &driver.Driver{
+		Runner:   runner,
+		Compiled: pipeline.Compiled{Name: "test"},
+	}
+	var typedNil *recordingEnqueuer
+	uc := &RunWorkflow{
+		Driver:   drv,
+		Enqueuer: typedNil,
+	}
+
+	result, err := uc.Execute(context.Background(), RunWorkflowRequest{
+		Symbol: "EURUSD",
+		Mode:   "debug",
+	})
+	if err != nil {
+		t.Fatalf("execute failed: %v", err)
+	}
+	if result.EnqueueMode {
+		t.Fatal("expected driver mode when enqueuer is typed nil")
+	}
+	if _, ok := recorder.last.Payload.(engine.InputMap); !ok {
+		t.Fatalf("expected input map payload via driver path, got %T", recorder.last.Payload)
+	}
+}

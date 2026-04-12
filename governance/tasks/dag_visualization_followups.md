@@ -166,7 +166,7 @@ Progress note (2026-04-12):
 
 - `NodeExecutionEvent` now carries `intent_id`, domain `execution_id`, and `trade_id` separately from `sequence_no`
 - canonical node-step read path is now `GET /runs/:run_id/steps/:sequence_no`
-- legacy `GET /runs/:run_id/nodes/:execution_id` remains as a compatibility alias, but it still resolves by sequence number
+- legacy `GET /runs/:run_id/nodes/:execution_id` remains as a deprecated compatibility alias, but it still resolves by sequence number
 - runner now records artifact refs for `input_ref` / `output_ref` and extracts correlation IDs from known algotrade artifacts such as `TradeIntent`, `ExecutionResult`, and `ClosedTrade`
 - tests verify sequence-based step lookup and correlation propagation through runner-recorded node events
 
@@ -189,6 +189,63 @@ Progress note (2026-04-12):
 - the backlog makes clear that execution observability comes before UI work
 - the first implementation slice is small and concrete enough to start from `NodeExecutionEvent` and runner instrumentation
 - the task document is suitable as temporary planning context without being mistaken for durable design truth
+
+## Post-Implementation Verification Flow
+
+Use this verification order after changes to run read APIs, minimum UI, correlation IDs, or JSON Lines observation output.
+
+1. Run targeted Go tests from `implementations/dag-core`.
+2. Start the API with optional JSON Lines output enabled.
+3. Drive one traceable run flow.
+4. Verify run read APIs directly.
+5. Verify the minimum UI against the same run.
+6. Verify JSON Lines append output when enabled.
+
+Recommended commands:
+
+```bash
+cd /home/user/shiq/dag-observatory/implementations/dag-core
+mkdir -p .tmp/go-cache
+GOCACHE=$(pwd)/.tmp/go-cache go test ./internal/infrastructure/dagruntime/recorder ./internal/domain/dagruntime/engine ./internal/interface/http/dag/handler ./internal/di
+```
+
+```bash
+cd /home/user/shiq/dag-observatory/implementations/dag-core
+export DAGRUNTIME_OBSERVATION_JSONL_PATH=$(pwd)/tmp/observations/runs.jsonl
+go run ./cmd/api
+```
+
+Recommended API checks:
+
+```bash
+curl -s http://localhost:8080/runs | jq
+curl -s http://localhost:8080/runs/<run_id> | jq
+curl -s http://localhost:8080/runs/<run_id>/steps | jq
+curl -s http://localhost:8080/runs/<run_id>/steps/1 | jq
+curl -s http://localhost:8080/runs/<run_id>/nodes/1 | jq
+curl -s "http://localhost:8080/algotrade/summary?partition=<partition>" | jq
+```
+
+Recommended UI check:
+
+- open `http://localhost:8080/runs/ui`
+- optionally narrow by partition with `http://localhost:8080/runs/ui?partition=<partition>`
+- confirm left pane shows runs and step order
+- confirm right pane shows node detail, refs, correlation IDs, and compact diff
+
+Recommended JSON Lines check:
+
+```bash
+tail -n 20 /home/user/shiq/dag-observatory/implementations/dag-core/tmp/observations/runs.jsonl
+```
+
+Verification points:
+
+- `GET /runs/:run_id/steps/:sequence_no` resolves step detail by `sequence_no`
+- compatibility alias `GET /runs/:run_id/nodes/:execution_id` still resolves the same step when passed the sequence number
+- node detail exposes `intent_id`, `execution_id`, `trade_id`, `input_ref`, and `output_ref` when available
+- state changes appear under `state_diff`
+- JSON Lines output appends `run_event`, `node_execution`, and `cycle_result` records without replacing the in-memory read model
 
 ## Result
 

@@ -95,9 +95,14 @@ func NewDAGRuntimeContainer(cfg Config, otelc *OTelContainer, compiled pipeline.
 		Compiled: compiled,
 	}
 
+	var enqueuer port.EventEnqueuer
+	if producer != nil {
+		enqueuer = producer
+	}
+
 	uc := &usecase.RunWorkflow{
 		Driver:        driver,
-		Enqueuer:      producer,
+		Enqueuer:      enqueuer,
 		Clock:         clockinfra.NewRealClock(),
 		ProducerTopic: kafkaTaskTopic(cfg),
 	}

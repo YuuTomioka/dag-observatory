@@ -20,17 +20,17 @@ type ListRunsRequest struct {
 }
 
 type RunView struct {
-	RunID      string
-	Partition  string
-	Status     string
-	EventType  string
-	EventTime  string
-	StartedAt  string
-	EndedAt    string
-	DurationMS int64
-	RetryCount int64
-	Error      string
-	StepCount  int
+	RunID      string `json:"run_id"`
+	Partition  string `json:"partition"`
+	Status     string `json:"status"`
+	EventType  string `json:"event_type"`
+	EventTime  string `json:"event_time"`
+	StartedAt  string `json:"started_at"`
+	EndedAt    string `json:"ended_at"`
+	DurationMS int64  `json:"duration_ms"`
+	RetryCount int64  `json:"retry_count"`
+	Error      string `json:"error,omitempty"`
+	StepCount  int    `json:"step_count"`
 }
 
 func (u *ListRuns) Execute(ctx context.Context, req ListRunsRequest) ([]RunView, error) {

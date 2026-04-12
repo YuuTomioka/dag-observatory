@@ -13,5 +13,6 @@ func Register(e *echo.Echo, h *daghandler.Handler) {
 	e.GET("/runs/:run_id", h.GetRun)
 	e.GET("/runs/:run_id/steps", h.ListRunSteps)
 	e.GET("/runs/:run_id/steps/:sequence_no", h.GetRunNode)
+	// Deprecated: compatibility alias for clients that still use execution_id path naming.
 	e.GET("/runs/:run_id/nodes/:execution_id", h.GetRunNode)
 }

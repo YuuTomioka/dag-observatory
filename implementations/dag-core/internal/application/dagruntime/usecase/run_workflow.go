@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"reflect"
 	"time"
 
 	"dag-observatory/dag-core/internal/application/dagruntime/port"
@@ -43,7 +44,7 @@ func (u *RunWorkflow) Execute(ctx context.Context, req RunWorkflowRequest) (RunW
 }
 
 func (u *RunWorkflow) Handle(ctx context.Context, partition state.Partition, event events.Event) error {
-	if u.Enqueuer != nil {
+	if u.hasEnqueuer() {
 		payload, err := toPayloadEnvelopes(event.Payload)
 		if err != nil {
 			return err
@@ -68,7 +69,7 @@ func (u *RunWorkflow) Handle(ctx context.Context, partition state.Partition, eve
 }
 
 func (u *RunWorkflow) IsEnqueueMode() bool {
-	return u != nil && u.Enqueuer != nil
+	return u.hasEnqueuer()
 }
 
 func (u *RunWorkflow) messagingDestination(enqueueMode bool) string {
@@ -86,6 +87,19 @@ func (u *RunWorkflow) now() time.Time {
 		return u.Clock.Now()
 	}
 	return time.Now()
+}
+
+func (u *RunWorkflow) hasEnqueuer() bool {
+	if u == nil || u.Enqueuer == nil {
+		return false
+	}
+	value := reflect.ValueOf(u.Enqueuer)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Map, reflect.Pointer, reflect.Interface, reflect.Slice:
+		return !value.IsNil()
+	default:
+		return true
+	}
 }
 
 func buildRunEvent(req RunWorkflowRequest, now time.Time) (RunWorkflowResult, events.Event, state.Partition) {

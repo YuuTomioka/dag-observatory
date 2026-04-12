@@ -37,6 +37,7 @@ func TestJSONLRecorderAppendsObservationRecords(t *testing.T) {
 		SequenceNo:  1,
 		IntentID:    "intent:1",
 		ExecutionID: "exec:1",
+		TradeID:     "trade:1",
 		NodeID:      "n1",
 		NodeName:    "node.one",
 		Status:      events.NodeExecutionStatusSucceeded,
@@ -67,7 +68,7 @@ func TestJSONLRecorderAppendsObservationRecords(t *testing.T) {
 	if records[0].Kind != "run_event" || records[1].Kind != "node_execution" || records[2].Kind != "cycle_result" {
 		t.Fatalf("unexpected record kinds: %#v", records)
 	}
-	if records[1].IntentID != "intent:1" || records[1].ExecutionID != "exec:1" {
+	if records[1].IntentID != "intent:1" || records[1].ExecutionID != "exec:1" || records[1].TradeID != "trade:1" {
 		t.Fatalf("unexpected node correlation ids: %#v", records[1])
 	}
 	if len(next.ListRunSteps("run-1")) != 1 {

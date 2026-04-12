@@ -8,6 +8,64 @@
     },
     "basePath": "/",
     "paths": {
+        "/algotrade/backtests:run": {
+            "post": {
+                "description": "Triggers the configured runtime workflow as a backtest entrypoint over an explicit historical range and returns run correlation metadata.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "algotrade"
+                ],
+                "summary": "Run real-data backtest workflow",
+                "parameters": [
+                    {
+                        "description": "Backtest run request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.backtestRunRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.BacktestRunResponse"
+                        }
+                    },
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/response.BacktestRunResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/algotrade/result-reflection:run": {
             "post": {
                 "description": "Triggers the configured runtime workflow as a result-reflection entrypoint. Intended for manual submit/fill/result-reflection verification with explicit partition control.",
@@ -1122,6 +1180,47 @@
                 }
             }
         },
+        "handler.backtestRunRequest": {
+            "type": "object",
+            "properties": {
+                "account_balance": {
+                    "type": "number"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "gap_handling": {
+                    "type": "string"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "partition": {
+                    "type": "string"
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "spread_bps": {
+                    "type": "number"
+                },
+                "symbol_code": {
+                    "type": "string"
+                },
+                "timeframe_code": {
+                    "type": "string"
+                },
+                "timezone": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.resultReflectionRunRequest": {
             "type": "object",
             "properties": {
@@ -1444,6 +1543,58 @@
                 "to": {
                     "type": "string",
                     "example": "2026-03-01T02:00:00Z"
+                }
+            }
+        },
+        "response.BacktestMarketdataInput": {
+            "type": "object",
+            "properties": {
+                "from": {
+                    "type": "string"
+                },
+                "gap_handling": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "symbol_code": {
+                    "type": "string"
+                },
+                "timeframe_code": {
+                    "type": "string"
+                },
+                "timezone": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.BacktestRunResponse": {
+            "type": "object",
+            "properties": {
+                "entrypoint": {
+                    "type": "string"
+                },
+                "marketdata": {
+                    "$ref": "#/definitions/response.BacktestMarketdataInput"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "partition": {
+                    "type": "string"
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "symbol": {
+                    "type": "string"
                 }
             }
         },

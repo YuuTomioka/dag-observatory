@@ -12,6 +12,10 @@ However, the public path for tracing submit -> fill -> result reflection as one 
 
 This task document condenses that working note into a near-term implementation backlog.
 
+For real-data period backtest and trade-result comparison work, the primary tracker is:
+`governance/tasks/backtest_realdata_visualization_followups.md`.
+This document keeps the run-observability foundation and read-model stabilization track.
+
 ## In Scope
 
 - fixing the observation unit for node execution in `implementations/dag-core`
@@ -28,6 +32,12 @@ This task document condenses that working note into a near-term implementation b
 - polishing a graph-heavy DAG UI before execution and state observability exist
 - database-first persistence design for visualization records
 - broad product-facing dashboard requirements outside the current validation foundation
+
+## Coordination With Real-Data Backtest Tracker
+
+- backtest execution path, compare API expansion, and compare-focused UI work are coordinated with `governance/tasks/backtest_realdata_visualization_followups.md`
+- this document remains the primary tracker for run observation model, recorder/read-model durability, and cross-surface correlation hardening
+- implementation should preserve the sequence: observability/read-model foundation first, then backtest-and-compare expansion
 
 ## Task List
 
@@ -190,9 +200,61 @@ Progress note (2026-04-12):
 - file output is enabled only when `DAGRUNTIME_OBSERVATION_JSONL_PATH` is set
 - JSON Lines path is intentionally append-only and local-file based; DB-backed storage remains deferred until the observation shape and read APIs settle
 
+### Phase 10: Add JSONL Replay Read Path
+
+- [ ] add startup-time replay loading from JSON Lines into the run read model
+- [ ] preserve append-first write path while allowing process-restart recovery for run inspection
+- [ ] ensure replay logic accepts mixed record kinds (`run_event`, `node_execution`, `cycle_result`) in one stream
+- [ ] add tests that verify run APIs can serve previously recorded runs after restart-like reconstruction
+
+### Phase 11: Add JSONL Operational Guards
+
+- [ ] add simple file-rotation policy for long-running local observation output
+- [ ] make JSONL reader tolerant to partial or malformed lines without stopping whole API operation
+- [ ] expose minimum health counters for skipped lines and replay errors
+- [ ] add tests for malformed-line tolerance and continued replay of valid trailing records
+
+### Phase 12: Stabilize Run Read API Query Contract
+
+- [ ] add filtering and paging query surface for `GET /runs` (for example `partition`, `status`, `since`, `until`, `limit`, `cursor`)
+- [ ] keep response shape compact and backward compatible with current minimum UI usage
+- [ ] define ordering and cursor semantics explicitly for deterministic client pagination
+- [ ] add handler tests for filter combinations and cursor continuity
+
+### Phase 13: Add Run Comparison API
+
+- [ ] execute this phase under `governance/tasks/backtest_realdata_visualization_followups.md` and keep this document aligned only for run-read compatibility constraints
+- [ ] add a compact compare endpoint such as `GET /runs/compare?base_run_id=...&target_run_id=...`
+- [ ] include summary-level deltas and per-field state-diff deltas as minimum comparison output
+- [ ] ensure comparison output can explain meaningful result differences without requiring UI-first interpretation
+- [ ] add tests covering common comparison cases such as pnl divergence, trade-count divergence, and skip/fail path differences
+
+### Phase 14: Strengthen Correlation Across APIs, Logs, And Traces
+
+- [ ] align `run_id`, `partition`, `intent_id`, `execution_id`, `trade_id`, and `sequence_no` across read APIs and intent logs
+- [ ] ensure trace attributes include identifiers needed to jump between trace view and run-step view
+- [ ] verify high-cardinality identifiers remain fields/attributes rather than promoted labels
+- [ ] add focused observability tests or checks for correlation-field presence in representative flows
+
+### Phase 15: Extend Minimum UI With Compare View
+
+- [ ] execute this phase under `governance/tasks/backtest_realdata_visualization_followups.md` and keep this document aligned only for base run-inspector compatibility
+- [ ] keep the current two-pane shape and add side-by-side run comparison without introducing full DAG canvas work
+- [ ] drive compare view only from existing and new read APIs rather than adding UI-owned state truth
+- [ ] keep performance acceptable for near-term run volumes through compact rendering and bounded fetch size
+- [ ] add minimum UI integration checks for selecting two runs and inspecting diff highlights
+
+### Phase 16: Promote Run-Inspection Scenario Coverage
+
+- [ ] coordinate this phase with `governance/tasks/backtest_realdata_visualization_followups.md` so run-inspection and backtest-compare scenario guidance converge in one scenario flow
+- [ ] add scenario-level verification guidance under `scenarios/` for normal, skip, fail, and retry-oriented run inspection
+- [ ] align scenario steps with current API/UI/JSONL verification flow so contributors can reproduce checks consistently
+- [ ] keep scenario guidance implementation-agnostic where possible while preserving concrete command examples
+- [ ] add references from this task document to the promoted scenario once added
+
 ## Acceptance Criteria
 
-- contributors can find a single task document that explains the intended order of visualization follow-up work
+- contributors can find a consistent execution order across this task document and `governance/tasks/backtest_realdata_visualization_followups.md`
 - the backlog makes clear that execution observability comes before UI work
 - the first implementation slice is small and concrete enough to start from `NodeExecutionEvent` and runner instrumentation
 - the task document is suitable as temporary planning context without being mistaken for durable design truth
@@ -273,3 +335,8 @@ Verification points:
   7. minimum UI
   8. correlation IDs
   9. initial storage format
+  10. JSONL replay read path
+  11. JSONL operational guards
+  12. run read API query contract stabilization
+  13. handoff to `backtest_realdata_visualization_followups.md` for compare/backtest/expanded scenario track
+  14. cross-surface correlation strengthening

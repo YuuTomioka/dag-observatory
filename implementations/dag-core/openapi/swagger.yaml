@@ -18,6 +18,33 @@ definitions:
       field:
         type: string
     type: object
+  handler.backtestRunRequest:
+    properties:
+      account_balance:
+        type: number
+      from:
+        type: string
+      gap_handling:
+        type: string
+      mode:
+        type: string
+      partition:
+        type: string
+      run_id:
+        type: string
+      source:
+        type: string
+      spread_bps:
+        type: number
+      symbol_code:
+        type: string
+      timeframe_code:
+        type: string
+      timezone:
+        type: string
+      to:
+        type: string
+    type: object
   handler.resultReflectionRunRequest:
     properties:
       account_balance:
@@ -240,6 +267,40 @@ definitions:
         type: string
       to:
         example: "2026-03-01T02:00:00Z"
+        type: string
+    type: object
+  response.BacktestMarketdataInput:
+    properties:
+      from:
+        type: string
+      gap_handling:
+        type: string
+      source:
+        type: string
+      symbol_code:
+        type: string
+      timeframe_code:
+        type: string
+      timezone:
+        type: string
+      to:
+        type: string
+    type: object
+  response.BacktestRunResponse:
+    properties:
+      entrypoint:
+        type: string
+      marketdata:
+        $ref: '#/definitions/response.BacktestMarketdataInput'
+      mode:
+        type: string
+      partition:
+        type: string
+      run_id:
+        type: string
+      status:
+        type: string
+      symbol:
         type: string
     type: object
   response.DBBackupItem:
@@ -577,6 +638,45 @@ info:
   title: DAG Observatory API
   version: 0.1.0
 paths:
+  /algotrade/backtests:run:
+    post:
+      consumes:
+      - application/json
+      description: Triggers the configured runtime workflow as a backtest entrypoint
+        over an explicit historical range and returns run correlation metadata.
+      parameters:
+      - description: Backtest run request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.backtestRunRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.BacktestRunResponse'
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/response.BacktestRunResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Run real-data backtest workflow
+      tags:
+      - algotrade
   /algotrade/result-reflection:run:
     post:
       consumes:

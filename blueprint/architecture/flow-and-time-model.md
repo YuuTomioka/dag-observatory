@@ -11,6 +11,15 @@ This document defines how flow, events, state, and time are modeled across the r
 - events and state transitions are first-class design elements
 - execution flow and analysis flow are related but distinct
 
+## Analysis Flow Model
+
+Analysis flow is the replay or sweep path used for inspection, comparison, and hypothesis testing.
+
+- period backtest belongs to analysis flow, not to online execution flow
+- analysis flow may iterate many cycles over one historical range
+- analysis flow must keep replay assumptions explicit so results remain reproducible
+- analysis flow should reuse runtime event and state semantics instead of introducing a competing state truth
+
 ## Execution Model
 
 The current reference runtime separates single-cycle execution from multi-cycle orchestration.
@@ -100,6 +109,7 @@ Representative event families include:
 - event flow must remain explicit across synchronous and asynchronous boundaries
 - time-series data design must support operational observation as well as later analysis
 - intent events are part of the structural model, not only logging output
+- online execution and period backtest should stay as separate entry semantics even when they share runner and node implementations
 
 ## Migration Notes
 

@@ -49,6 +49,9 @@ They are connected through ports instead of direct infrastructure coupling.
 - worker consumes execution requests and emits result events
 - platform provides telemetry transport and visibility topology
 - data owns durable schema, migration, and query assets for time-series analysis
+- backtest execution is an analysis responsibility that reuses runtime semantics but keeps period-sweep control explicit
+- run comparison read models belong to read/query responsibilities and must not become a parallel write-time truth
+- visualization APIs and UI consume read models and telemetry links, and must not own state progression logic
 
 These boundaries should remain readable even when implementations change.
 

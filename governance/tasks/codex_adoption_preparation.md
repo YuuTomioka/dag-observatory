@@ -121,6 +121,8 @@ Completed in the current preparation pass:
 - repository-scoped review templates are deferred; existing `governance/tasks/` documents and `/review` flow remain the default review surface
 - the repository skill location was fixed at `.agents/skills/`
 - initial skills were added for change classification, blueprint-to-implementation work, and scenario-based validation
+- human-facing document aggregation was centered on `governance/`, with `governance/README.md` and `governance/guides/README.md` added as navigation surfaces
+- naming, format, and lifecycle guidance was added for `governance/tasks/`, `governance/contracts/`, `governance/guides/`, and `scenarios/`
 
 Next repository-safe moves are:
 

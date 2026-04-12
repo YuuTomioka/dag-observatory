@@ -43,6 +43,7 @@ If the task falls into a higher class, update that layer first before editing lo
 - `blueprint/`: long-lived design truth, boundaries, conventions, and ADRs
 - `governance/policies/`: repository-wide change-handling and documentation rules
 - `governance/contracts/`: reusable human-facing request and handoff templates
+- `governance/guides/`: reusable human-facing operating guides and how-to entrypoints
 - `governance/tasks/`: shared temporary task context
 - `implementations/`: implementation-local code and guidance
 - `platform/`: operating environment and observability reference assets
@@ -59,6 +60,7 @@ If the task falls into a higher class, update that layer first before editing lo
 - Keep temporary planning notes in `governance/tasks/` until promoted or retired.
 - Keep durable source-of-truth documents in English.
 - Keep direct human-interface surfaces such as `scenarios/` and `governance/contracts/` in Japanese.
+- Keep reusable human-facing operating guides under `governance/guides/` in Japanese.
 - Do not use `.wrk/` as a tracked or referenced documentation surface.
 - Do not reintroduce `.docs/`.
 - Do not treat generated artifacts or runtime output as structural truth.

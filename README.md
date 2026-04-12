@@ -30,6 +30,7 @@ AI ペアプロ向けの読解順と変更原則は `AGENTS.md` にあります�
 - `blueprint/`: 親リポジトリとして継承させたい設計原則と ADR の正本
 - `governance/`: 変更分類、文書配置、共有タスク文脈の管理
 - `governance/contracts/`: 人間向けの要求受理、実装ハンドオフ、検証報告テンプレート
+- `governance/guides/`: 人間向けの進め方や運用手順の集約先
 - `implementations/`: 参照実装の正本
 - `platform/`: 観測性などの恒久的な運用基盤リファレンス
 - `deployments/`: ローカル実行や移行のための実行ラッパ
@@ -82,6 +83,12 @@ AI ペアプロ向けの読解順と変更原則は `AGENTS.md` にあります�
 要求受理、実装依頼、検証報告のような人間向けの受け渡し面を置く場所です。
 
 ここは日本語のテンプレートを置く面であり、構造や仕様の正本は持ちません。必要な技術的根拠は `blueprint/` や各実装の正本を参照します。
+
+### `governance/guides/`
+
+人間向けの進め方、運用手順、文書の使い分けを集約する場所です。
+
+反復して参照する日本語の案内や how-to はここへ寄せ、案件固有の一時文脈は `governance/tasks/` に置きます。
 
 ### `platform/`
 
@@ -142,6 +149,7 @@ Collector、Loki、Tempo、Prometheus、Promtail、Grafana などの観測基盤
 - API 実装の正本: `implementations/dag-core/`
 - SQL 設計の正本: `data/tsdb/`
 - 人間向けの要求・報告テンプレート: `governance/contracts/`
+- 人間向けの進め方と手順の集約: `governance/guides/`
 - 一時的な共有作業文脈: `governance/tasks/`
 - repository-scoped Codex skills: `.agents/skills/`
 - ローカル専用の生成物: `var/`

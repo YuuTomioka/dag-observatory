@@ -41,4 +41,7 @@ func TestRunsUIReturnsHTML(t *testing.T) {
 	if !strings.Contains(body, "target_run_id") {
 		t.Fatalf("expected ui to keep target_run_id in query state")
 	}
+	if !strings.Contains(body, "RUNS_PAGE_LIMIT") || !strings.Contains(body, "limit") {
+		t.Fatalf("expected ui to use bounded runs fetch size")
+	}
 }

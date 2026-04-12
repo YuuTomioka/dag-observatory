@@ -115,3 +115,5 @@ Gate note (2026-04-12):
 
 - added this task document as temporary planning context for real-data backtest and visualization follow-up work
 - execution order is explicitly coordinated with `governance/tasks/dag_visualization_followups.md`
+- integrated scenario guidance is promoted at:
+  - `scenarios/run-inspection-backtest-integrated-scenario.md`

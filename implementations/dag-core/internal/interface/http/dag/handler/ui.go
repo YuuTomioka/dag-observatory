@@ -404,6 +404,7 @@ const runsUIPage = `<!DOCTYPE html>
     const state = {
       partition: "",
       runs: [],
+      runsNextCursor: "",
       selectedRun: null,
       steps: [],
       stepsSyncing: false,
@@ -414,6 +415,8 @@ const runsUIPage = `<!DOCTYPE html>
       compareTargetRunID: "",
       compare: null
     };
+    const RUNS_PAGE_LIMIT = 200;
+    const STEP_RENDER_LIMIT = 300;
 
     const timelineEl = document.getElementById("timeline");
     const detailEl = document.getElementById("detail");
@@ -476,9 +479,12 @@ const runsUIPage = `<!DOCTYPE html>
     }
 
     async function loadRuns() {
-      const query = state.partition ? "?partition=" + encodeURIComponent(state.partition) : "";
-      const payload = await getJSON("/runs" + query);
+      const params = new URLSearchParams();
+      params.set("limit", String(RUNS_PAGE_LIMIT));
+      if (state.partition) params.set("partition", state.partition);
+      const payload = await getJSON("/runs?" + params.toString());
       state.runs = payload.items || [];
+      state.runsNextCursor = payload.next_cursor || "";
       if (!state.runs.length) {
         state.selectedRun = null;
         state.steps = [];
@@ -642,13 +648,15 @@ const runsUIPage = `<!DOCTYPE html>
             "</button>"
           ].join("");
         }).join(""),
+        state.runsNextCursor ? '<div class="hint">Showing first ' + escapeHTML(String(RUNS_PAGE_LIMIT)) + ' runs. Apply partition filter to narrow results.</div>' : '',
         "</div>"
       ].join("");
 
+      const renderedSteps = state.steps.slice(0, STEP_RENDER_LIMIT);
       const stepHeader = !state.selectedRun ? '<div class="hint">Select a run.</div>' : [
         '<div class="section">',
         '<h3>Steps</h3>',
-        state.steps.length ? state.steps.map(function(step) {
+        renderedSteps.length ? renderedSteps.map(function(step) {
           const active = step.node_execution_id === state.selectedSequenceNo ? " active" : "";
           return [
             '<button class="step' + active + '" data-sequence-no="' + escapeHTML(step.node_execution_id) + '">',
@@ -665,6 +673,7 @@ const runsUIPage = `<!DOCTYPE html>
             "</button>"
           ].join("");
         }).join("") : ('<div class="hint">' + (state.stepsSyncing ? "Waiting for step records to become available..." : "No steps recorded for this run.") + '</div>'),
+        state.steps.length > renderedSteps.length ? '<div class="hint">Showing first ' + escapeHTML(String(STEP_RENDER_LIMIT)) + ' steps.</div>' : '',
         "</div>"
       ].join("");
 

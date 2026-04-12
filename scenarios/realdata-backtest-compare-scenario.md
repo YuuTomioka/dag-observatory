@@ -8,6 +8,10 @@ This document defines a reproducible validation flow for:
 - comparing two backtest runs
 - inspecting run and node-level differences from the minimum UI
 
+For the promoted integrated flow including normal/skip/fail/retry and JSONL replay checks, use:
+
+- `scenarios/run-inspection-backtest-integrated-scenario.md`
+
 ## Preconditions
 
 - local stack is up (`make dev-up`)

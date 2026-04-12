@@ -22,6 +22,7 @@ This scenario validates both execution correctness and cross-signal observabilit
 Related scenario:
 
 - `scenarios/realdata-backtest-compare-scenario.md` for period backtest and run-to-run comparison flow
+- `scenarios/run-inspection-backtest-integrated-scenario.md` for unified run-inspection + backtest-compare + JSONL replay verification
 
 ## Entrypoint Priority
 

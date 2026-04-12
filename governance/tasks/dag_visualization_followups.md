@@ -246,11 +246,17 @@ Progress note (2026-04-12):
 
 ### Phase 13: Add Run Comparison API
 
-- [ ] execute this phase under `governance/tasks/backtest_realdata_visualization_followups.md` and keep this document aligned only for run-read compatibility constraints
+- [x] execute this phase under `governance/tasks/backtest_realdata_visualization_followups.md` and keep this document aligned only for run-read compatibility constraints
 - [x] add a compact compare endpoint such as `GET /runs/compare?base_run_id=...&target_run_id=...`
 - [x] include summary-level deltas and per-field state-diff deltas as minimum comparison output
 - [x] ensure comparison output can explain meaningful result differences without requiring UI-first interpretation
 - [x] add tests covering common comparison cases such as pnl divergence, trade-count divergence, and skip/fail path differences
+
+Progress note (2026-04-12):
+
+- compare API implementation/execution was tracked under:
+  - `governance/tasks/backtest_realdata_visualization_followups.md` Phase 7
+- this document remains aligned for run-read compatibility constraints and verification flow
 
 ### Phase 14: Strengthen Correlation Across APIs, Logs, And Traces
 
@@ -275,19 +281,32 @@ Progress note (2026-04-12):
 
 ### Phase 15: Extend Minimum UI With Compare View
 
-- [ ] execute this phase under `governance/tasks/backtest_realdata_visualization_followups.md` and keep this document aligned only for base run-inspector compatibility
+- [x] execute this phase under `governance/tasks/backtest_realdata_visualization_followups.md` and keep this document aligned only for base run-inspector compatibility
 - [x] keep the current two-pane shape and add side-by-side run comparison without introducing full DAG canvas work
 - [x] drive compare view only from existing and new read APIs rather than adding UI-owned state truth
-- [ ] keep performance acceptable for near-term run volumes through compact rendering and bounded fetch size
+- [x] keep performance acceptable for near-term run volumes through compact rendering and bounded fetch size
 - [x] add minimum UI integration checks for selecting two runs and inspecting diff highlights
+
+Progress note (2026-04-12):
+
+- `/runs/ui` now uses bounded run fetch (`GET /runs?...&limit=200`) and surfaces a hint when additional pages exist
+- step timeline rendering is bounded (`first 300`) to keep client-side rendering cost predictable for near-term run volumes
 
 ### Phase 16: Promote Run-Inspection Scenario Coverage
 
-- [ ] coordinate this phase with `governance/tasks/backtest_realdata_visualization_followups.md` so run-inspection and backtest-compare scenario guidance converge in one scenario flow
-- [ ] add scenario-level verification guidance under `scenarios/` for normal, skip, fail, and retry-oriented run inspection
-- [ ] align scenario steps with current API/UI/JSONL verification flow so contributors can reproduce checks consistently
-- [ ] keep scenario guidance implementation-agnostic where possible while preserving concrete command examples
-- [ ] add references from this task document to the promoted scenario once added
+- [x] coordinate this phase with `governance/tasks/backtest_realdata_visualization_followups.md` so run-inspection and backtest-compare scenario guidance converge in one scenario flow
+- [x] add scenario-level verification guidance under `scenarios/` for normal, skip, fail, and retry-oriented run inspection
+- [x] align scenario steps with current API/UI/JSONL verification flow so contributors can reproduce checks consistently
+- [x] keep scenario guidance implementation-agnostic where possible while preserving concrete command examples
+- [x] add references from this task document to the promoted scenario once added
+
+Progress note (2026-04-12):
+
+- added promoted integrated scenario:
+  - `scenarios/run-inspection-backtest-integrated-scenario.md`
+- linked integrated scenario from:
+  - `scenarios/representative-scenario.md`
+  - `scenarios/realdata-backtest-compare-scenario.md`
 
 ## Acceptance Criteria
 

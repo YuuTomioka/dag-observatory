@@ -87,8 +87,23 @@ func TestBackfillTimeframeBarsPersistsToTSDB(t *testing.T) {
 	if got := items[0].Close.Raw(); got != 1005 {
 		t.Fatalf("expected first bar close=1005, got %d", got)
 	}
+	if got := items[0].High.Raw(); got != 1006 {
+		t.Fatalf("expected first bar high=1006, got %d", got)
+	}
+	if got := items[0].Low.Raw(); got != 1000 {
+		t.Fatalf("expected first bar low=1000, got %d", got)
+	}
+	if !items[0].Hightime.Equal(marketdata.MustParseUTCTime("2026-03-01T00:00:20Z")) {
+		t.Fatalf("expected first bar high_time=2026-03-01T00:00:20Z, got %s", items[0].Hightime)
+	}
+	if !items[0].Lowtime.Equal(marketdata.MustParseUTCTime("2026-03-01T00:00:10Z")) {
+		t.Fatalf("expected first bar low_time=2026-03-01T00:00:10Z, got %s", items[0].Lowtime)
+	}
 	if got := int64(items[0].Volume); got != 2 {
 		t.Fatalf("expected first bar volume=2, got %d", got)
+	}
+	if items[0].Source != marketdata.TimeframeBarSourceTickBidAskMid {
+		t.Fatalf("expected first bar source=%q, got %q", marketdata.TimeframeBarSourceTickBidAskMid, items[0].Source)
 	}
 }
 

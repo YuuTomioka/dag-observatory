@@ -1547,8 +1547,14 @@ const docTemplate = `{
                 "high": {
                     "type": "integer"
                 },
+                "high_time": {
+                    "type": "string"
+                },
                 "low": {
                     "type": "integer"
+                },
+                "low_time": {
+                    "type": "string"
                 },
                 "open": {
                     "type": "integer"

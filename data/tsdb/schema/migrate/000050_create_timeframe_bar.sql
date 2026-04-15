@@ -5,10 +5,12 @@ CREATE TABLE IF NOT EXISTS timeframe_bar (
   close_time TIMESTAMPTZ NOT NULL,
   open BIGINT NOT NULL,
   high BIGINT NOT NULL,
+  high_time TIMESTAMPTZ NOT NULL,
   low BIGINT NOT NULL,
+  low_time TIMESTAMPTZ NOT NULL,
   close BIGINT NOT NULL,
   volume BIGINT NOT NULL,
-  source TEXT NOT NULL DEFAULT 'tick_mid',
+  source TEXT NOT NULL DEFAULT 'tick_bid_ask_mid',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 

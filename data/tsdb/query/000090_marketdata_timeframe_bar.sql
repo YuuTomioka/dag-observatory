@@ -6,7 +6,9 @@ INSERT INTO timeframe_bar (
   close_time,
   open,
   high,
+  high_time,
   low,
+  low_time,
   close,
   volume,
   source
@@ -18,7 +20,9 @@ SELECT
   unnest(@close_times::timestamptz[]),
   unnest(@opens::bigint[]),
   unnest(@highs::bigint[]),
+  unnest(@high_times::timestamptz[]),
   unnest(@lows::bigint[]),
+  unnest(@low_times::timestamptz[]),
   unnest(@closes::bigint[]),
   unnest(@volumes::bigint[]),
   unnest(@sources::text[])
@@ -27,7 +31,9 @@ DO UPDATE SET
   close_time = EXCLUDED.close_time,
   open = EXCLUDED.open,
   high = EXCLUDED.high,
+  high_time = EXCLUDED.high_time,
   low = EXCLUDED.low,
+  low_time = EXCLUDED.low_time,
   close = EXCLUDED.close,
   volume = EXCLUDED.volume,
   source = EXCLUDED.source,
@@ -41,7 +47,7 @@ WHERE symbol_id = @symbol_id
   AND open_time <  @to_time::timestamptz;
 
 -- name: GetLatestTimeframeBarBySymbolAndTimeframe :one
-SELECT symbol_id, timeframe_code, open_time, close_time, open, high, low, close, volume, source, created_at, updated_at
+SELECT symbol_id, timeframe_code, open_time, close_time, open, high, high_time, low, low_time, close, volume, source, created_at, updated_at
 FROM timeframe_bar
 WHERE symbol_id = @symbol_id
   AND timeframe_code = @timeframe_code
@@ -49,7 +55,7 @@ ORDER BY open_time DESC
 LIMIT 1;
 
 -- name: ListTimeframeBarsBySymbolTimeframeAndRange :many
-SELECT symbol_id, timeframe_code, open_time, close_time, open, high, low, close, volume, source, created_at, updated_at
+SELECT symbol_id, timeframe_code, open_time, close_time, open, high, high_time, low, low_time, close, volume, source, created_at, updated_at
 FROM timeframe_bar
 WHERE symbol_id = @symbol_id
   AND timeframe_code = @timeframe_code

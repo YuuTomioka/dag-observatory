@@ -18,7 +18,9 @@ func ToBulkUpsertTimeframeBarsParams(
 	closeTimes := make([]pgtype.Timestamptz, 0, len(bars))
 	opens := make([]int64, 0, len(bars))
 	highs := make([]int64, 0, len(bars))
+	highTimes := make([]pgtype.Timestamptz, 0, len(bars))
 	lows := make([]int64, 0, len(bars))
+	lowTimes := make([]pgtype.Timestamptz, 0, len(bars))
 	closes := make([]int64, 0, len(bars))
 	volumes := make([]int64, 0, len(bars))
 	sources := make([]string, 0, len(bars))
@@ -29,6 +31,14 @@ func ToBulkUpsertTimeframeBarsParams(
 			return query.BulkUpsertTimeframeBarsParams{}, err
 		}
 		closeTime, err := toPgTimestamptz(bar.Closetime)
+		if err != nil {
+			return query.BulkUpsertTimeframeBarsParams{}, err
+		}
+		highTime, err := toPgTimestamptz(bar.Hightime)
+		if err != nil {
+			return query.BulkUpsertTimeframeBarsParams{}, err
+		}
+		lowTime, err := toPgTimestamptz(bar.Lowtime)
 		if err != nil {
 			return query.BulkUpsertTimeframeBarsParams{}, err
 		}
@@ -44,7 +54,9 @@ func ToBulkUpsertTimeframeBarsParams(
 		closeTimes = append(closeTimes, closeTime)
 		opens = append(opens, bar.Open.Raw())
 		highs = append(highs, bar.High.Raw())
+		highTimes = append(highTimes, highTime)
 		lows = append(lows, bar.Low.Raw())
+		lowTimes = append(lowTimes, lowTime)
 		closes = append(closes, bar.Close.Raw())
 		volumes = append(volumes, int64(bar.Volume))
 		sources = append(sources, bar.Source)
@@ -56,7 +68,9 @@ func ToBulkUpsertTimeframeBarsParams(
 		CloseTimes:     closeTimes,
 		Opens:          opens,
 		Highs:          highs,
+		HighTimes:      highTimes,
 		Lows:           lows,
+		LowTimes:       lowTimes,
 		Closes:         closes,
 		Volumes:        volumes,
 		Sources:        sources,
@@ -126,6 +140,14 @@ func TimeframeBarFromRow(row query.TimeframeBar) (domainmarketdata.TimeframeBar,
 	if err != nil {
 		return domainmarketdata.TimeframeBar{}, err
 	}
+	highTime, err := fromPgTimestamptz(row.HighTime)
+	if err != nil {
+		return domainmarketdata.TimeframeBar{}, err
+	}
+	lowTime, err := fromPgTimestamptz(row.LowTime)
+	if err != nil {
+		return domainmarketdata.TimeframeBar{}, err
+	}
 	return domainmarketdata.TimeframeBar{
 		SymbolID:      domainmarketdata.SymbolID(row.SymbolID),
 		TimeframeCode: domainmarketdata.TimeframeCode(row.TimeframeCode),
@@ -134,7 +156,9 @@ func TimeframeBarFromRow(row query.TimeframeBar) (domainmarketdata.TimeframeBar,
 			Closetime: closeTime,
 			Open:      domainmarketdata.NewPriceFromRaw(row.Open),
 			High:      domainmarketdata.NewPriceFromRaw(row.High),
+			Hightime:  highTime,
 			Low:       domainmarketdata.NewPriceFromRaw(row.Low),
+			Lowtime:   lowTime,
 			Close:     domainmarketdata.NewPriceFromRaw(row.Close),
 			Volume:    domainmarketdata.Volume(row.Volume),
 		},

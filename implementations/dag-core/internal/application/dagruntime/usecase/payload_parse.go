@@ -190,12 +190,26 @@ func parseOHLCVMap(value map[string]any) (marketdata.OHLCV, error) {
 		}
 		out.High = price
 	}
+	if raw, ok := get("high_time", "Hightime", "hightime"); ok {
+		t, err := parseUTCTimeValue(raw, "market_ohlcv_bars.high_time")
+		if err != nil {
+			return marketdata.OHLCV{}, err
+		}
+		out.Hightime = t
+	}
 	if raw, ok := get("low", "Low"); ok {
 		price, err := parsePriceValue(raw, "market_ohlcv_bars.low")
 		if err != nil {
 			return marketdata.OHLCV{}, err
 		}
 		out.Low = price
+	}
+	if raw, ok := get("low_time", "Lowtime", "lowtime"); ok {
+		t, err := parseUTCTimeValue(raw, "market_ohlcv_bars.low_time")
+		if err != nil {
+			return marketdata.OHLCV{}, err
+		}
+		out.Lowtime = t
 	}
 	if raw, ok := get("close", "Close"); ok {
 		price, err := parsePriceValue(raw, "market_ohlcv_bars.close")

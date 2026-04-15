@@ -1,6 +1,6 @@
 package marketdata
 
-const TimeframeBarSourceTickMid = "tick_mid"
+const TimeframeBarSourceTickBidAskMid = "tick_bid_ask_mid"
 
 type TimeframeBar struct {
 	TimeframeCode TimeframeCode

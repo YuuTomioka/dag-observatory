@@ -70,7 +70,9 @@ func TestToInputMapFromStringMapWithOHLCVBars(t *testing.T) {
 				"close_time": "2026-04-01T00:01:00Z",
 				"open":       1000.0,
 				"high":       1010.0,
+				"high_time":  "2026-04-01T00:00:30Z",
 				"low":        995.0,
+				"low_time":   "2026-04-01T00:00:10Z",
 				"close":      1005.0,
 				"volume":     12.0,
 			},
@@ -93,6 +95,12 @@ func TestToInputMapFromStringMapWithOHLCVBars(t *testing.T) {
 	}
 	if got := bars[0].Close.Raw(); got != 1005 {
 		t.Fatalf("expected close=1005, got %d", got)
+	}
+	if !bars[0].Hightime.Equal(marketdata.MustParseUTCTime("2026-04-01T00:00:30Z")) {
+		t.Fatalf("expected high_time to be mapped, got %s", bars[0].Hightime)
+	}
+	if !bars[0].Lowtime.Equal(marketdata.MustParseUTCTime("2026-04-01T00:00:10Z")) {
+		t.Fatalf("expected low_time to be mapped, got %s", bars[0].Lowtime)
 	}
 	if got := inputs[InputKeyMarketSpreadBps]; got != 2.5 {
 		t.Fatalf("expected spread_bps=2.5, got %v", got)

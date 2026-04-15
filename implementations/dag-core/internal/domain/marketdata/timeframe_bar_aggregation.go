@@ -46,21 +46,25 @@ func AggregateTimeframeBars(
 					Opentime:  openTime,
 					Closetime: closeTime,
 					Open:      mid,
-					High:      mid,
-					Low:       mid,
+					High:      tick.Ask,
+					Hightime:  tick.Time,
+					Low:       tick.Bid,
+					Lowtime:   tick.Time,
 					Close:     mid,
 					Volume:    1,
 				},
-				Source: TimeframeBarSourceTickMid,
+				Source: TimeframeBarSourceTickBidAskMid,
 			}
 			continue
 		}
 
-		if mid.Gt(current.High) {
-			current.High = mid
+		if tick.Ask.Gt(current.High) || tick.Ask.Eq(current.High) {
+			current.High = tick.Ask
+			current.Hightime = tick.Time
 		}
-		if mid.Lt(current.Low) {
-			current.Low = mid
+		if tick.Bid.Lt(current.Low) || tick.Bid.Eq(current.Low) {
+			current.Low = tick.Bid
+			current.Lowtime = tick.Time
 		}
 		current.Close = mid
 		current.Volume = current.Volume.Add(1)

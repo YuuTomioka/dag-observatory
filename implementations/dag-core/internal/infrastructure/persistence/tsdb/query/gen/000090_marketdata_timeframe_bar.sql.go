@@ -19,7 +19,9 @@ INSERT INTO timeframe_bar (
   close_time,
   open,
   high,
+  high_time,
   low,
+  low_time,
   close,
   volume,
   source
@@ -31,16 +33,20 @@ SELECT
   unnest($4::timestamptz[]),
   unnest($5::bigint[]),
   unnest($6::bigint[]),
-  unnest($7::bigint[]),
+  unnest($7::timestamptz[]),
   unnest($8::bigint[]),
-  unnest($9::bigint[]),
-  unnest($10::text[])
+  unnest($9::timestamptz[]),
+  unnest($10::bigint[]),
+  unnest($11::bigint[]),
+  unnest($12::text[])
 ON CONFLICT (symbol_id, timeframe_code, open_time)
 DO UPDATE SET
   close_time = EXCLUDED.close_time,
   open = EXCLUDED.open,
   high = EXCLUDED.high,
+  high_time = EXCLUDED.high_time,
   low = EXCLUDED.low,
+  low_time = EXCLUDED.low_time,
   close = EXCLUDED.close,
   volume = EXCLUDED.volume,
   source = EXCLUDED.source,
@@ -54,7 +60,9 @@ type BulkUpsertTimeframeBarsParams struct {
 	CloseTimes     []pgtype.Timestamptz `json:"close_times"`
 	Opens          []int64              `json:"opens"`
 	Highs          []int64              `json:"highs"`
+	HighTimes      []pgtype.Timestamptz `json:"high_times"`
 	Lows           []int64              `json:"lows"`
+	LowTimes       []pgtype.Timestamptz `json:"low_times"`
 	Closes         []int64              `json:"closes"`
 	Volumes        []int64              `json:"volumes"`
 	Sources        []string             `json:"sources"`
@@ -68,7 +76,9 @@ func (q *Queries) BulkUpsertTimeframeBars(ctx context.Context, arg BulkUpsertTim
 		arg.CloseTimes,
 		arg.Opens,
 		arg.Highs,
+		arg.HighTimes,
 		arg.Lows,
+		arg.LowTimes,
 		arg.Closes,
 		arg.Volumes,
 		arg.Sources,
@@ -102,7 +112,7 @@ func (q *Queries) DeleteTimeframeBarsBySymbolTimeframeAndRange(ctx context.Conte
 }
 
 const getLatestTimeframeBarBySymbolAndTimeframe = `-- name: GetLatestTimeframeBarBySymbolAndTimeframe :one
-SELECT symbol_id, timeframe_code, open_time, close_time, open, high, low, close, volume, source, created_at, updated_at
+SELECT symbol_id, timeframe_code, open_time, close_time, open, high, high_time, low, low_time, close, volume, source, created_at, updated_at
 FROM timeframe_bar
 WHERE symbol_id = $1
   AND timeframe_code = $2
@@ -125,7 +135,9 @@ func (q *Queries) GetLatestTimeframeBarBySymbolAndTimeframe(ctx context.Context,
 		&i.CloseTime,
 		&i.Open,
 		&i.High,
+		&i.HighTime,
 		&i.Low,
+		&i.LowTime,
 		&i.Close,
 		&i.Volume,
 		&i.Source,
@@ -136,7 +148,7 @@ func (q *Queries) GetLatestTimeframeBarBySymbolAndTimeframe(ctx context.Context,
 }
 
 const listTimeframeBarsBySymbolTimeframeAndRange = `-- name: ListTimeframeBarsBySymbolTimeframeAndRange :many
-SELECT symbol_id, timeframe_code, open_time, close_time, open, high, low, close, volume, source, created_at, updated_at
+SELECT symbol_id, timeframe_code, open_time, close_time, open, high, high_time, low, low_time, close, volume, source, created_at, updated_at
 FROM timeframe_bar
 WHERE symbol_id = $1
   AND timeframe_code = $2
@@ -173,7 +185,9 @@ func (q *Queries) ListTimeframeBarsBySymbolTimeframeAndRange(ctx context.Context
 			&i.CloseTime,
 			&i.Open,
 			&i.High,
+			&i.HighTime,
 			&i.Low,
+			&i.LowTime,
 			&i.Close,
 			&i.Volume,
 			&i.Source,

@@ -130,7 +130,9 @@ type TimeframeBar struct {
 	CloseTime     pgtype.Timestamptz `json:"close_time"`
 	Open          int64              `json:"open"`
 	High          int64              `json:"high"`
+	HighTime      pgtype.Timestamptz `json:"high_time"`
 	Low           int64              `json:"low"`
+	LowTime       pgtype.Timestamptz `json:"low_time"`
 	Close         int64              `json:"close"`
 	Volume        int64              `json:"volume"`
 	Source        string             `json:"source"`

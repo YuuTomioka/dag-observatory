@@ -5,7 +5,9 @@ type OHLCV struct {
 	Closetime UTCTime
 	Open      Price
 	High      Price
+	Hightime  UTCTime `json:"high_time"`
 	Low       Price
+	Lowtime   UTCTime `json:"low_time"`
 	Close     Price
 	Volume    Volume
 }

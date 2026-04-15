@@ -44,11 +44,13 @@ func TestTimeframeBarRepositoryRoundTripToTSDB(t *testing.T) {
 				Closetime: domainmarketdata.MustParseUTCTime("2026-03-01T00:01:00Z"),
 				Open:      domainmarketdata.NewPriceFromRaw(1001),
 				High:      domainmarketdata.NewPriceFromRaw(1005),
+				Hightime:  domainmarketdata.MustParseUTCTime("2026-03-01T00:00:30Z"),
 				Low:       domainmarketdata.NewPriceFromRaw(1001),
+				Lowtime:   domainmarketdata.MustParseUTCTime("2026-03-01T00:00:00Z"),
 				Close:     domainmarketdata.NewPriceFromRaw(1004),
 				Volume:    2,
 			},
-			Source: domainmarketdata.TimeframeBarSourceTickMid,
+			Source: domainmarketdata.TimeframeBarSourceTickBidAskMid,
 		},
 		{
 			SymbolID:      symbol.ID,
@@ -58,11 +60,13 @@ func TestTimeframeBarRepositoryRoundTripToTSDB(t *testing.T) {
 				Closetime: domainmarketdata.MustParseUTCTime("2026-03-01T00:02:00Z"),
 				Open:      domainmarketdata.NewPriceFromRaw(1008),
 				High:      domainmarketdata.NewPriceFromRaw(1012),
+				Hightime:  domainmarketdata.MustParseUTCTime("2026-03-01T00:01:45Z"),
 				Low:       domainmarketdata.NewPriceFromRaw(1008),
+				Lowtime:   domainmarketdata.MustParseUTCTime("2026-03-01T00:01:00Z"),
 				Close:     domainmarketdata.NewPriceFromRaw(1012),
 				Volume:    1,
 			},
-			Source: domainmarketdata.TimeframeBarSourceTickMid,
+			Source: domainmarketdata.TimeframeBarSourceTickBidAskMid,
 		},
 	}
 
@@ -83,6 +87,12 @@ func TestTimeframeBarRepositoryRoundTripToTSDB(t *testing.T) {
 	if len(items) != 2 {
 		t.Fatalf("expected 2 bars, got %d", len(items))
 	}
+	if !items[0].Hightime.Equal(domainmarketdata.MustParseUTCTime("2026-03-01T00:00:30Z")) {
+		t.Fatalf("unexpected first high_time: %s", items[0].Hightime)
+	}
+	if !items[0].Lowtime.Equal(domainmarketdata.MustParseUTCTime("2026-03-01T00:00:00Z")) {
+		t.Fatalf("unexpected first low_time: %s", items[0].Lowtime)
+	}
 
 	latest, err := barRepo.GetLatestBySymbolAndTimeframe(ctx, symbol.ID, domainmarketdata.TimeframeM1)
 	if err != nil {
@@ -90,6 +100,12 @@ func TestTimeframeBarRepositoryRoundTripToTSDB(t *testing.T) {
 	}
 	if !latest.Opentime.Equal(domainmarketdata.MustParseUTCTime("2026-03-01T00:01:00Z")) {
 		t.Fatalf("unexpected latest open_time: %s", latest.Opentime)
+	}
+	if !latest.Hightime.Equal(domainmarketdata.MustParseUTCTime("2026-03-01T00:01:45Z")) {
+		t.Fatalf("unexpected latest high_time: %s", latest.Hightime)
+	}
+	if !latest.Lowtime.Equal(domainmarketdata.MustParseUTCTime("2026-03-01T00:01:00Z")) {
+		t.Fatalf("unexpected latest low_time: %s", latest.Lowtime)
 	}
 
 	if err := barRepo.DeleteBySymbolTimeframeAndRange(

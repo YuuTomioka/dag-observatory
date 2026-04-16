@@ -6,6 +6,7 @@ type Repositories interface {
 	Symbols() SymbolRepository
 	Ticks() TickRepository
 	TimeframeBars() TimeframeBarRepository
+	SessionBars() SessionBarRepository
 }
 
 type UnitOfWork interface {

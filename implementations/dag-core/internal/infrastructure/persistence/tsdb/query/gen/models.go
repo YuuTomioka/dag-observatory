@@ -92,6 +92,24 @@ type ProcessedEvent struct {
 	ReceivedAt pgtype.Timestamptz `json:"received_at"`
 }
 
+type SessionBar struct {
+	SymbolID    int64              `json:"symbol_id"`
+	SessionCode string             `json:"session_code"`
+	SessionDate pgtype.Date        `json:"session_date"`
+	OpenTime    pgtype.Timestamptz `json:"open_time"`
+	CloseTime   pgtype.Timestamptz `json:"close_time"`
+	Open        int64              `json:"open"`
+	High        int64              `json:"high"`
+	HighTime    pgtype.Timestamptz `json:"high_time"`
+	Low         int64              `json:"low"`
+	LowTime     pgtype.Timestamptz `json:"low_time"`
+	Close       int64              `json:"close"`
+	Volume      int64              `json:"volume"`
+	Source      string             `json:"source"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Symbol struct {
 	ID          int64  `json:"id"`
 	Code        string `json:"code"`

@@ -28,6 +28,8 @@ func (r fakeRepositories) TimeframeBars() marketdatarepository.TimeframeBarRepos
 	return r.bars
 }
 
+func (r fakeRepositories) SessionBars() marketdatarepository.SessionBarRepository { return nil }
+
 type fakeUnitOfWork struct {
 	repos marketdatarepository.Repositories
 }

@@ -172,7 +172,7 @@ Implemented in the current working tree.
 
 #### Status
 
-Persistence decision made; API / DST / calendar rules remain deferred.
+Persistence implemented; API / DST / calendar rules remain deferred.
 
 #### Goal
 
@@ -186,9 +186,11 @@ API、workflow payload、DST、market calendar rule への拡張は引き続き�
 - `timeframe_bar` に session 軸を追加しない
 - `session_bar` の primary key は `(symbol_id, session_code, session_date)` を候補とする
 - `session_date` は Track 2 の決定に従い、session open が属する local date とする
+- `session_date` の SQL 型は `DATE` とする
 - `open_time` / `close_time` は resolved UTC instant とする
 - OHLC semantics は Track 1 / Track 2 と揃え、open/close は bid/ask mid、high は ask、low は bid、high/low time は last-touch とする
 - `source` は tick 由来の場合 `tick_bid_ask_mid` を使う
+- query first scope は `BulkUpsert`, `GetLatestBySymbolAndSession`, `ListBySymbolSessionAndDateRange`, `DeleteBySymbolSessionAndDateRange` とする
 
 #### Deferred Scope
 
@@ -224,8 +226,6 @@ Rejected for this track: add session columns to `timeframe_bar`.
 #### Open Questions
 
 - `session_bar` table に `timezone` / local open-close definition snapshot を持たせるか、`session_code` と resolved UTC times のみにするか
-- `session_date` の SQL 型を `DATE` とするか、text representation とするか
-- `session_bar` query set は bulk upsert / latest / range list / delete range のどこまでを first scope に含めるか
 - `SessionBar` を workflow payload / OpenAPI に露出する入口を作るか
 - `Session` definition を Go domain constant から SQL seed / queryable table へ移すか
 - London / New York を扱う前に DST rule を reusable concept として `blueprint/architecture/flow-and-time-model.md` に昇格するか
@@ -243,6 +243,17 @@ Rejected for this track: add session columns to `timeframe_bar`.
 - workflow payload parser / encoder only if workflow exposure is adopted later
 - OpenAPI generated artifacts only if API / payload exposure is adopted later
 - possible `blueprint/architecture/flow-and-time-model.md` promotion
+
+#### Implementation Result
+
+- `data/tsdb/schema/migrate/000070_create_session_bar.sql` を追加した
+- `session_bar` table は `(symbol_id, session_code, session_date)` を primary key とし、`session_date` は `DATE` で保持する
+- `data/tsdb/query/000100_marketdata_session_bar.sql` を追加し、bulk upsert / latest / date-range list / date-range delete を定義した
+- sqlc generated code を更新した
+- TSDB mapper / repository に `SessionBarRepository` を追加した
+- `SessionDate` を mapper から `pgtype.Date` に変換するため、domain accessor を追加した
+- `UnitOfWork` / DI container / fake repositories を更新して `SessionBars()` を通した
+- TSDB integration test を追加して round-trip, latest, date-range delete を確認できるようにした
 
 ### Track 4: Market Phase Resolver with DST Support
 

@@ -11,13 +11,16 @@ import (
 )
 
 type Querier interface {
+	BulkUpsertSessionBars(ctx context.Context, arg BulkUpsertSessionBarsParams) error
 	BulkUpsertTicks(ctx context.Context, arg BulkUpsertTicksParams) error
 	BulkUpsertTimeframeBars(ctx context.Context, arg BulkUpsertTimeframeBarsParams) error
 	CreateSymbol(ctx context.Context, arg CreateSymbolParams) (Symbol, error)
+	DeleteSessionBarsBySymbolSessionAndDateRange(ctx context.Context, arg DeleteSessionBarsBySymbolSessionAndDateRangeParams) error
 	DeleteTimeframeBarsBySymbolTimeframeAndRange(ctx context.Context, arg DeleteTimeframeBarsBySymbolTimeframeAndRangeParams) error
 	GetArtifactByID(ctx context.Context, artifactID pgtype.UUID) (Artifact, error)
 	GetBacktestRunSummaryByRunID(ctx context.Context, runID string) (BacktestRunSummary, error)
 	GetDBBackupByID(ctx context.Context, backupID pgtype.UUID) (DbBackup, error)
+	GetLatestSessionBarBySymbolAndSession(ctx context.Context, arg GetLatestSessionBarBySymbolAndSessionParams) (SessionBar, error)
 	GetLatestTickBySymbol(ctx context.Context, symbolID int64) (Tick, error)
 	GetLatestTimeframeBarBySymbolAndTimeframe(ctx context.Context, arg GetLatestTimeframeBarBySymbolAndTimeframeParams) (TimeframeBar, error)
 	GetSymbolByCode(ctx context.Context, code string) (Symbol, error)
@@ -31,6 +34,7 @@ type Querier interface {
 	ListDBBackupsByEnv(ctx context.Context, arg ListDBBackupsByEnvParams) ([]DbBackup, error)
 	ListExpiredUploadSessions(ctx context.Context, arg ListExpiredUploadSessionsParams) ([]ListExpiredUploadSessionsRow, error)
 	ListPendingOutboxEvents(ctx context.Context, limit int32) ([]ListPendingOutboxEventsRow, error)
+	ListSessionBarsBySymbolSessionAndDateRange(ctx context.Context, arg ListSessionBarsBySymbolSessionAndDateRangeParams) ([]SessionBar, error)
 	ListSymbols(ctx context.Context) ([]Symbol, error)
 	ListTicksByRange(ctx context.Context, arg ListTicksByRangeParams) ([]Tick, error)
 	ListTicksBySymbolAndRange(ctx context.Context, arg ListTicksBySymbolAndRangeParams) ([]Tick, error)

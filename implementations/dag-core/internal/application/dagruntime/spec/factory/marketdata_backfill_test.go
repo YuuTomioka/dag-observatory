@@ -31,6 +31,10 @@ func (r fakeFactoryRepositories) TimeframeBars() marketdatarepository.TimeframeB
 	return r.timeframeBars
 }
 
+func (r fakeFactoryRepositories) SessionBars() marketdatarepository.SessionBarRepository {
+	return nil
+}
+
 type fakeFactoryUnitOfWork struct {
 	repos marketdatarepository.Repositories
 }

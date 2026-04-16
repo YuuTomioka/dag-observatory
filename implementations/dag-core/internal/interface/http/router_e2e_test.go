@@ -37,6 +37,10 @@ func (r e2eMarketdataRepositories) TimeframeBars() marketdatarepo.TimeframeBarRe
 	return r.timeframeBars
 }
 
+func (r e2eMarketdataRepositories) SessionBars() marketdatarepo.SessionBarRepository {
+	return nil
+}
+
 type e2eMarketdataUnitOfWork struct {
 	repos marketdatarepo.Repositories
 }

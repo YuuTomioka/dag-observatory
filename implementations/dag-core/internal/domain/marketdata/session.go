@@ -70,6 +70,18 @@ func (d SessionDate) IsZero() bool {
 	return d.year == 0
 }
 
+func (d SessionDate) Year() int {
+	return d.year
+}
+
+func (d SessionDate) Month() time.Month {
+	return d.month
+}
+
+func (d SessionDate) Day() int {
+	return d.day
+}
+
 func (d SessionDate) String() string {
 	if d.IsZero() {
 		return ""

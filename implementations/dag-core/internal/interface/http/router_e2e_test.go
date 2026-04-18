@@ -37,7 +37,7 @@ func (r e2eMarketdataRepositories) TimeframeBars() marketdatarepo.TimeframeBarRe
 	return r.timeframeBars
 }
 
-func (r e2eMarketdataRepositories) SessionBars() marketdatarepo.SessionBarRepository {
+func (r e2eMarketdataRepositories) PhaseBars() marketdatarepo.PhaseBarRepository {
 	return nil
 }
 

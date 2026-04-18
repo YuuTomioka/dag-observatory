@@ -1,17 +1,26 @@
-package marketdata
+package marketphase
 
-func AggregateSessionBar(
-	session Session,
-	sessionDate SessionDate,
-	symbolID SymbolID,
-	ticks []Tick,
-) (SessionBar, bool, error) {
-	openTime, closeTime, err := session.WindowForDate(sessionDate)
-	if err != nil {
-		return SessionBar{}, false, err
+import (
+	"fmt"
+
+	"dag-observatory/dag-core/internal/domain/marketdata"
+)
+
+func AggregatePhaseBar(
+	phase ResolvedPhase,
+	symbolID marketdata.SymbolID,
+	ticks []marketdata.Tick,
+) (PhaseBar, bool, error) {
+	if phase.Category != PhaseCategorySingle {
+		return PhaseBar{}, false, fmt.Errorf("marketphase aggregate phase bar: single phase is required")
+	}
+	if !phase.Active {
+		return PhaseBar{}, false, nil
 	}
 
-	var current *SessionBar
+	var current *PhaseBar
+	openTime := marketdata.NewUTCTime(phase.UTCStart)
+	closeTime := marketdata.NewUTCTime(phase.UTCEnd)
 	for _, tick := range ticks {
 		if tick.Time.Before(openTime) || !tick.Time.Before(closeTime) {
 			continue
@@ -19,11 +28,12 @@ func AggregateSessionBar(
 
 		mid := tick.Bid.Add(tick.Ask).DivInt(2)
 		if current == nil {
-			current = &SessionBar{
-				SessionCode: session.Code,
-				SessionDate: sessionDate,
-				SymbolID:    symbolID,
-				OHLCV: OHLCV{
+			current = &PhaseBar{
+				PhaseID:  phase.ID,
+				Market:   phase.Market,
+				Timezone: phase.Timezone,
+				SymbolID: symbolID,
+				OHLCV: marketdata.OHLCV{
 					Opentime:  openTime,
 					Closetime: closeTime,
 					Open:      mid,
@@ -34,7 +44,7 @@ func AggregateSessionBar(
 					Close:     mid,
 					Volume:    1,
 				},
-				Source: TimeframeBarSourceTickBidAskMid,
+				Source: PhaseBarSourceTickBidAskMid,
 			}
 			continue
 		}
@@ -52,7 +62,7 @@ func AggregateSessionBar(
 	}
 
 	if current == nil {
-		return SessionBar{}, false, nil
+		return PhaseBar{}, false, nil
 	}
 	return *current, true, nil
 }

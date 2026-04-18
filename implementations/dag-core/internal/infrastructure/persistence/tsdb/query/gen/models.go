@@ -85,29 +85,30 @@ type OutboxEvent struct {
 	LastError     pgtype.Text        `json:"last_error"`
 }
 
+type PhaseBar struct {
+	SymbolID  int64              `json:"symbol_id"`
+	PhaseID   string             `json:"phase_id"`
+	Market    string             `json:"market"`
+	Timezone  string             `json:"timezone"`
+	OpenTime  pgtype.Timestamptz `json:"open_time"`
+	CloseTime pgtype.Timestamptz `json:"close_time"`
+	Open      int64              `json:"open"`
+	High      int64              `json:"high"`
+	HighTime  pgtype.Timestamptz `json:"high_time"`
+	Low       int64              `json:"low"`
+	LowTime   pgtype.Timestamptz `json:"low_time"`
+	Close     int64              `json:"close"`
+	Volume    int64              `json:"volume"`
+	Source    string             `json:"source"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ProcessedEvent struct {
 	EventID    string             `json:"event_id"`
 	TaskID     pgtype.Text        `json:"task_id"`
 	AttemptNo  pgtype.Int4        `json:"attempt_no"`
 	ReceivedAt pgtype.Timestamptz `json:"received_at"`
-}
-
-type SessionBar struct {
-	SymbolID    int64              `json:"symbol_id"`
-	SessionCode string             `json:"session_code"`
-	SessionDate pgtype.Date        `json:"session_date"`
-	OpenTime    pgtype.Timestamptz `json:"open_time"`
-	CloseTime   pgtype.Timestamptz `json:"close_time"`
-	Open        int64              `json:"open"`
-	High        int64              `json:"high"`
-	HighTime    pgtype.Timestamptz `json:"high_time"`
-	Low         int64              `json:"low"`
-	LowTime     pgtype.Timestamptz `json:"low_time"`
-	Close       int64              `json:"close"`
-	Volume      int64              `json:"volume"`
-	Source      string             `json:"source"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Symbol struct {

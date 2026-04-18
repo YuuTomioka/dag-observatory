@@ -12,7 +12,7 @@ type MarketDataContainer struct {
 	Symbols       apprepository.SymbolRepository
 	Ticks         apprepository.TickRepository
 	TimeframeBars apprepository.TimeframeBarRepository
-	SessionBars   apprepository.SessionBarRepository
+	PhaseBars     apprepository.PhaseBarRepository
 	UnitOfWork    apprepository.UnitOfWork
 
 	CreateSymbol              *marketdatausecase.CreateSymbol
@@ -43,7 +43,7 @@ func NewMarketDataContainer(cfg Config) (*MarketDataContainer, error) {
 		Symbols:       marketdatarepo.NewSymbolRepository(client),
 		Ticks:         marketdatarepo.NewTickRepository(client),
 		TimeframeBars: marketdatarepo.NewTimeframeBarRepository(client),
-		SessionBars:   marketdatarepo.NewSessionBarRepository(client),
+		PhaseBars:     marketdatarepo.NewPhaseBarRepository(client),
 		UnitOfWork:    uow,
 		CreateSymbol: &marketdatausecase.CreateSymbol{
 			UnitOfWork: uow,

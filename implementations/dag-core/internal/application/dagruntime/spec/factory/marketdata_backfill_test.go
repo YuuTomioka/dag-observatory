@@ -31,7 +31,7 @@ func (r fakeFactoryRepositories) TimeframeBars() marketdatarepository.TimeframeB
 	return r.timeframeBars
 }
 
-func (r fakeFactoryRepositories) SessionBars() marketdatarepository.SessionBarRepository {
+func (r fakeFactoryRepositories) PhaseBars() marketdatarepository.PhaseBarRepository {
 	return nil
 }
 

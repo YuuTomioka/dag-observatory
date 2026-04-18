@@ -11,7 +11,8 @@ durable な結論は `blueprint/`、`data/tsdb/`、`implementations/dag-core/` �
 
 - `OHLCV` と `TimeframeBar` のフィールド見直し
 - `Hightime` / `Lowtime` の意味論と永続化方針の整理
-- `Session` / `SessionBar` 導入検討
+- `marketphase` 導入と phase-based context 解決
+- `phase_bar` 導入検討と phase-based bar persistence
 - `data/tsdb/` 配下の schema / query SQL への影響整理
 - HTTP / payload / OpenAPI / sqlc generated code まで含めた実装影響の整理
 - durable rule に昇格すべき論点と implementation-local に閉じる論点の切り分け
@@ -71,11 +72,11 @@ Implemented in the current working tree.
 
 #### Status
 
-Implemented in the current working tree.
+Superseded by Track 4. `session` / `session_bar` は廃止し、`marketphase` に寄せる。
 
 #### Goal
 
-東京タイムのような market session を扱うため、domain-only の `Session` / `SessionBar` concept を追加する。
+この track は一度 `Session` / `SessionBar` concept を導入したが、Track 4 の `marketphase` と責務が重複するため正本にはしない。
 
 #### Working Definition
 
@@ -146,15 +147,11 @@ Implemented in the current working tree.
 - `Session` の local time 表現を専用型にするか、`time.Duration` after midnight として扱うか
 - ticks が session window 外を含む場合、aggregator が filter するか、caller が windowed ticks を渡す前提にするか
 
-#### Implementation Result
+#### Result
 
-- `SessionDate` は domain 専用型として追加した
-- `SessionLocalTime` は domain 専用型として追加し、内部では midnight からの duration を扱う
-- `TokyoSession()` は `Asia/Tokyo` / `09:00-15:00` を返す
-- `Session.WindowForDate` / `Session.WindowForTime` で UTC `[open, close)` を解決する
-- `AggregateSessionBar` は session window 外 tick を除外する
-- `AggregateSessionBar` は window 内 tick がない場合、`ok=false` を返す
-- domain tests で Tokyo UTC conversion、`SessionDate`、invalid local time、half-open interval、window 外 tick 除外、last-touch semantics を確認した
+- `Session` / `SessionBar` の試作は廃止した
+- market session 相当の意味論は `marketphase` package の single phase / derived phase / `MarketContext` に集約する
+- `SessionDate` / `SessionLocalTime` / `TokyoSession()` / `AggregateSessionBar` は削除した
 
 #### Expected Impact
 
@@ -172,13 +169,11 @@ Implemented in the current working tree.
 
 #### Status
 
-Persistence implemented; API / DST / calendar rules remain deferred.
+Cancelled. `session_bar` persistence は採用しない。
 
 #### Goal
 
-Track 2 の `SessionBar` を TSDB に永続化する。
-
-API、workflow payload、DST、market calendar rule への拡張は引き続き後段で扱う。
+`session_bar` persistence の検討経緯を残す。今後の正本は `marketphase` であり、`session_bar` table は維持しない。
 
 #### Decisions
 
@@ -244,22 +239,16 @@ Rejected for this track: add session columns to `timeframe_bar`.
 - OpenAPI generated artifacts only if API / payload exposure is adopted later
 - possible `blueprint/architecture/flow-and-time-model.md` promotion
 
-#### Implementation Result
+#### Result
 
-- `data/tsdb/schema/migrate/000070_create_session_bar.sql` を追加した
-- `session_bar` table は `(symbol_id, session_code, session_date)` を primary key とし、`session_date` は `DATE` で保持する
-- `data/tsdb/query/000100_marketdata_session_bar.sql` を追加し、bulk upsert / latest / date-range list / date-range delete を定義した
-- sqlc generated code を更新した
-- TSDB mapper / repository に `SessionBarRepository` を追加した
-- `SessionDate` を mapper から `pgtype.Date` に変換するため、domain accessor を追加した
-- `UnitOfWork` / DI container / fake repositories を更新して `SessionBars()` を通した
-- TSDB integration test を追加して round-trip, latest, date-range delete を確認できるようにした
+- `session_bar` table, query asset, sqlc generated code, mapper, repository, test は削除した
+- TSDB persistence は `session` concept に依存させず、必要なら将来 `marketphase` ベースで再設計する
 
 ### Track 4: Market Phase Resolver with DST Support
 
 #### Status
 
-Specification consolidated. Implementation remains pending.
+Domain-local first implementation completed. Strategy / workflow integration remains pending.
 
 #### Goal
 
@@ -476,6 +465,93 @@ FX / macro trading systems 向けに、市場ローカル時刻基準で単一�
 - implementation-local な phase resolver code: `implementations/dag-core/internal/domain/`
 - scenario-based validation を追加する場合: `scenarios/`
 
+#### Implementation Result
+
+- `implementations/dag-core/internal/domain/marketphase/` を追加した
+- `DefaultPhaseSpecs`, `ResolveSinglePhases`, `ResolveDerivedPhases`, `BuildMarketContext`, `ResolveMarketContext` を追加した
+- single phase は各市場の IANA timezone に変換して local wall-clock `[start, end)` で判定する
+- timezone resolution は package 内 cache を使い、hot path で spec ごとに `time.LoadLocation` を繰り返さない
+- `tokyo_london_transition` は `late_tokyo` active 時に同一 instant の London local time が `07:00-11:00` に入るかで導出する
+- `london_newyork_overlap` は active single phases から導出する
+- `newyork_close_transition` は deterministic local-time rule を入れた optional derived phase として実装した
+- `MarketContext` は active phase ids, dominant markets, heuristic scores, merged tags を返す
+- table-driven tests で Tokyo / London / New York の seasonal window、US-UK DST misalignment、boundary、derived phases、deterministic context aggregation を確認した
+
+#### Deferred Integration
+
+- 既存 `filter_session` の fixed UTC hour 判定を `marketphase` package に置き換えること
+- strategy node / DAG node が `MarketContext` を直接参照する integration
+- holiday / fix / option cut / macro overlay の追加
+- `session` terminology を workflow / config / doc から整理すること
+
+### Track 5: Phase Bar Persistence
+
+#### Status
+
+Implemented for single phases. Derived phase persistence remains out of scope.
+
+#### Goal
+
+`marketphase` を正本として、single phase window に含まれる tick から `phase_bar` を集約・永続化できるようにする。
+
+#### Decisions
+
+- `phase_bar` は `single phase only` とする
+- `derived phase` は保存せず、`MarketContext` から都度導出する
+- identity は `(symbol_id, phase_id, open_time)` とする
+- `session_date` のような local-date identity は使わない
+- `phase_bar` は resolved UTC `[open_time, close_time)` を正本として保持する
+- OHLC semantics は `timeframe_bar` と揃え、open/close は bid/ask mid、high は ask、low は bid、high/low time は last-touch とする
+- `market` と `timezone` は phase metadata snapshot として row に保持する
+
+#### Expected Shape
+
+- schema
+  - `symbol_id`
+  - `phase_id`
+  - `market`
+  - `timezone`
+  - `open_time`
+  - `close_time`
+  - `open`
+  - `high`
+  - `high_time`
+  - `low`
+  - `low_time`
+  - `close`
+  - `volume`
+  - `source`
+- repository API
+  - `BulkUpsert`
+  - `GetLatestBySymbolAndPhase`
+  - `ListBySymbolPhaseAndRange`
+  - `DeleteBySymbolPhaseAndRange`
+
+#### Explicit Anti-Requirements
+
+- `derived phase` を `phase_bar` として保存しない
+- `phase_id + local_date` を primary identity にしない
+- `timeframe_bar` に phase 列を足して兼用しない
+- London / New York を fixed JST / fixed UTC で phase bar 化しない
+
+#### Implementation Result
+
+- `data/tsdb/schema/migrate/000070_create_phase_bar.sql` を追加した
+- `data/tsdb/query/000100_marketphase_phase_bar.sql` を追加した
+- `implementations/dag-core/internal/domain/marketphase/PhaseBar` と `AggregatePhaseBar` を追加した
+- `AggregatePhaseBar` は resolved single phase の UTC window を使って tick を half-open interval で集約する
+- TSDB mapper / repository に `PhaseBarRepository` を追加した
+- `UnitOfWork` / DI container / fake repositories を更新して `PhaseBars()` を通した
+- sqlc generated code を更新した
+- domain test で phase window 集約を確認し、TSDB integration test を追加した
+
+#### Deferred Scope
+
+- `derived phase` persistence
+- strategy / workflow からの `phase_bar` 利用
+- `phase_spec_version` / `phase_spec_hash` の snapshot 管理
+- holiday / fix / option cut overlay 反映後の bar semantics 再設計
+
 ## Next Actions
 
 - Track 1 を実 DB で確認する場合は、開発 DB をリセットして updated migration / seed を適用する
@@ -495,13 +571,9 @@ FX / macro trading systems 向けに、市場ローカル時刻基準で単一�
 - `data/tsdb/schema/migrate/000050_create_timeframe_bar.sql`
 - `data/tsdb/query/000090_marketdata_timeframe_bar.sql`
 - `implementations/dag-core/internal/domain/marketdata/ohlc.go`
-- `implementations/dag-core/internal/domain/marketdata/session.go`
-- `implementations/dag-core/internal/domain/marketdata/session_bar.go`
-- `implementations/dag-core/internal/domain/marketdata/session_bar_aggregation.go`
-- `implementations/dag-core/internal/domain/marketdata/session_test.go`
-- `implementations/dag-core/internal/domain/marketdata/session_bar_aggregation_test.go`
 - `implementations/dag-core/internal/domain/marketdata/timeframe_bar_aggregation.go`
 - `implementations/dag-core/internal/domain/marketdata/timeframe_bar_aggregation_test.go`
+- `implementations/dag-core/internal/domain/marketphase/`
 - `implementations/dag-core/internal/application/dagruntime/usecase/payload_parse.go`
 - `implementations/dag-core/internal/infrastructure/persistence/tsdb/mapper/marketdata/timeframe_bar.go`
 - `implementations/dag-core/internal/infrastructure/persistence/tsdb/repository/marketdata/timeframe_bar_integration_test.go`

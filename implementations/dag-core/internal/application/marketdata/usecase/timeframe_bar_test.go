@@ -26,7 +26,7 @@ func (r fakeBackfillRepositories) TimeframeBars() repository.TimeframeBarReposit
 	return r.timeframeBars
 }
 
-func (r fakeBackfillRepositories) SessionBars() repository.SessionBarRepository {
+func (r fakeBackfillRepositories) PhaseBars() repository.PhaseBarRepository {
 	return nil
 }
 

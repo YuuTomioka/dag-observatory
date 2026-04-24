@@ -1,7 +1,8 @@
 -- name: BulkUpsertPhaseBars :exec
 INSERT INTO phase_bar (
   symbol_id,
-  phase_id,
+  phase_code,
+  phase_date,
   market,
   timezone,
   open_time,
@@ -17,7 +18,8 @@ INSERT INTO phase_bar (
 )
 SELECT
   unnest(@symbol_ids::bigint[]),
-  unnest(@phase_ids::text[]),
+  unnest(@phase_codes::text[]),
+  unnest(@phase_dates::date[]),
   unnest(@markets::text[]),
   unnest(@timezones::text[]),
   unnest(@open_times::timestamptz[]),
@@ -30,7 +32,7 @@ SELECT
   unnest(@closes::bigint[]),
   unnest(@volumes::bigint[]),
   unnest(@sources::text[])
-ON CONFLICT (symbol_id, phase_id, open_time)
+ON CONFLICT (symbol_id, phase_code, phase_date)
 DO UPDATE SET
   market = EXCLUDED.market,
   timezone = EXCLUDED.timezone,
@@ -48,23 +50,23 @@ DO UPDATE SET
 -- name: DeletePhaseBarsBySymbolPhaseAndRange :exec
 DELETE FROM phase_bar
 WHERE symbol_id = @symbol_id
-  AND phase_id = @phase_id
+  AND phase_code = @phase_code
   AND open_time >= @from_time::timestamptz
   AND open_time <  @to_time::timestamptz;
 
 -- name: GetLatestPhaseBarBySymbolAndPhase :one
-SELECT symbol_id, phase_id, market, timezone, open_time, close_time, open, high, high_time, low, low_time, close, volume, source, created_at, updated_at
+SELECT symbol_id, phase_code, phase_date, market, timezone, open_time, close_time, open, high, high_time, low, low_time, close, volume, source, created_at, updated_at
 FROM phase_bar
 WHERE symbol_id = @symbol_id
-  AND phase_id = @phase_id
+  AND phase_code = @phase_code
 ORDER BY open_time DESC
 LIMIT 1;
 
 -- name: ListPhaseBarsBySymbolPhaseAndRange :many
-SELECT symbol_id, phase_id, market, timezone, open_time, close_time, open, high, high_time, low, low_time, close, volume, source, created_at, updated_at
+SELECT symbol_id, phase_code, phase_date, market, timezone, open_time, close_time, open, high, high_time, low, low_time, close, volume, source, created_at, updated_at
 FROM phase_bar
 WHERE symbol_id = @symbol_id
-  AND phase_id = @phase_id
+  AND phase_code = @phase_code
   AND open_time >= @from_time::timestamptz
   AND open_time <  @to_time::timestamptz
 ORDER BY open_time ASC;

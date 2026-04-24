@@ -1,8 +1,6 @@
 package marketphase
 
 import (
-	"fmt"
-
 	"dag-observatory/dag-core/internal/domain/marketdata"
 )
 
@@ -11,9 +9,6 @@ func AggregatePhaseBar(
 	symbolID marketdata.SymbolID,
 	ticks []marketdata.Tick,
 ) (PhaseBar, bool, error) {
-	if phase.Category != PhaseCategorySingle {
-		return PhaseBar{}, false, fmt.Errorf("marketphase aggregate phase bar: single phase is required")
-	}
 	if !phase.Active {
 		return PhaseBar{}, false, nil
 	}
@@ -29,10 +24,11 @@ func AggregatePhaseBar(
 		mid := tick.Bid.Add(tick.Ask).DivInt(2)
 		if current == nil {
 			current = &PhaseBar{
-				PhaseID:  phase.ID,
-				Market:   phase.Market,
-				Timezone: phase.Timezone,
-				SymbolID: symbolID,
+				PhaseCode: phase.ID,
+				PhaseDate: NewPhaseDateFromOpentimeUTC(openTime.Time()),
+				Market:    phase.Market,
+				Timezone:  phase.Timezone,
+				SymbolID:  symbolID,
 				OHLCV: marketdata.OHLCV{
 					Opentime:  openTime,
 					Closetime: closeTime,

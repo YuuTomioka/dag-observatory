@@ -14,7 +14,8 @@ import (
 const bulkUpsertPhaseBars = `-- name: BulkUpsertPhaseBars :exec
 INSERT INTO phase_bar (
   symbol_id,
-  phase_id,
+  phase_code,
+  phase_date,
   market,
   timezone,
   open_time,
@@ -31,19 +32,20 @@ INSERT INTO phase_bar (
 SELECT
   unnest($1::bigint[]),
   unnest($2::text[]),
-  unnest($3::text[]),
+  unnest($3::date[]),
   unnest($4::text[]),
-  unnest($5::timestamptz[]),
+  unnest($5::text[]),
   unnest($6::timestamptz[]),
-  unnest($7::bigint[]),
+  unnest($7::timestamptz[]),
   unnest($8::bigint[]),
-  unnest($9::timestamptz[]),
-  unnest($10::bigint[]),
-  unnest($11::timestamptz[]),
-  unnest($12::bigint[]),
+  unnest($9::bigint[]),
+  unnest($10::timestamptz[]),
+  unnest($11::bigint[]),
+  unnest($12::timestamptz[]),
   unnest($13::bigint[]),
-  unnest($14::text[])
-ON CONFLICT (symbol_id, phase_id, open_time)
+  unnest($14::bigint[]),
+  unnest($15::text[])
+ON CONFLICT (symbol_id, phase_code, phase_date)
 DO UPDATE SET
   market = EXCLUDED.market,
   timezone = EXCLUDED.timezone,
@@ -61,7 +63,8 @@ DO UPDATE SET
 
 type BulkUpsertPhaseBarsParams struct {
 	SymbolIds  []int64              `json:"symbol_ids"`
-	PhaseIds   []string             `json:"phase_ids"`
+	PhaseCodes []string             `json:"phase_codes"`
+	PhaseDates []pgtype.Date        `json:"phase_dates"`
 	Markets    []string             `json:"markets"`
 	Timezones  []string             `json:"timezones"`
 	OpenTimes  []pgtype.Timestamptz `json:"open_times"`
@@ -79,7 +82,8 @@ type BulkUpsertPhaseBarsParams struct {
 func (q *Queries) BulkUpsertPhaseBars(ctx context.Context, arg BulkUpsertPhaseBarsParams) error {
 	_, err := q.db.Exec(ctx, bulkUpsertPhaseBars,
 		arg.SymbolIds,
-		arg.PhaseIds,
+		arg.PhaseCodes,
+		arg.PhaseDates,
 		arg.Markets,
 		arg.Timezones,
 		arg.OpenTimes,
@@ -99,22 +103,22 @@ func (q *Queries) BulkUpsertPhaseBars(ctx context.Context, arg BulkUpsertPhaseBa
 const deletePhaseBarsBySymbolPhaseAndRange = `-- name: DeletePhaseBarsBySymbolPhaseAndRange :exec
 DELETE FROM phase_bar
 WHERE symbol_id = $1
-  AND phase_id = $2
+  AND phase_code = $2
   AND open_time >= $3::timestamptz
   AND open_time <  $4::timestamptz
 `
 
 type DeletePhaseBarsBySymbolPhaseAndRangeParams struct {
-	SymbolID int64              `json:"symbol_id"`
-	PhaseID  string             `json:"phase_id"`
-	FromTime pgtype.Timestamptz `json:"from_time"`
-	ToTime   pgtype.Timestamptz `json:"to_time"`
+	SymbolID  int64              `json:"symbol_id"`
+	PhaseCode string             `json:"phase_code"`
+	FromTime  pgtype.Timestamptz `json:"from_time"`
+	ToTime    pgtype.Timestamptz `json:"to_time"`
 }
 
 func (q *Queries) DeletePhaseBarsBySymbolPhaseAndRange(ctx context.Context, arg DeletePhaseBarsBySymbolPhaseAndRangeParams) error {
 	_, err := q.db.Exec(ctx, deletePhaseBarsBySymbolPhaseAndRange,
 		arg.SymbolID,
-		arg.PhaseID,
+		arg.PhaseCode,
 		arg.FromTime,
 		arg.ToTime,
 	)
@@ -122,25 +126,26 @@ func (q *Queries) DeletePhaseBarsBySymbolPhaseAndRange(ctx context.Context, arg 
 }
 
 const getLatestPhaseBarBySymbolAndPhase = `-- name: GetLatestPhaseBarBySymbolAndPhase :one
-SELECT symbol_id, phase_id, market, timezone, open_time, close_time, open, high, high_time, low, low_time, close, volume, source, created_at, updated_at
+SELECT symbol_id, phase_code, phase_date, market, timezone, open_time, close_time, open, high, high_time, low, low_time, close, volume, source, created_at, updated_at
 FROM phase_bar
 WHERE symbol_id = $1
-  AND phase_id = $2
+  AND phase_code = $2
 ORDER BY open_time DESC
 LIMIT 1
 `
 
 type GetLatestPhaseBarBySymbolAndPhaseParams struct {
-	SymbolID int64  `json:"symbol_id"`
-	PhaseID  string `json:"phase_id"`
+	SymbolID  int64  `json:"symbol_id"`
+	PhaseCode string `json:"phase_code"`
 }
 
 func (q *Queries) GetLatestPhaseBarBySymbolAndPhase(ctx context.Context, arg GetLatestPhaseBarBySymbolAndPhaseParams) (PhaseBar, error) {
-	row := q.db.QueryRow(ctx, getLatestPhaseBarBySymbolAndPhase, arg.SymbolID, arg.PhaseID)
+	row := q.db.QueryRow(ctx, getLatestPhaseBarBySymbolAndPhase, arg.SymbolID, arg.PhaseCode)
 	var i PhaseBar
 	err := row.Scan(
 		&i.SymbolID,
-		&i.PhaseID,
+		&i.PhaseCode,
+		&i.PhaseDate,
 		&i.Market,
 		&i.Timezone,
 		&i.OpenTime,
@@ -160,26 +165,26 @@ func (q *Queries) GetLatestPhaseBarBySymbolAndPhase(ctx context.Context, arg Get
 }
 
 const listPhaseBarsBySymbolPhaseAndRange = `-- name: ListPhaseBarsBySymbolPhaseAndRange :many
-SELECT symbol_id, phase_id, market, timezone, open_time, close_time, open, high, high_time, low, low_time, close, volume, source, created_at, updated_at
+SELECT symbol_id, phase_code, phase_date, market, timezone, open_time, close_time, open, high, high_time, low, low_time, close, volume, source, created_at, updated_at
 FROM phase_bar
 WHERE symbol_id = $1
-  AND phase_id = $2
+  AND phase_code = $2
   AND open_time >= $3::timestamptz
   AND open_time <  $4::timestamptz
 ORDER BY open_time ASC
 `
 
 type ListPhaseBarsBySymbolPhaseAndRangeParams struct {
-	SymbolID int64              `json:"symbol_id"`
-	PhaseID  string             `json:"phase_id"`
-	FromTime pgtype.Timestamptz `json:"from_time"`
-	ToTime   pgtype.Timestamptz `json:"to_time"`
+	SymbolID  int64              `json:"symbol_id"`
+	PhaseCode string             `json:"phase_code"`
+	FromTime  pgtype.Timestamptz `json:"from_time"`
+	ToTime    pgtype.Timestamptz `json:"to_time"`
 }
 
 func (q *Queries) ListPhaseBarsBySymbolPhaseAndRange(ctx context.Context, arg ListPhaseBarsBySymbolPhaseAndRangeParams) ([]PhaseBar, error) {
 	rows, err := q.db.Query(ctx, listPhaseBarsBySymbolPhaseAndRange,
 		arg.SymbolID,
-		arg.PhaseID,
+		arg.PhaseCode,
 		arg.FromTime,
 		arg.ToTime,
 	)
@@ -192,7 +197,8 @@ func (q *Queries) ListPhaseBarsBySymbolPhaseAndRange(ctx context.Context, arg Li
 		var i PhaseBar
 		if err := rows.Scan(
 			&i.SymbolID,
-			&i.PhaseID,
+			&i.PhaseCode,
+			&i.PhaseDate,
 			&i.Market,
 			&i.Timezone,
 			&i.OpenTime,

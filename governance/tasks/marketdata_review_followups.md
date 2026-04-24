@@ -150,7 +150,7 @@ Superseded by Track 4. `session` / `session_bar` は廃止し、`marketphase` �
 #### Result
 
 - `Session` / `SessionBar` の試作は廃止した
-- market session 相当の意味論は `marketphase` package の single phase / derived phase / `MarketContext` に集約する
+- market session 相当の意味論は single phase を `marketphase` に、composite signal / strategy-facing context を `marketcontext` に分離して扱う
 - `SessionDate` / `SessionLocalTime` / `TokyoSession()` / `AggregateSessionBar` は削除した
 
 #### Expected Impact
@@ -252,7 +252,7 @@ Domain-local first implementation completed. Strategy / workflow integration rem
 
 #### Goal
 
-FX / macro trading systems 向けに、市場ローカル時刻基準で単一市場フェーズを解決し、DST を timezone conversion に委ねたうえで複合フェーズと strategy-facing `MarketContext` を導出できるようにする。
+FX / macro trading systems 向けに、市場ローカル時刻基準で単一市場フェーズを解決し、DST を timezone conversion に委ねられるようにする。複合シグナルと strategy-facing context は adjacent domain で扱う。
 
 この track は order execution ではなく、market structure interpretation 用の context 解決を対象とする。
 
@@ -260,18 +260,19 @@ FX / macro trading systems 向けに、市場ローカル時刻基準で単一�
 
 - major markets: `Tokyo`, `London`, `New York`, `Sydney`
 - single phase resolution
-- derived composite phase resolution
-- strategy / downstream DAG node 向け `MarketContext` 集約
 - deterministic test coverage
+- composite transition / overlap signal を別領域へ切り出すための境界整理
 
 #### Core Decisions
 
 - London / New York を fixed JST range では定義しない
 - single phase は各市場の local timezone wall clock で定義する
-- composite phase は fixed clock table ではなく active single phases から導出する
+- `marketphase` domain は single phase のみを扱う
+- `PhaseCategory` という型と category-based taxonomy は採用しない
+- composite transition / overlap signal は phase bar の対象にしないため、`marketphase` とは別領域で扱う
 - DST offset は手書きせず、IANA timezone name と標準 timezone conversion に委ねる
 - core resolver は explicit timestamp を受ける pure function 寄りの設計にする
-- strategy code は timezone math を直接持たず、stable な `MarketContext` を参照する
+- strategy code は timezone math を直接持たず、必要なら別領域の stable な market context を参照する
 
 #### Single Phase Definitions
 
@@ -319,7 +320,8 @@ FX / macro trading systems 向けに、市場ローカル時刻基準で単一�
 #### Derived Phase Definitions
 
 - `tokyo_london_transition`
-  - active when `late_tokyo` and `london_early` are active
+  - composite signal として別領域で扱う
+  - active when `late_tokyo` is active and London local time is in `[07:00, 13:00)`
   - interpretation: Tokyo-led flow から Europe-led flow への handoff
 - `london_newyork_overlap`
   - active when (`london_core` or `london_late`) and (`pre_newyork` or `newyork_core`) are active
@@ -333,30 +335,18 @@ FX / macro trading systems 向けに、市場ローカル時刻基準で単一�
 
 #### Proposed Domain Shapes
 
-- identifiers
-  - `PhaseID string`
-  - `PhaseCategory string`
-  - `LiquidityLevel string`
-- categories
-  - `single`
-  - `derived`
 - single phase spec
   - `ID`
-  - `Category`
   - `Market`
   - `Timezone`
   - `StartHour`
   - `StartMinute`
   - `EndHour`
   - `EndMinute`
-  - `Liquidity`
-  - `BreakoutBias`
-  - `MeanReversionBias`
   - `Tags`
   - `Notes`
 - resolved single phase
   - `ID`
-  - `Category`
   - `Market`
   - `Timezone`
   - `Active`
@@ -367,16 +357,9 @@ FX / macro trading systems 向けに、市場ローカル時刻基準で単一�
   - `UTCEnd`
   - `JSTStart`
   - `JSTEnd`
-- aggregated context
-  - `NowUTC`
-  - `NowJST`
-  - `ActiveSinglePhases`
-  - `ActiveDerivedPhases`
-  - `DominantMarkets`
-  - `LiquidityScore`
-  - `BreakoutScore`
-  - `MeanReversionScore`
-  - `Tags`
+- separate context layer
+  - strategy-facing context は `marketphase` package の外で扱う
+  - composite signal id, tag merge, dominant market assembly も phase domain の外へ置く
 
 #### Resolution Flow
 
@@ -385,22 +368,7 @@ FX / macro trading systems 向けに、市場ローカル時刻基準で単一�
    - spec 初期化時または resolver 初期化時に timezone validation / cache を済ませる
 2. Compare local wall-clock against half-open interval `[start, end)`.
 3. Collect all active single phases as `ResolvedPhase`.
-4. Derive composite phases from the active single set.
-5. Aggregate phase ids, dominant markets, heuristic scores, and merged tags into `MarketContext`.
-
-#### Scoring Guidance
-
-- `pre_tokyo`: liquidity `medium`, breakout `medium`, mean reversion `low`
-- `tokyo_core`: liquidity `medium`, breakout `low`, mean reversion `medium`
-- `late_tokyo`: liquidity `low_to_medium`, breakout `medium`, mean reversion `low`
-- `london_early`: liquidity `high`, breakout `high`, mean reversion `low`
-- `london_core`: liquidity `high`, breakout `medium_to_high`, mean reversion `low`
-- `london_late`: liquidity `high`, breakout `medium`, mean reversion `low`
-- `pre_newyork`: liquidity `medium`, breakout `medium`, mean reversion `low`
-- `newyork_core`: liquidity `high`, breakout `high`, mean reversion `low`
-- `late_newyork`: liquidity `medium_to_low`, breakout `low`, mean reversion `medium`
-- `sydney_reset`: liquidity `low`, breakout `low`, mean reversion `low`
-- `london_newyork_overlap`: liquidity `very_high`, breakout `very_high`, mean reversion `low`
+4. Let adjacent context logic consume active single phases when composite signals are needed.
 
 #### Suggested Implementation Boundary
 
@@ -409,16 +377,13 @@ FX / macro trading systems 向けに、市場ローカル時刻基準で単一�
   - `phase.go`
   - `spec.go`
   - `resolver.go`
-  - `derive.go`
-  - `context.go`
-  - `scorer.go`
+  - `phase_bar.go`
+  - `phase_bar_aggregation.go`
   - `resolver_test.go`
 - expected API
   - `DefaultPhaseSpecs() []PhaseSpec`
   - `ResolveSinglePhases(at time.Time, specs []PhaseSpec) ([]ResolvedPhase, error)`
-  - `ResolveDerivedPhases(activeSingles []ResolvedPhase) []PhaseID`
-  - `BuildMarketContext(at time.Time, singles []ResolvedPhase, derived []PhaseID) MarketContext`
-  - `ResolveMarketContext(at time.Time, specs []PhaseSpec) (MarketContext, error)`
+  - `AggregatePhaseBar(phase ResolvedPhase, symbolID marketdata.SymbolID, ticks []marketdata.Tick) (PhaseBar, bool, error)`
 
 #### Required Test Coverage
 
@@ -428,16 +393,14 @@ FX / macro trading systems 向けに、市場ローカル時刻基準で単一�
 - New York core during US winter
 - New York core during US summer
 - period where US and UK DST are misaligned
-- overlap derivation correctness
 - boundary condition correctness with half-open interval semantics
-- deterministic context aggregation
 - evidence that London / New York JST-equivalent windows shift seasonally while local definitions stay stable
 
 #### Explicit Anti-Requirements
 
 - London / New York phases を fixed JST constants で定義しない
 - DST offset value を hardcode しない
-- single / derived phases を category なしの曖昧な一型に潰さない
+- `marketphase` package に composite phase / transition signal を混在させない
 - strategy code に timezone conversion を直接持ち込まない
 
 #### Future Extension Hooks
@@ -452,10 +415,9 @@ FX / macro trading systems 向けに、市場ローカル時刻基準で単一�
 
 #### Open Questions
 
-- `newyork_close_transition` を first scope に含めるか、optional derived phase として postpone するか
+- `newyork_close_transition` を first scope に含めるか、optional composite signal として postpone するか
 - 含める場合、`newyork_close_transition` の deterministic activation window を local clock ベースでどこに固定するか
-- `DominantMarkets` と heuristic score aggregation の weighting を single spec 側に寄せるか、`scorer.go` に閉じるか
-- `MarketContext.Tags` の merged tag policy を set-union のみで始めるか、priority / dedupe ordering を入れるか
+- adjacent context layer の tag merge policy を set-union のみで始めるか、priority / dedupe ordering を入れるか
 - event overlay や holiday calendar を将来追加する前提で `PhaseSpec` と resolver option をどこまで分けるか
 - London / New York / Sydney の calendar effect を扱う前に `blueprint/architecture/flow-and-time-model.md` に reusable timezone / phase rule を昇格するか
 
@@ -468,19 +430,18 @@ FX / macro trading systems 向けに、市場ローカル時刻基準で単一�
 #### Implementation Result
 
 - `implementations/dag-core/internal/domain/marketphase/` を追加した
-- `DefaultPhaseSpecs`, `ResolveSinglePhases`, `ResolveDerivedPhases`, `BuildMarketContext`, `ResolveMarketContext` を追加した
+- `DefaultPhaseSpecs`, `ResolveSinglePhases`, `AggregatePhaseBar` を single phase 専用 API として整理した
 - single phase は各市場の IANA timezone に変換して local wall-clock `[start, end)` で判定する
 - timezone resolution は package 内 cache を使い、hot path で spec ごとに `time.LoadLocation` を繰り返さない
-- `tokyo_london_transition` は `late_tokyo` active 時に同一 instant の London local time が `07:00-11:00` に入るかで導出する
-- `london_newyork_overlap` は active single phases から導出する
-- `newyork_close_transition` は deterministic local-time rule を入れた optional derived phase として実装した
-- `MarketContext` は active phase ids, dominant markets, heuristic scores, merged tags を返す
-- table-driven tests で Tokyo / London / New York の seasonal window、US-UK DST misalignment、boundary、derived phases、deterministic context aggregation を確認した
+- `PhaseCategory` と category-based branching は削除した
+- table-driven tests で Tokyo / London / New York の seasonal window、US-UK DST misalignment、boundary を確認した
+- composite signal と strategy-facing context は `implementations/dag-core/internal/domain/marketcontext/` に分離した
+- `marketcontext` 側で `tokyo_london_transition`, `london_newyork_overlap`, `newyork_close_transition` と `Context` を扱う
 
 #### Deferred Integration
 
-- 既存 `filter_session` の fixed UTC hour 判定を `marketphase` package に置き換えること
-- strategy node / DAG node が `MarketContext` を直接参照する integration
+- 既存 `filter_session` の fixed UTC hour 判定を single phase / market context に置き換えること
+- strategy node / DAG node が `marketcontext.Context` を直接参照する integration
 - holiday / fix / option cut / macro overlay の追加
 - `session` terminology を workflow / config / doc から整理すること
 
@@ -497,7 +458,7 @@ Implemented for single phases. Derived phase persistence remains out of scope.
 #### Decisions
 
 - `phase_bar` は `single phase only` とする
-- `derived phase` は保存せず、`MarketContext` から都度導出する
+- composite signal は保存せず、adjacent context layer から都度導出する
 - identity は `(symbol_id, phase_id, open_time)` とする
 - `session_date` のような local-date identity は使わない
 - `phase_bar` は resolved UTC `[open_time, close_time)` を正本として保持する
@@ -529,7 +490,7 @@ Implemented for single phases. Derived phase persistence remains out of scope.
 
 #### Explicit Anti-Requirements
 
-- `derived phase` を `phase_bar` として保存しない
+- composite signal を `phase_bar` として保存しない
 - `phase_id + local_date` を primary identity にしない
 - `timeframe_bar` に phase 列を足して兼用しない
 - London / New York を fixed JST / fixed UTC で phase bar 化しない
@@ -547,7 +508,7 @@ Implemented for single phases. Derived phase persistence remains out of scope.
 
 #### Deferred Scope
 
-- `derived phase` persistence
+- composite signal persistence
 - strategy / workflow からの `phase_bar` 利用
 - `phase_spec_version` / `phase_spec_hash` の snapshot 管理
 - holiday / fix / option cut overlay 反映後の bar semantics 再設計
@@ -557,12 +518,10 @@ Implemented for single phases. Derived phase persistence remains out of scope.
 - Track 1 を実 DB で確認する場合は、開発 DB をリセットして updated migration / seed を適用する
 - Track 1 をリセットなし DB に適用する場合は、`high_time` / `low_time` を追加する forward migration または手動 `ALTER TABLE` 方針を別途決める
 - Track 1 の PR / handoff では `go test ./...`、`make tsdb-schema-lint`、`make tsdb-query-lint`、`make sqlc-gen`、`make openapi` の実行結果を添える
-- Track 2 の domain-only 実装を利用して、Track 3 の `session_bar` column set と mapper 境界を詰める
-- Track 3 を実装に進める場合は、`data/tsdb/schema/migrate/` に `session_bar` を追加し、`data/tsdb/query/` の query asset から sqlc generated code へ進める
-- Track 3 実装前に `session_bar` の column set と query first scope を確定する
-- Track 4 を実装に進める場合は、まず `implementations/dag-core/internal/domain/marketphase/` に pure resolver と table-driven tests を置く
-- Track 4 の durable rule が固まったら、timezone-local phase definition と DST handling 方針のうち reusable な部分だけを `blueprint/architecture/flow-and-time-model.md` へ昇格する
-- Track 4 の first implementation では holiday / fixing / option cut を入れず、single phase, derived phase, `MarketContext` に scope を限定する
+- `marketcontext` の composite signal rules を strategy / DAG integration に通す
+- `tokyo_london_transition` の final rule を task 文書と code で一致させたまま維持する
+- Track 4/5 の durable rule が固まったら、timezone-local single phase definition と DST handling 方針のうち reusable な部分だけを `blueprint/architecture/flow-and-time-model.md` へ昇格する
+- holiday / fixing / option cut を入れる場合も `marketphase` には single phase だけを残す
 
 ## References
 
@@ -574,6 +533,7 @@ Implemented for single phases. Derived phase persistence remains out of scope.
 - `implementations/dag-core/internal/domain/marketdata/timeframe_bar_aggregation.go`
 - `implementations/dag-core/internal/domain/marketdata/timeframe_bar_aggregation_test.go`
 - `implementations/dag-core/internal/domain/marketphase/`
+- `implementations/dag-core/internal/domain/marketcontext/`
 - `implementations/dag-core/internal/application/dagruntime/usecase/payload_parse.go`
 - `implementations/dag-core/internal/infrastructure/persistence/tsdb/mapper/marketdata/timeframe_bar.go`
 - `implementations/dag-core/internal/infrastructure/persistence/tsdb/repository/marketdata/timeframe_bar_integration_test.go`
@@ -586,6 +546,7 @@ Implemented for single phases. Derived phase persistence remains out of scope.
 - durable な時系列バー意味論に昇格する場合: `blueprint/architecture/flow-and-time-model.md`
 - durable な session semantics に昇格する場合: `blueprint/architecture/flow-and-time-model.md` または relevant `blueprint/conventions/`
 - durable な market phase / DST handling semantics に昇格する場合: `blueprint/architecture/flow-and-time-model.md`
+- durable な composite market context semantics に昇格する場合: `blueprint/architecture/flow-and-time-model.md`
 - durable な TSDB schema/query の決着: `data/tsdb/schema/` と `data/tsdb/query/`
 - 実装固有の入出力更新: `implementations/dag-core/`
 
@@ -594,7 +555,8 @@ Implemented for single phases. Derived phase persistence remains out of scope.
 - marketdata 見直しの論点と実装順序を 1 ファイルで再開できる
 - `OHLCV` / `timeframe_bar` 変更の主要影響範囲が task 文書として共有されている
 - `Session` / `SessionBar` の検討論点が `OHLCV` 変更と混ざらず確認できる
-- market phase resolver の local-time / DST / composite derivation 方針が temporary context として再開できる
+- market phase resolver の local-time / DST / single-phase-only 方針が temporary context として再開できる
+- composite signal / market context が phase domain とは別領域で再開できる
 - durable source of truth に昇格すべき論点と temporary context の境界が明確である
 - Track 1 の実装済み範囲と、実 DB 適用時の前提が確認できる
 
@@ -611,4 +573,5 @@ Implemented for single phases. Derived phase persistence remains out of scope.
 - 検証として `go test ./...`、`make tsdb-schema-lint`、`make tsdb-query-lint` を実行し、通過を確認した
 - Track 2 の domain-only `Session` / `SessionBar` / aggregation を実装した
 - Track 2 の検証として `go test ./internal/domain/marketdata` と `go test ./...` を実行し、通過を確認した
-- Track 4 として market phase resolver の仕様を `governance/tasks/` の temporary context に整理し、local timezone 基準、DST handling、derived phase、`MarketContext`、test coverage、promotion target を明記した
+- Track 4 として market phase resolver の仕様を `governance/tasks/` の temporary context に整理し、local timezone 基準、DST handling、single-phase-only 境界、test coverage、promotion target を明記した
+- Track 4/5 の実装整理として `marketphase` domain を single phase 専用に戻し、composite signal / market context を別領域へ分離した

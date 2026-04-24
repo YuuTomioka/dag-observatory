@@ -42,8 +42,11 @@ func TestAggregatePhaseBarUsesResolvedSingleWindow(t *testing.T) {
 	if !ok {
 		t.Fatal("expected phase bar")
 	}
-	if bar.PhaseID != PhaseNewYorkCore {
-		t.Fatalf("phase id mismatch: got=%q", bar.PhaseID)
+	if bar.PhaseCode != PhaseNewYorkCore {
+		t.Fatalf("phase id mismatch: got=%q", bar.PhaseCode)
+	}
+	if bar.PhaseDate != MustParsePhaseDate("2026-07-15") {
+		t.Fatalf("phase date mismatch: got=%q", bar.PhaseDate.String())
 	}
 	if bar.Market != "New York" || bar.Timezone != "America/New_York" {
 		t.Fatalf("phase metadata mismatch: market=%q timezone=%q", bar.Market, bar.Timezone)

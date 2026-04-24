@@ -36,20 +36,22 @@ func TestPhaseBarRepositoryRoundTripToTSDB(t *testing.T) {
 
 	bars := []domainmarketphase.PhaseBar{
 		{
-			PhaseID:  domainmarketphase.PhaseTokyoCore,
-			Market:   "Tokyo",
-			Timezone: "Asia/Tokyo",
-			SymbolID: symbol.ID,
-			OHLCV:    sampleOHLCV("2026-04-01T00:00:00Z", "2026-04-01T06:00:00Z", 1001, 1008, "2026-04-01T03:00:00Z", 999, "2026-04-01T00:30:00Z", 1005, 3),
-			Source:   domainmarketphase.PhaseBarSourceTickBidAskMid,
+			PhaseCode: domainmarketphase.PhaseTokyoCore,
+			PhaseDate: domainmarketphase.MustParsePhaseDate("2026-04-01"),
+			Market:    "Tokyo",
+			Timezone:  "Asia/Tokyo",
+			SymbolID:  symbol.ID,
+			OHLCV:     sampleOHLCV("2026-04-01T00:00:00Z", "2026-04-01T06:00:00Z", 1001, 1008, "2026-04-01T03:00:00Z", 999, "2026-04-01T00:30:00Z", 1005, 3),
+			Source:    domainmarketphase.PhaseBarSourceTickBidAskMid,
 		},
 		{
-			PhaseID:  domainmarketphase.PhaseTokyoCore,
-			Market:   "Tokyo",
-			Timezone: "Asia/Tokyo",
-			SymbolID: symbol.ID,
-			OHLCV:    sampleOHLCV("2026-04-02T00:00:00Z", "2026-04-02T06:00:00Z", 1004, 1010, "2026-04-02T05:00:00Z", 1002, "2026-04-02T01:00:00Z", 1007, 4),
-			Source:   domainmarketphase.PhaseBarSourceTickBidAskMid,
+			PhaseCode: domainmarketphase.PhaseTokyoCore,
+			PhaseDate: domainmarketphase.MustParsePhaseDate("2026-04-02"),
+			Market:    "Tokyo",
+			Timezone:  "Asia/Tokyo",
+			SymbolID:  symbol.ID,
+			OHLCV:     sampleOHLCV("2026-04-02T00:00:00Z", "2026-04-02T06:00:00Z", 1004, 1010, "2026-04-02T05:00:00Z", 1002, "2026-04-02T01:00:00Z", 1007, 4),
+			Source:    domainmarketphase.PhaseBarSourceTickBidAskMid,
 		},
 	}
 

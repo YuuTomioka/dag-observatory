@@ -20,9 +20,6 @@ func ResolveSinglePhases(at time.Time, specs []PhaseSpec) ([]ResolvedPhase, erro
 
 	out := make([]ResolvedPhase, 0)
 	for _, spec := range specs {
-		if spec.Category != PhaseCategorySingle {
-			continue
-		}
 		resolved, ok, err := resolveSinglePhase(at, spec, jst)
 		if err != nil {
 			return nil, err
@@ -32,15 +29,6 @@ func ResolveSinglePhases(at time.Time, specs []PhaseSpec) ([]ResolvedPhase, erro
 		}
 	}
 	return out, nil
-}
-
-func ResolveMarketContext(at time.Time, specs []PhaseSpec) (MarketContext, error) {
-	singles, err := ResolveSinglePhases(at, specs)
-	if err != nil {
-		return MarketContext{}, err
-	}
-	derived := ResolveDerivedPhases(singles)
-	return BuildMarketContext(at, singles, derived), nil
 }
 
 func resolveSinglePhase(at time.Time, spec PhaseSpec, jst *time.Location) (ResolvedPhase, bool, error) {
@@ -69,7 +57,6 @@ func resolveSinglePhase(at time.Time, spec PhaseSpec, jst *time.Location) (Resol
 	utcEnd := localEnd.UTC()
 	return ResolvedPhase{
 		ID:         spec.ID,
-		Category:   spec.Category,
 		Market:     spec.Market,
 		Timezone:   spec.Timezone,
 		Active:     true,

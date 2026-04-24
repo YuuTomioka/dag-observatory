@@ -44,14 +44,14 @@ func (r *PhaseBarRepository) BulkUpsert(ctx context.Context, bars []domainmarket
 func (r *PhaseBarRepository) DeleteBySymbolPhaseAndRange(
 	ctx context.Context,
 	symbolID domainmarketdata.SymbolID,
-	phaseID domainmarketphase.PhaseID,
+	phaseCode domainmarketphase.PhaseCode,
 	from domainmarketdata.UTCTime,
 	to domainmarketdata.UTCTime,
 ) error {
 	if err := r.validate(); err != nil {
 		return err
 	}
-	params, err := mapper.ToDeletePhaseBarsBySymbolPhaseAndRangeParams(symbolID, phaseID, from, to)
+	params, err := mapper.ToDeletePhaseBarsBySymbolPhaseAndRangeParams(symbolID, phaseCode, from, to)
 	if err != nil {
 		return err
 	}
@@ -61,12 +61,12 @@ func (r *PhaseBarRepository) DeleteBySymbolPhaseAndRange(
 func (r *PhaseBarRepository) GetLatestBySymbolAndPhase(
 	ctx context.Context,
 	symbolID domainmarketdata.SymbolID,
-	phaseID domainmarketphase.PhaseID,
+	phaseCode domainmarketphase.PhaseCode,
 ) (domainmarketphase.PhaseBar, error) {
 	if err := r.validate(); err != nil {
 		return domainmarketphase.PhaseBar{}, err
 	}
-	row, err := r.queries.GetLatestPhaseBarBySymbolAndPhase(ctx, mapper.ToGetLatestPhaseBarBySymbolAndPhaseParams(symbolID, phaseID))
+	row, err := r.queries.GetLatestPhaseBarBySymbolAndPhase(ctx, mapper.ToGetLatestPhaseBarBySymbolAndPhaseParams(symbolID, phaseCode))
 	if err != nil {
 		return domainmarketphase.PhaseBar{}, mapRepositoryError(err)
 	}
@@ -76,14 +76,14 @@ func (r *PhaseBarRepository) GetLatestBySymbolAndPhase(
 func (r *PhaseBarRepository) ListBySymbolPhaseAndRange(
 	ctx context.Context,
 	symbolID domainmarketdata.SymbolID,
-	phaseID domainmarketphase.PhaseID,
+	phaseCode domainmarketphase.PhaseCode,
 	from domainmarketdata.UTCTime,
 	to domainmarketdata.UTCTime,
 ) ([]domainmarketphase.PhaseBar, error) {
 	if err := r.validate(); err != nil {
 		return nil, err
 	}
-	params, err := mapper.ToListPhaseBarsBySymbolPhaseAndRangeParams(symbolID, phaseID, from, to)
+	params, err := mapper.ToListPhaseBarsBySymbolPhaseAndRangeParams(symbolID, phaseCode, from, to)
 	if err != nil {
 		return nil, err
 	}

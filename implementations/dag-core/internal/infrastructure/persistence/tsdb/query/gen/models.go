@@ -87,7 +87,8 @@ type OutboxEvent struct {
 
 type PhaseBar struct {
 	SymbolID  int64              `json:"symbol_id"`
-	PhaseID   string             `json:"phase_id"`
+	PhaseCode string             `json:"phase_code"`
+	PhaseDate pgtype.Date        `json:"phase_date"`
 	Market    string             `json:"market"`
 	Timezone  string             `json:"timezone"`
 	OpenTime  pgtype.Timestamptz `json:"open_time"`

@@ -2,6 +2,7 @@ package marketdata
 
 import (
 	"fmt"
+	"time"
 
 	apprepository "dag-observatory/dag-core/internal/application/marketdata/repository"
 	domainmarketdata "dag-observatory/dag-core/internal/domain/marketdata"
@@ -14,7 +15,8 @@ func ToBulkUpsertPhaseBarsParams(
 	bars []domainmarketphase.PhaseBar,
 ) (query.BulkUpsertPhaseBarsParams, error) {
 	symbolIDs := make([]int64, 0, len(bars))
-	phaseIDs := make([]string, 0, len(bars))
+	phaseCodes := make([]string, 0, len(bars))
+	phaseDates := make([]pgtype.Date, 0, len(bars))
 	markets := make([]string, 0, len(bars))
 	timezones := make([]string, 0, len(bars))
 	openTimes := make([]pgtype.Timestamptz, 0, len(bars))
@@ -32,8 +34,11 @@ func ToBulkUpsertPhaseBarsParams(
 		if bar.SymbolID <= 0 {
 			return query.BulkUpsertPhaseBarsParams{}, fmt.Errorf("%w: phase bar symbol_id must be > 0", apprepository.ErrInvalidArgument)
 		}
-		if bar.PhaseID == "" {
-			return query.BulkUpsertPhaseBarsParams{}, fmt.Errorf("%w: phase bar phase_id is required", apprepository.ErrInvalidArgument)
+		if bar.PhaseCode == "" {
+			return query.BulkUpsertPhaseBarsParams{}, fmt.Errorf("%w: phase bar phase_code is required", apprepository.ErrInvalidArgument)
+		}
+		if bar.PhaseDate.IsZero() {
+			return query.BulkUpsertPhaseBarsParams{}, fmt.Errorf("%w: phase bar phase_date is required", apprepository.ErrInvalidArgument)
 		}
 		if bar.Market == "" {
 			return query.BulkUpsertPhaseBarsParams{}, fmt.Errorf("%w: phase bar market is required", apprepository.ErrInvalidArgument)
@@ -57,9 +62,14 @@ func ToBulkUpsertPhaseBarsParams(
 		if err != nil {
 			return query.BulkUpsertPhaseBarsParams{}, err
 		}
+		phaseDate, err := toPgDate(bar.PhaseDate)
+		if err != nil {
+			return query.BulkUpsertPhaseBarsParams{}, err
+		}
 
 		symbolIDs = append(symbolIDs, int64(bar.SymbolID))
-		phaseIDs = append(phaseIDs, string(bar.PhaseID))
+		phaseCodes = append(phaseCodes, string(bar.PhaseCode))
+		phaseDates = append(phaseDates, phaseDate)
 		markets = append(markets, bar.Market)
 		timezones = append(timezones, bar.Timezone)
 		openTimes = append(openTimes, openTime)
@@ -76,7 +86,8 @@ func ToBulkUpsertPhaseBarsParams(
 
 	return query.BulkUpsertPhaseBarsParams{
 		SymbolIds:  symbolIDs,
-		PhaseIds:   phaseIDs,
+		PhaseCodes: phaseCodes,
+		PhaseDates: phaseDates,
 		Markets:    markets,
 		Timezones:  timezones,
 		OpenTimes:  openTimes,
@@ -94,7 +105,7 @@ func ToBulkUpsertPhaseBarsParams(
 
 func ToDeletePhaseBarsBySymbolPhaseAndRangeParams(
 	symbolID domainmarketdata.SymbolID,
-	phaseID domainmarketphase.PhaseID,
+	phaseCode domainmarketphase.PhaseCode,
 	from domainmarketdata.UTCTime,
 	to domainmarketdata.UTCTime,
 ) (query.DeletePhaseBarsBySymbolPhaseAndRangeParams, error) {
@@ -107,26 +118,26 @@ func ToDeletePhaseBarsBySymbolPhaseAndRangeParams(
 		return query.DeletePhaseBarsBySymbolPhaseAndRangeParams{}, err
 	}
 	return query.DeletePhaseBarsBySymbolPhaseAndRangeParams{
-		SymbolID: int64(symbolID),
-		PhaseID:  string(phaseID),
-		FromTime: fromTime,
-		ToTime:   toTime,
+		SymbolID:  int64(symbolID),
+		PhaseCode: string(phaseCode),
+		FromTime:  fromTime,
+		ToTime:    toTime,
 	}, nil
 }
 
 func ToGetLatestPhaseBarBySymbolAndPhaseParams(
 	symbolID domainmarketdata.SymbolID,
-	phaseID domainmarketphase.PhaseID,
+	phaseCode domainmarketphase.PhaseCode,
 ) query.GetLatestPhaseBarBySymbolAndPhaseParams {
 	return query.GetLatestPhaseBarBySymbolAndPhaseParams{
-		SymbolID: int64(symbolID),
-		PhaseID:  string(phaseID),
+		SymbolID:  int64(symbolID),
+		PhaseCode: string(phaseCode),
 	}
 }
 
 func ToListPhaseBarsBySymbolPhaseAndRangeParams(
 	symbolID domainmarketdata.SymbolID,
-	phaseID domainmarketphase.PhaseID,
+	phaseCode domainmarketphase.PhaseCode,
 	from domainmarketdata.UTCTime,
 	to domainmarketdata.UTCTime,
 ) (query.ListPhaseBarsBySymbolPhaseAndRangeParams, error) {
@@ -139,10 +150,10 @@ func ToListPhaseBarsBySymbolPhaseAndRangeParams(
 		return query.ListPhaseBarsBySymbolPhaseAndRangeParams{}, err
 	}
 	return query.ListPhaseBarsBySymbolPhaseAndRangeParams{
-		SymbolID: int64(symbolID),
-		PhaseID:  string(phaseID),
-		FromTime: fromTime,
-		ToTime:   toTime,
+		SymbolID:  int64(symbolID),
+		PhaseCode: string(phaseCode),
+		FromTime:  fromTime,
+		ToTime:    toTime,
 	}, nil
 }
 
@@ -163,11 +174,16 @@ func PhaseBarFromRow(row query.PhaseBar) (domainmarketphase.PhaseBar, error) {
 	if err != nil {
 		return domainmarketphase.PhaseBar{}, err
 	}
+	phaseDate, err := fromPgDate(row.PhaseDate)
+	if err != nil {
+		return domainmarketphase.PhaseBar{}, err
+	}
 	return domainmarketphase.PhaseBar{
-		PhaseID:  domainmarketphase.PhaseID(row.PhaseID),
-		Market:   row.Market,
-		Timezone: row.Timezone,
-		SymbolID: domainmarketdata.SymbolID(row.SymbolID),
+		PhaseCode: domainmarketphase.PhaseCode(row.PhaseCode),
+		PhaseDate: phaseDate,
+		Market:    row.Market,
+		Timezone:  row.Timezone,
+		SymbolID:  domainmarketdata.SymbolID(row.SymbolID),
 		OHLCV: domainmarketdata.OHLCV{
 			Opentime:  openTime,
 			Closetime: closeTime,
@@ -181,6 +197,23 @@ func PhaseBarFromRow(row query.PhaseBar) (domainmarketphase.PhaseBar, error) {
 		},
 		Source: row.Source,
 	}, nil
+}
+
+func toPgDate(d domainmarketphase.PhaseDate) (pgtype.Date, error) {
+	if d.IsZero() {
+		return pgtype.Date{}, fmt.Errorf("%w: phase date must not be zero", apprepository.ErrInvalidArgument)
+	}
+	return pgtype.Date{
+		Time:  d.Time(time.UTC),
+		Valid: true,
+	}, nil
+}
+
+func fromPgDate(v pgtype.Date) (domainmarketphase.PhaseDate, error) {
+	if !v.Valid {
+		return domainmarketphase.PhaseDate{}, fmt.Errorf("%w: phase date is NULL", apprepository.ErrInvalidArgument)
+	}
+	return domainmarketphase.NewPhaseDate(v.Time.Year(), v.Time.Month(), v.Time.Day())
 }
 
 func PhaseBarsFromRows(rows []query.PhaseBar) ([]domainmarketphase.PhaseBar, error) {

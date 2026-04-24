@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS phase_bar (
   symbol_id BIGINT NOT NULL REFERENCES symbol(id) ON DELETE RESTRICT,
-  phase_id TEXT NOT NULL,
+  phase_code TEXT NOT NULL,
+  phase_date DATE NOT NULL,
   market TEXT NOT NULL,
   timezone TEXT NOT NULL,
   open_time TIMESTAMPTZ NOT NULL,
@@ -16,7 +17,7 @@ CREATE TABLE IF NOT EXISTS phase_bar (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-  PRIMARY KEY (symbol_id, phase_id, open_time),
+  PRIMARY KEY (symbol_id, phase_code, phase_date),
 
   CHECK (open_time < close_time),
   CHECK (high >= low),
@@ -30,7 +31,7 @@ CREATE TABLE IF NOT EXISTS phase_bar (
 SELECT create_hypertable('phase_bar', 'open_time', if_not_exists => TRUE);
 
 CREATE INDEX IF NOT EXISTS idx_phase_bar_symbol_phase_open_desc
-  ON phase_bar (symbol_id, phase_id, open_time DESC);
+  ON phase_bar (symbol_id, phase_code, phase_date DESC);
 
 CREATE INDEX IF NOT EXISTS idx_phase_bar_phase_open_desc
-  ON phase_bar (phase_id, open_time DESC);
+  ON phase_bar (phase_code, phase_date DESC);

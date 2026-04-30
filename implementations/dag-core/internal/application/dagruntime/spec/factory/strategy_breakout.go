@@ -13,6 +13,7 @@ import (
 	"dag-observatory/dag-core/internal/domain/dagruntime/node"
 	"dag-observatory/dag-core/internal/domain/dagruntime/state"
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc"
 )
 
 type FeatureATRFactory struct{}
@@ -1375,15 +1376,15 @@ func marketTickInputOutputKey(nodeID string) artifact.Key[marketdata.Tick] {
 	}
 }
 
-func marketBarInputM1OutputKey(nodeID string) artifact.Key[[]marketdata.OHLCV] {
-	return artifact.Key[[]marketdata.OHLCV]{
+func marketBarInputM1OutputKey(nodeID string) artifact.Key[[]ohlc.OHLCV] {
+	return artifact.Key[[]ohlc.OHLCV]{
 		Name:     fmt.Sprintf("%s.market_ohlcv_bars_m1", nodeID),
 		StableID: fmt.Sprintf("artifact:dagruntime.market_bar_input_m1.%s.v1", nodeID),
 	}
 }
 
-func marketBarInputH1OutputKey(nodeID string) artifact.Key[[]marketdata.OHLCV] {
-	return artifact.Key[[]marketdata.OHLCV]{
+func marketBarInputH1OutputKey(nodeID string) artifact.Key[[]ohlc.OHLCV] {
+	return artifact.Key[[]ohlc.OHLCV]{
 		Name:     fmt.Sprintf("%s.market_ohlcv_bars_h1", nodeID),
 		StableID: fmt.Sprintf("artifact:dagruntime.market_bar_input_h1.%s.v1", nodeID),
 	}
@@ -1429,7 +1430,7 @@ var inputKeyEconomicEvents = artifact.Key[[]algotrade.EconomicEvent]{
 	StableID: "artifact:input.market.economic_events.v1",
 }
 
-var inputKeyMarketOHLCVBarsH1 = artifact.Key[[]marketdata.OHLCV]{
+var inputKeyMarketOHLCVBarsH1 = artifact.Key[[]ohlc.OHLCV]{
 	Name:     "market.ohlcv_bars.h1",
 	StableID: "artifact:input.market.ohlcv_bars.h1.v1",
 }

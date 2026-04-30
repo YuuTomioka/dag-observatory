@@ -8,6 +8,7 @@ import (
 	"dag-observatory/dag-core/internal/domain/dagruntime/engine"
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc"
 )
 
 var inputEnvelopeEncoders = map[artifact.RawKey]func(any) (events.PayloadEnvelope, error){
@@ -351,17 +352,17 @@ func encodeMarketBarsFromInput(value any) (events.PayloadEnvelope, error) {
 }
 
 func encodeMarketOHLCVBarsFromInput(value any) (events.PayloadEnvelope, error) {
-	bars, ok := value.([]marketdata.OHLCV)
+	bars, ok := value.([]ohlc.OHLCV)
 	if !ok {
-		return events.PayloadEnvelope{}, fmt.Errorf("dagruntime: market_ohlcv_bars must be []marketdata.OHLCV")
+		return events.PayloadEnvelope{}, fmt.Errorf("dagruntime: market_ohlcv_bars must be []ohlc.OHLCV")
 	}
 	return events.EncodePayload(PayloadKeyMarketOHLCVBars, bars)
 }
 
 func encodeMarketOHLCVBarsH1FromInput(value any) (events.PayloadEnvelope, error) {
-	bars, ok := value.([]marketdata.OHLCV)
+	bars, ok := value.([]ohlc.OHLCV)
 	if !ok {
-		return events.PayloadEnvelope{}, fmt.Errorf("dagruntime: market_ohlcv_bars_h1 must be []marketdata.OHLCV")
+		return events.PayloadEnvelope{}, fmt.Errorf("dagruntime: market_ohlcv_bars_h1 must be []ohlc.OHLCV")
 	}
 	return events.EncodePayload(PayloadKeyMarketOHLCVBarsH1, bars)
 }

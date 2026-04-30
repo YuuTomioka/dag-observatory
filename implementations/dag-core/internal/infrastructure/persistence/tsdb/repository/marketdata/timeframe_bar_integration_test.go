@@ -7,6 +7,8 @@ import (
 
 	apprepository "dag-observatory/dag-core/internal/application/marketdata/repository"
 	domainmarketdata "dag-observatory/dag-core/internal/domain/marketdata"
+	domainohlc "dag-observatory/dag-core/internal/domain/marketdata/ohlc"
+	domaintimeframe "dag-observatory/dag-core/internal/domain/marketdata/ohlc/timeframe"
 	"dag-observatory/dag-core/internal/infrastructure/persistence/tsdb"
 )
 
@@ -35,11 +37,11 @@ func TestTimeframeBarRepositoryRoundTripToTSDB(t *testing.T) {
 		t.Fatalf("create symbol: %v", err)
 	}
 
-	bars := []domainmarketdata.TimeframeBar{
+	bars := []domaintimeframe.TimeframeBar{
 		{
 			SymbolID:      symbol.ID,
-			TimeframeCode: domainmarketdata.TimeframeM1,
-			OHLCV: domainmarketdata.OHLCV{
+			TimeframeCode: domaintimeframe.TimeframeM1,
+			OHLCV: domainohlc.OHLCV{
 				Opentime:  domainmarketdata.MustParseUTCTime("2026-03-01T00:00:00Z"),
 				Closetime: domainmarketdata.MustParseUTCTime("2026-03-01T00:01:00Z"),
 				Open:      domainmarketdata.NewPriceFromRaw(1001),
@@ -50,12 +52,12 @@ func TestTimeframeBarRepositoryRoundTripToTSDB(t *testing.T) {
 				Close:     domainmarketdata.NewPriceFromRaw(1004),
 				Volume:    2,
 			},
-			Source: domainmarketdata.TimeframeBarSourceTickBidAskMid,
+			Source: domaintimeframe.TimeframeBarSourceTickBidAskMid,
 		},
 		{
 			SymbolID:      symbol.ID,
-			TimeframeCode: domainmarketdata.TimeframeM1,
-			OHLCV: domainmarketdata.OHLCV{
+			TimeframeCode: domaintimeframe.TimeframeM1,
+			OHLCV: domainohlc.OHLCV{
 				Opentime:  domainmarketdata.MustParseUTCTime("2026-03-01T00:01:00Z"),
 				Closetime: domainmarketdata.MustParseUTCTime("2026-03-01T00:02:00Z"),
 				Open:      domainmarketdata.NewPriceFromRaw(1008),
@@ -66,7 +68,7 @@ func TestTimeframeBarRepositoryRoundTripToTSDB(t *testing.T) {
 				Close:     domainmarketdata.NewPriceFromRaw(1012),
 				Volume:    1,
 			},
-			Source: domainmarketdata.TimeframeBarSourceTickBidAskMid,
+			Source: domaintimeframe.TimeframeBarSourceTickBidAskMid,
 		},
 	}
 
@@ -77,7 +79,7 @@ func TestTimeframeBarRepositoryRoundTripToTSDB(t *testing.T) {
 	items, err := barRepo.ListBySymbolTimeframeAndRange(
 		ctx,
 		symbol.ID,
-		domainmarketdata.TimeframeM1,
+		domaintimeframe.TimeframeM1,
 		domainmarketdata.MustParseUTCTime("2026-03-01T00:00:00Z"),
 		domainmarketdata.MustParseUTCTime("2026-03-01T00:03:00Z"),
 	)
@@ -94,7 +96,7 @@ func TestTimeframeBarRepositoryRoundTripToTSDB(t *testing.T) {
 		t.Fatalf("unexpected first low_time: %s", items[0].Lowtime)
 	}
 
-	latest, err := barRepo.GetLatestBySymbolAndTimeframe(ctx, symbol.ID, domainmarketdata.TimeframeM1)
+	latest, err := barRepo.GetLatestBySymbolAndTimeframe(ctx, symbol.ID, domaintimeframe.TimeframeM1)
 	if err != nil {
 		t.Fatalf("GetLatestBySymbolAndTimeframe: %v", err)
 	}
@@ -111,7 +113,7 @@ func TestTimeframeBarRepositoryRoundTripToTSDB(t *testing.T) {
 	if err := barRepo.DeleteBySymbolTimeframeAndRange(
 		ctx,
 		symbol.ID,
-		domainmarketdata.TimeframeM1,
+		domaintimeframe.TimeframeM1,
 		domainmarketdata.MustParseUTCTime("2026-03-01T00:00:00Z"),
 		domainmarketdata.MustParseUTCTime("2026-03-01T00:01:00Z"),
 	); err != nil {
@@ -121,7 +123,7 @@ func TestTimeframeBarRepositoryRoundTripToTSDB(t *testing.T) {
 	items, err = barRepo.ListBySymbolTimeframeAndRange(
 		ctx,
 		symbol.ID,
-		domainmarketdata.TimeframeM1,
+		domaintimeframe.TimeframeM1,
 		domainmarketdata.MustParseUTCTime("2026-03-01T00:00:00Z"),
 		domainmarketdata.MustParseUTCTime("2026-03-01T00:03:00Z"),
 	)

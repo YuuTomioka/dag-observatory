@@ -7,6 +7,7 @@ import (
 
 	"dag-observatory/dag-core/internal/application/marketdata/repository"
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc/timeframe"
 )
 
 type BackfillMode string
@@ -20,7 +21,7 @@ const (
 type BackfillTimeframeBarsRequest struct {
 	SymbolID      marketdata.SymbolID
 	SymbolCode    string
-	TimeframeCode marketdata.TimeframeCode
+	TimeframeCode timeframe.TimeframeCode
 	From          marketdata.UTCTime
 	To            marketdata.UTCTime
 	Mode          BackfillMode
@@ -29,7 +30,7 @@ type BackfillTimeframeBarsRequest struct {
 
 type BackfillTimeframeBarsResult struct {
 	SymbolID      marketdata.SymbolID
-	TimeframeCode marketdata.TimeframeCode
+	TimeframeCode timeframe.TimeframeCode
 	From          marketdata.UTCTime
 	To            marketdata.UTCTime
 	ChunkCount    int
@@ -71,7 +72,7 @@ func (u *BackfillTimeframeBars) Execute(
 			if err != nil {
 				return err
 			}
-			bars := marketdata.AggregateTimeframeBars(req.TimeframeCode, symbolID, ticks)
+			bars := timeframe.AggregateTimeframeBars(req.TimeframeCode, symbolID, ticks)
 			if req.Mode == BackfillModeReplaceRange {
 				if err := repos.TimeframeBars().DeleteBySymbolTimeframeAndRange(
 					ctx,
@@ -112,19 +113,19 @@ type GetLatestTimeframeBarBySymbolAndTimeframe struct {
 func (u *GetLatestTimeframeBarBySymbolAndTimeframe) Execute(
 	ctx context.Context,
 	symbolID marketdata.SymbolID,
-	timeframeCode marketdata.TimeframeCode,
-) (marketdata.TimeframeBar, error) {
+	timeframeCode timeframe.TimeframeCode,
+) (timeframe.TimeframeBar, error) {
 	if u == nil || u.UnitOfWork == nil {
-		return marketdata.TimeframeBar{}, repository.ErrNotConfigured
+		return timeframe.TimeframeBar{}, repository.ErrNotConfigured
 	}
 	if symbolID <= 0 {
-		return marketdata.TimeframeBar{}, fmt.Errorf("%w: symbol_id must be > 0", repository.ErrInvalidArgument)
+		return timeframe.TimeframeBar{}, fmt.Errorf("%w: symbol_id must be > 0", repository.ErrInvalidArgument)
 	}
 	if timeframeCode == "" {
-		return marketdata.TimeframeBar{}, fmt.Errorf("%w: timeframe_code is required", repository.ErrInvalidArgument)
+		return timeframe.TimeframeBar{}, fmt.Errorf("%w: timeframe_code is required", repository.ErrInvalidArgument)
 	}
 
-	var out marketdata.TimeframeBar
+	var out timeframe.TimeframeBar
 	err := u.UnitOfWork.DoReadOnly(ctx, func(repos repository.Repositories) error {
 		item, err := repos.TimeframeBars().GetLatestBySymbolAndTimeframe(ctx, symbolID, timeframeCode)
 		if err != nil {
@@ -134,7 +135,7 @@ func (u *GetLatestTimeframeBarBySymbolAndTimeframe) Execute(
 		return nil
 	})
 	if err != nil {
-		return marketdata.TimeframeBar{}, err
+		return timeframe.TimeframeBar{}, err
 	}
 	return out, nil
 }
@@ -146,10 +147,10 @@ type ListTimeframeBarsBySymbolTimeframeAndRange struct {
 func (u *ListTimeframeBarsBySymbolTimeframeAndRange) Execute(
 	ctx context.Context,
 	symbolID marketdata.SymbolID,
-	timeframeCode marketdata.TimeframeCode,
+	timeframeCode timeframe.TimeframeCode,
 	from marketdata.UTCTime,
 	to marketdata.UTCTime,
-) ([]marketdata.TimeframeBar, error) {
+) ([]timeframe.TimeframeBar, error) {
 	if u == nil || u.UnitOfWork == nil {
 		return nil, repository.ErrNotConfigured
 	}
@@ -166,7 +167,7 @@ func (u *ListTimeframeBarsBySymbolTimeframeAndRange) Execute(
 		return nil, fmt.Errorf("%w: from must be before to", repository.ErrInvalidArgument)
 	}
 
-	var out []marketdata.TimeframeBar
+	var out []timeframe.TimeframeBar
 	err := u.UnitOfWork.DoReadOnly(ctx, func(repos repository.Repositories) error {
 		items, err := repos.TimeframeBars().ListBySymbolTimeframeAndRange(ctx, symbolID, timeframeCode, from, to)
 		if err != nil {
@@ -190,7 +191,7 @@ func normalizeBackfillRequest(req BackfillTimeframeBarsRequest) (BackfillTimefra
 	if req.TimeframeCode == "" {
 		return req, fmt.Errorf("%w: timeframe_code is required", repository.ErrInvalidArgument)
 	}
-	if _, ok := marketdata.TimeframeDefs[req.TimeframeCode]; !ok {
+	if _, ok := timeframe.TimeframeDefs[req.TimeframeCode]; !ok {
 		return req, fmt.Errorf("%w: timeframe_code %q is not supported", repository.ErrInvalidArgument, req.TimeframeCode)
 	}
 	if req.From.IsZero() || req.To.IsZero() {
@@ -242,7 +243,7 @@ func (u *BackfillTimeframeBars) resolveSymbolID(
 }
 
 func buildBackfillChunks(
-	timeframeCode marketdata.TimeframeCode,
+	timeframeCode timeframe.TimeframeCode,
 	from marketdata.UTCTime,
 	to marketdata.UTCTime,
 	chunkSizeBars int,

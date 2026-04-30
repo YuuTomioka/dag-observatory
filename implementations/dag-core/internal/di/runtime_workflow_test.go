@@ -23,6 +23,7 @@ import (
 	"dag-observatory/dag-core/internal/domain/dagruntime/state"
 	"dag-observatory/dag-core/internal/domain/dagruntime/workflow"
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc"
 	artifactinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/artifact"
 	stateinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/state"
 )
@@ -229,7 +230,7 @@ func TestRunBreakoutLongV0WorkflowE2E(t *testing.T) {
 
 	inputs := engine.InputMap{
 		usecase.InputKeySymbol: "USDJPY",
-		usecase.InputKeyMarketOHLCVBars: []marketdata.OHLCV{
+		usecase.InputKeyMarketOHLCVBars: []ohlc.OHLCV{
 			{
 				Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
 				Closetime: marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
@@ -536,7 +537,7 @@ func TestRunBreakoutSubmitFillAndResultReflectionAcrossSeparateWorkflows(t *test
 		Payload:   nil,
 	}
 	reflectionInputs := engine.InputMap{
-		usecase.InputKeyMarketOHLCVBars: []marketdata.OHLCV{
+		usecase.InputKeyMarketOHLCVBars: []ohlc.OHLCV{
 			{
 				Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:04:00Z"),
 				Closetime: marketdata.MustParseUTCTime("2026-04-01T00:05:00Z"),
@@ -667,7 +668,7 @@ func TestRunBreakoutResultReflectionMinimalWorkflowE2E(t *testing.T) {
 		Payload:   nil,
 	}
 	inputs := engine.InputMap{
-		usecase.InputKeyMarketOHLCVBars: []marketdata.OHLCV{
+		usecase.InputKeyMarketOHLCVBars: []ohlc.OHLCV{
 			{
 				Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:04:00Z"),
 				Closetime: marketdata.MustParseUTCTime("2026-04-01T00:05:00Z"),
@@ -773,7 +774,7 @@ func TestRunBreakoutSubmitWorkflowIsIdempotentForPendingOrders(t *testing.T) {
 func breakoutWorkflowInputs() engine.InputMap {
 	return engine.InputMap{
 		usecase.InputKeySymbol: "USDJPY",
-		usecase.InputKeyMarketOHLCVBars: []marketdata.OHLCV{
+		usecase.InputKeyMarketOHLCVBars: []ohlc.OHLCV{
 			{
 				Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
 				Closetime: marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),

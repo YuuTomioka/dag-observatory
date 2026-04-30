@@ -14,7 +14,6 @@ type repositories struct {
 	symbols       apprepository.SymbolRepository
 	ticks         apprepository.TickRepository
 	timeframeBars apprepository.TimeframeBarRepository
-	phaseBars     apprepository.PhaseBarRepository
 }
 
 func (r repositories) Symbols() apprepository.SymbolRepository {
@@ -27,10 +26,6 @@ func (r repositories) Ticks() apprepository.TickRepository {
 
 func (r repositories) TimeframeBars() apprepository.TimeframeBarRepository {
 	return r.timeframeBars
-}
-
-func (r repositories) PhaseBars() apprepository.PhaseBarRepository {
-	return r.phaseBars
 }
 
 type UnitOfWork struct {
@@ -77,7 +72,6 @@ func (u *UnitOfWork) do(
 		symbols:       NewSymbolRepositoryWithQuerier(queries),
 		ticks:         NewTickRepositoryWithQuerier(queries),
 		timeframeBars: NewTimeframeBarRepositoryWithQuerier(queries),
-		phaseBars:     NewPhaseBarRepositoryWithQuerier(queries),
 	}
 
 	if err := fn(repos); err != nil {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc"
 )
 
 func parseInt64Value(raw any, name string) (int64, error) {
@@ -68,12 +69,12 @@ func parseFloat64Value(raw any, name string) (float64, error) {
 	}
 }
 
-func parseOHLCVSlice(raw any) ([]marketdata.OHLCV, error) {
+func parseOHLCVSlice(raw any) ([]ohlc.OHLCV, error) {
 	switch value := raw.(type) {
-	case []marketdata.OHLCV:
+	case []ohlc.OHLCV:
 		return value, nil
 	case []any:
-		bars := make([]marketdata.OHLCV, 0, len(value))
+		bars := make([]ohlc.OHLCV, 0, len(value))
 		for _, item := range value {
 			bar, err := parseOHLCVItem(item)
 			if err != nil {
@@ -83,18 +84,18 @@ func parseOHLCVSlice(raw any) ([]marketdata.OHLCV, error) {
 		}
 		return bars, nil
 	default:
-		return nil, fmt.Errorf("dagruntime: market_ohlcv_bars must be []marketdata.OHLCV")
+		return nil, fmt.Errorf("dagruntime: market_ohlcv_bars must be []ohlc.OHLCV")
 	}
 }
 
-func parseOHLCVItem(raw any) (marketdata.OHLCV, error) {
+func parseOHLCVItem(raw any) (ohlc.OHLCV, error) {
 	switch value := raw.(type) {
-	case marketdata.OHLCV:
+	case ohlc.OHLCV:
 		return value, nil
 	case map[string]any:
 		return parseOHLCVMap(value)
 	default:
-		return marketdata.OHLCV{}, fmt.Errorf("dagruntime: market_ohlcv_bars must contain OHLCV objects")
+		return ohlc.OHLCV{}, fmt.Errorf("dagruntime: market_ohlcv_bars must contain OHLCV objects")
 	}
 }
 
@@ -151,7 +152,7 @@ func parseTickMap(value map[string]any) (marketdata.Tick, error) {
 	return out, nil
 }
 
-func parseOHLCVMap(value map[string]any) (marketdata.OHLCV, error) {
+func parseOHLCVMap(value map[string]any) (ohlc.OHLCV, error) {
 	get := func(keys ...string) (any, bool) {
 		for _, k := range keys {
 			if raw, ok := value[k]; ok {
@@ -161,67 +162,67 @@ func parseOHLCVMap(value map[string]any) (marketdata.OHLCV, error) {
 		return nil, false
 	}
 
-	var out marketdata.OHLCV
+	var out ohlc.OHLCV
 	if raw, ok := get("open_time", "Opentime", "opentime"); ok {
 		t, err := parseUTCTimeValue(raw, "market_ohlcv_bars.open_time")
 		if err != nil {
-			return marketdata.OHLCV{}, err
+			return ohlc.OHLCV{}, err
 		}
 		out.Opentime = t
 	}
 	if raw, ok := get("close_time", "Closetime", "closetime"); ok {
 		t, err := parseUTCTimeValue(raw, "market_ohlcv_bars.close_time")
 		if err != nil {
-			return marketdata.OHLCV{}, err
+			return ohlc.OHLCV{}, err
 		}
 		out.Closetime = t
 	}
 	if raw, ok := get("open", "Open"); ok {
 		price, err := parsePriceValue(raw, "market_ohlcv_bars.open")
 		if err != nil {
-			return marketdata.OHLCV{}, err
+			return ohlc.OHLCV{}, err
 		}
 		out.Open = price
 	}
 	if raw, ok := get("high", "High"); ok {
 		price, err := parsePriceValue(raw, "market_ohlcv_bars.high")
 		if err != nil {
-			return marketdata.OHLCV{}, err
+			return ohlc.OHLCV{}, err
 		}
 		out.High = price
 	}
 	if raw, ok := get("high_time", "Hightime", "hightime"); ok {
 		t, err := parseUTCTimeValue(raw, "market_ohlcv_bars.high_time")
 		if err != nil {
-			return marketdata.OHLCV{}, err
+			return ohlc.OHLCV{}, err
 		}
 		out.Hightime = t
 	}
 	if raw, ok := get("low", "Low"); ok {
 		price, err := parsePriceValue(raw, "market_ohlcv_bars.low")
 		if err != nil {
-			return marketdata.OHLCV{}, err
+			return ohlc.OHLCV{}, err
 		}
 		out.Low = price
 	}
 	if raw, ok := get("low_time", "Lowtime", "lowtime"); ok {
 		t, err := parseUTCTimeValue(raw, "market_ohlcv_bars.low_time")
 		if err != nil {
-			return marketdata.OHLCV{}, err
+			return ohlc.OHLCV{}, err
 		}
 		out.Lowtime = t
 	}
 	if raw, ok := get("close", "Close"); ok {
 		price, err := parsePriceValue(raw, "market_ohlcv_bars.close")
 		if err != nil {
-			return marketdata.OHLCV{}, err
+			return ohlc.OHLCV{}, err
 		}
 		out.Close = price
 	}
 	if raw, ok := get("volume", "Volume"); ok {
 		volume, err := parseVolumeValue(raw, "market_ohlcv_bars.volume")
 		if err != nil {
-			return marketdata.OHLCV{}, err
+			return ohlc.OHLCV{}, err
 		}
 		out.Volume = volume
 	}

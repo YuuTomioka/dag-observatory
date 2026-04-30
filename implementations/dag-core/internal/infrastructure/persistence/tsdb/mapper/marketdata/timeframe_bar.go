@@ -5,12 +5,14 @@ import (
 
 	apprepository "dag-observatory/dag-core/internal/application/marketdata/repository"
 	domainmarketdata "dag-observatory/dag-core/internal/domain/marketdata"
+	domainohlc "dag-observatory/dag-core/internal/domain/marketdata/ohlc"
+	domaintimeframe "dag-observatory/dag-core/internal/domain/marketdata/ohlc/timeframe"
 	query "dag-observatory/dag-core/internal/infrastructure/persistence/tsdb/query/gen"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func ToBulkUpsertTimeframeBarsParams(
-	bars []domainmarketdata.TimeframeBar,
+	bars []domaintimeframe.TimeframeBar,
 ) (query.BulkUpsertTimeframeBarsParams, error) {
 	symbolIDs := make([]int64, 0, len(bars))
 	timeframeCodes := make([]string, 0, len(bars))
@@ -79,7 +81,7 @@ func ToBulkUpsertTimeframeBarsParams(
 
 func ToDeleteTimeframeBarsBySymbolTimeframeAndRangeParams(
 	symbolID domainmarketdata.SymbolID,
-	timeframeCode domainmarketdata.TimeframeCode,
+	timeframeCode domaintimeframe.TimeframeCode,
 	from domainmarketdata.UTCTime,
 	to domainmarketdata.UTCTime,
 ) (query.DeleteTimeframeBarsBySymbolTimeframeAndRangeParams, error) {
@@ -101,7 +103,7 @@ func ToDeleteTimeframeBarsBySymbolTimeframeAndRangeParams(
 
 func ToGetLatestTimeframeBarBySymbolAndTimeframeParams(
 	symbolID domainmarketdata.SymbolID,
-	timeframeCode domainmarketdata.TimeframeCode,
+	timeframeCode domaintimeframe.TimeframeCode,
 ) query.GetLatestTimeframeBarBySymbolAndTimeframeParams {
 	return query.GetLatestTimeframeBarBySymbolAndTimeframeParams{
 		SymbolID:      int64(symbolID),
@@ -111,7 +113,7 @@ func ToGetLatestTimeframeBarBySymbolAndTimeframeParams(
 
 func ToListTimeframeBarsBySymbolTimeframeAndRangeParams(
 	symbolID domainmarketdata.SymbolID,
-	timeframeCode domainmarketdata.TimeframeCode,
+	timeframeCode domaintimeframe.TimeframeCode,
 	from domainmarketdata.UTCTime,
 	to domainmarketdata.UTCTime,
 ) (query.ListTimeframeBarsBySymbolTimeframeAndRangeParams, error) {
@@ -131,27 +133,27 @@ func ToListTimeframeBarsBySymbolTimeframeAndRangeParams(
 	}, nil
 }
 
-func TimeframeBarFromRow(row query.TimeframeBar) (domainmarketdata.TimeframeBar, error) {
+func TimeframeBarFromRow(row query.TimeframeBar) (domaintimeframe.TimeframeBar, error) {
 	openTime, err := fromPgTimestamptz(row.OpenTime)
 	if err != nil {
-		return domainmarketdata.TimeframeBar{}, err
+		return domaintimeframe.TimeframeBar{}, err
 	}
 	closeTime, err := fromPgTimestamptz(row.CloseTime)
 	if err != nil {
-		return domainmarketdata.TimeframeBar{}, err
+		return domaintimeframe.TimeframeBar{}, err
 	}
 	highTime, err := fromPgTimestamptz(row.HighTime)
 	if err != nil {
-		return domainmarketdata.TimeframeBar{}, err
+		return domaintimeframe.TimeframeBar{}, err
 	}
 	lowTime, err := fromPgTimestamptz(row.LowTime)
 	if err != nil {
-		return domainmarketdata.TimeframeBar{}, err
+		return domaintimeframe.TimeframeBar{}, err
 	}
-	return domainmarketdata.TimeframeBar{
+	return domaintimeframe.TimeframeBar{
 		SymbolID:      domainmarketdata.SymbolID(row.SymbolID),
-		TimeframeCode: domainmarketdata.TimeframeCode(row.TimeframeCode),
-		OHLCV: domainmarketdata.OHLCV{
+		TimeframeCode: domaintimeframe.TimeframeCode(row.TimeframeCode),
+		OHLCV: domainohlc.OHLCV{
 			Opentime:  openTime,
 			Closetime: closeTime,
 			Open:      domainmarketdata.NewPriceFromRaw(row.Open),
@@ -166,8 +168,8 @@ func TimeframeBarFromRow(row query.TimeframeBar) (domainmarketdata.TimeframeBar,
 	}, nil
 }
 
-func TimeframeBarsFromRows(rows []query.TimeframeBar) ([]domainmarketdata.TimeframeBar, error) {
-	out := make([]domainmarketdata.TimeframeBar, 0, len(rows))
+func TimeframeBarsFromRows(rows []query.TimeframeBar) ([]domaintimeframe.TimeframeBar, error) {
+	out := make([]domaintimeframe.TimeframeBar, 0, len(rows))
 	for _, row := range rows {
 		mapped, err := TimeframeBarFromRow(row)
 		if err != nil {

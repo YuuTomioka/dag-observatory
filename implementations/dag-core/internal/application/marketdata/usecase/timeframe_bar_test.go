@@ -6,6 +6,7 @@ import (
 
 	"dag-observatory/dag-core/internal/application/marketdata/repository"
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc/timeframe"
 )
 
 type fakeBackfillRepositories struct {
@@ -24,10 +25,6 @@ func (r fakeBackfillRepositories) Ticks() repository.TickRepository {
 
 func (r fakeBackfillRepositories) TimeframeBars() repository.TimeframeBarRepository {
 	return r.timeframeBars
-}
-
-func (r fakeBackfillRepositories) PhaseBars() repository.PhaseBarRepository {
-	return nil
 }
 
 type fakeBackfillUnitOfWork struct {
@@ -105,7 +102,7 @@ func (r fakeBackfillTickRepo) ListByRange(ctx context.Context, from marketdata.U
 
 type fakeBackfillTimeframeBarRepo struct {
 	deletes []deleteCall
-	bars    []marketdata.TimeframeBar
+	bars    []timeframe.TimeframeBar
 }
 
 type deleteCall struct {
@@ -113,7 +110,7 @@ type deleteCall struct {
 	to   marketdata.UTCTime
 }
 
-func (r *fakeBackfillTimeframeBarRepo) BulkUpsert(ctx context.Context, bars []marketdata.TimeframeBar) error {
+func (r *fakeBackfillTimeframeBarRepo) BulkUpsert(ctx context.Context, bars []timeframe.TimeframeBar) error {
 	r.bars = append(r.bars, bars...)
 	return nil
 }
@@ -121,7 +118,7 @@ func (r *fakeBackfillTimeframeBarRepo) BulkUpsert(ctx context.Context, bars []ma
 func (r *fakeBackfillTimeframeBarRepo) DeleteBySymbolTimeframeAndRange(
 	ctx context.Context,
 	symbolID marketdata.SymbolID,
-	timeframeCode marketdata.TimeframeCode,
+	timeframeCode timeframe.TimeframeCode,
 	from marketdata.UTCTime,
 	to marketdata.UTCTime,
 ) error {
@@ -132,18 +129,18 @@ func (r *fakeBackfillTimeframeBarRepo) DeleteBySymbolTimeframeAndRange(
 func (r *fakeBackfillTimeframeBarRepo) GetLatestBySymbolAndTimeframe(
 	ctx context.Context,
 	symbolID marketdata.SymbolID,
-	timeframeCode marketdata.TimeframeCode,
-) (marketdata.TimeframeBar, error) {
-	return marketdata.TimeframeBar{}, nil
+	timeframeCode timeframe.TimeframeCode,
+) (timeframe.TimeframeBar, error) {
+	return timeframe.TimeframeBar{}, nil
 }
 
 func (r *fakeBackfillTimeframeBarRepo) ListBySymbolTimeframeAndRange(
 	ctx context.Context,
 	symbolID marketdata.SymbolID,
-	timeframeCode marketdata.TimeframeCode,
+	timeframeCode timeframe.TimeframeCode,
 	from marketdata.UTCTime,
 	to marketdata.UTCTime,
-) ([]marketdata.TimeframeBar, error) {
+) ([]timeframe.TimeframeBar, error) {
 	return nil, nil
 }
 
@@ -170,7 +167,7 @@ func TestBackfillTimeframeBarsReplaceRange(t *testing.T) {
 	uc := BackfillTimeframeBars{UnitOfWork: uow}
 	result, err := uc.Execute(context.Background(), BackfillTimeframeBarsRequest{
 		SymbolCode:    "usdjpy",
-		TimeframeCode: marketdata.TimeframeM1,
+		TimeframeCode: timeframe.TimeframeM1,
 		From:          marketdata.MustParseUTCTime("2026-03-01T00:00:00Z"),
 		To:            marketdata.MustParseUTCTime("2026-03-01T00:02:00Z"),
 		ChunkSizeBars: 1,
@@ -211,7 +208,7 @@ func TestBuildBackfillChunksW1AcrossBoundary(t *testing.T) {
 	from := marketdata.MustParseUTCTime("2026-03-20T22:00:00Z")
 	to := marketdata.MustParseUTCTime("2026-04-03T22:00:00Z")
 
-	chunks := buildBackfillChunks(marketdata.TimeframeW1, from, to, 1)
+	chunks := buildBackfillChunks(timeframe.TimeframeW1, from, to, 1)
 	if len(chunks) != 2 {
 		t.Fatalf("expected 2 chunks, got %d", len(chunks))
 	}
@@ -235,7 +232,7 @@ func TestBuildBackfillChunksMN1AcrossBoundary(t *testing.T) {
 	from := marketdata.MustParseUTCTime("2026-02-28T22:00:00Z")
 	to := marketdata.MustParseUTCTime("2026-04-30T22:00:00Z")
 
-	chunks := buildBackfillChunks(marketdata.TimeframeMN1, from, to, 1)
+	chunks := buildBackfillChunks(timeframe.TimeframeMN1, from, to, 1)
 	if len(chunks) != 2 {
 		t.Fatalf("expected 2 chunks, got %d", len(chunks))
 	}

@@ -13,6 +13,7 @@ import (
 	"dag-observatory/dag-core/internal/domain/dagruntime/policy"
 	"dag-observatory/dag-core/internal/domain/dagruntime/state"
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc"
 	artifactinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/artifact"
 	stateinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/state"
 	"testing"
@@ -56,7 +57,7 @@ func TestPositionBreakevenAndSignalExitBasicIntegration(t *testing.T) {
 		Size:        1.0,
 		EntryPrice:  marketdata.NewPriceFromRaw(1000),
 	})
-	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []ohlc.OHLCV{
 		{
 			Open:  marketdata.NewPriceFromRaw(1000),
 			High:  marketdata.NewPriceFromRaw(1001),
@@ -194,7 +195,7 @@ func TestPositionCloseToClosedTradeRunProducesClosedTrade(t *testing.T) {
 		ShouldExit: true,
 		Reason:     "stop_loss_hit",
 	})
-	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []ohlc.OHLCV{
 		{
 			Opentime:  marketdata.MustParseUTCTime("2026-04-05T00:59:00Z"),
 			Closetime: marketdata.MustParseUTCTime("2026-04-05T01:00:00Z"),
@@ -592,7 +593,7 @@ func TestPositionTrailingStopRunProducesTighterDistance(t *testing.T) {
 		Size:        1.0,
 		EntryPrice:  marketdata.NewPriceFromRaw(1000),
 	})
-	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []ohlc.OHLCV{
 		{
 			Open:  marketdata.NewPriceFromRaw(1000),
 			High:  marketdata.NewPriceFromRaw(1030),

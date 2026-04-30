@@ -10,6 +10,8 @@ import (
 
 	dagruntimeusecase "dag-observatory/dag-core/internal/application/dagruntime/usecase"
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc/timeframe"
 	stateinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/state"
 
 	"github.com/labstack/echo/v4"
@@ -28,20 +30,20 @@ type fakeBacktestBarLister struct{}
 func (fakeBacktestBarLister) Execute(
 	ctx context.Context,
 	symbolID marketdata.SymbolID,
-	timeframeCode marketdata.TimeframeCode,
+	timeframeCode timeframe.TimeframeCode,
 	from marketdata.UTCTime,
 	to marketdata.UTCTime,
-) ([]marketdata.TimeframeBar, error) {
+) ([]timeframe.TimeframeBar, error) {
 	_ = ctx
 	_ = symbolID
 	_ = timeframeCode
 	_ = from
 	_ = to
-	return []marketdata.TimeframeBar{
+	return []timeframe.TimeframeBar{
 		{
 			SymbolID:      10,
 			TimeframeCode: "m1",
-			OHLCV: marketdata.OHLCV{
+			OHLCV: ohlc.OHLCV{
 				Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
 				Closetime: marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
 				Open:      marketdata.NewPriceFromRaw(1000),
@@ -54,7 +56,7 @@ func (fakeBacktestBarLister) Execute(
 		{
 			SymbolID:      10,
 			TimeframeCode: "m1",
-			OHLCV: marketdata.OHLCV{
+			OHLCV: ohlc.OHLCV{
 				Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
 				Closetime: marketdata.MustParseUTCTime("2026-04-01T00:02:00Z"),
 				Open:      marketdata.NewPriceFromRaw(1001),
@@ -67,7 +69,7 @@ func (fakeBacktestBarLister) Execute(
 		{
 			SymbolID:      10,
 			TimeframeCode: "m1",
-			OHLCV: marketdata.OHLCV{
+			OHLCV: ohlc.OHLCV{
 				Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:02:00Z"),
 				Closetime: marketdata.MustParseUTCTime("2026-04-01T00:03:00Z"),
 				Open:      marketdata.NewPriceFromRaw(1002),

@@ -5,6 +5,7 @@ import (
 
 	apprepository "dag-observatory/dag-core/internal/application/marketdata/repository"
 	domainmarketdata "dag-observatory/dag-core/internal/domain/marketdata"
+	domaintimeframe "dag-observatory/dag-core/internal/domain/marketdata/ohlc/timeframe"
 	"dag-observatory/dag-core/internal/infrastructure/persistence/tsdb"
 	mapper "dag-observatory/dag-core/internal/infrastructure/persistence/tsdb/mapper/marketdata"
 	query "dag-observatory/dag-core/internal/infrastructure/persistence/tsdb/query/gen"
@@ -26,7 +27,7 @@ func NewTimeframeBarRepositoryWithQuerier(queries query.Querier) *TimeframeBarRe
 	return &TimeframeBarRepository{queries: queries}
 }
 
-func (r *TimeframeBarRepository) BulkUpsert(ctx context.Context, bars []domainmarketdata.TimeframeBar) error {
+func (r *TimeframeBarRepository) BulkUpsert(ctx context.Context, bars []domaintimeframe.TimeframeBar) error {
 	if err := r.validate(); err != nil {
 		return err
 	}
@@ -43,7 +44,7 @@ func (r *TimeframeBarRepository) BulkUpsert(ctx context.Context, bars []domainma
 func (r *TimeframeBarRepository) DeleteBySymbolTimeframeAndRange(
 	ctx context.Context,
 	symbolID domainmarketdata.SymbolID,
-	timeframeCode domainmarketdata.TimeframeCode,
+	timeframeCode domaintimeframe.TimeframeCode,
 	from domainmarketdata.UTCTime,
 	to domainmarketdata.UTCTime,
 ) error {
@@ -60,17 +61,17 @@ func (r *TimeframeBarRepository) DeleteBySymbolTimeframeAndRange(
 func (r *TimeframeBarRepository) GetLatestBySymbolAndTimeframe(
 	ctx context.Context,
 	symbolID domainmarketdata.SymbolID,
-	timeframeCode domainmarketdata.TimeframeCode,
-) (domainmarketdata.TimeframeBar, error) {
+	timeframeCode domaintimeframe.TimeframeCode,
+) (domaintimeframe.TimeframeBar, error) {
 	if err := r.validate(); err != nil {
-		return domainmarketdata.TimeframeBar{}, err
+		return domaintimeframe.TimeframeBar{}, err
 	}
 	row, err := r.queries.GetLatestTimeframeBarBySymbolAndTimeframe(
 		ctx,
 		mapper.ToGetLatestTimeframeBarBySymbolAndTimeframeParams(symbolID, timeframeCode),
 	)
 	if err != nil {
-		return domainmarketdata.TimeframeBar{}, mapRepositoryError(err)
+		return domaintimeframe.TimeframeBar{}, mapRepositoryError(err)
 	}
 	return mapper.TimeframeBarFromRow(row)
 }
@@ -78,10 +79,10 @@ func (r *TimeframeBarRepository) GetLatestBySymbolAndTimeframe(
 func (r *TimeframeBarRepository) ListBySymbolTimeframeAndRange(
 	ctx context.Context,
 	symbolID domainmarketdata.SymbolID,
-	timeframeCode domainmarketdata.TimeframeCode,
+	timeframeCode domaintimeframe.TimeframeCode,
 	from domainmarketdata.UTCTime,
 	to domainmarketdata.UTCTime,
-) ([]domainmarketdata.TimeframeBar, error) {
+) ([]domaintimeframe.TimeframeBar, error) {
 	if err := r.validate(); err != nil {
 		return nil, err
 	}

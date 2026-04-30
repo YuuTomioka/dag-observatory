@@ -5,6 +5,7 @@ import (
 
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc"
 )
 
 func TestToInputMapFromStringMap(t *testing.T) {
@@ -86,7 +87,7 @@ func TestToInputMapFromStringMapWithOHLCVBars(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	bars, ok := inputs[InputKeyMarketOHLCVBars].([]marketdata.OHLCV)
+	bars, ok := inputs[InputKeyMarketOHLCVBars].([]ohlc.OHLCV)
 	if !ok {
 		t.Fatalf("expected market ohlcv bars to be mapped")
 	}
@@ -111,7 +112,7 @@ func TestToInputMapFromStringMapWithOHLCVBars(t *testing.T) {
 }
 
 func TestToInputMapFromPayloadEnvelopesWithOHLCVBars(t *testing.T) {
-	ohlcv := []marketdata.OHLCV{
+	ohlcv := []ohlc.OHLCV{
 		{
 			Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
 			Closetime: marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
@@ -140,7 +141,7 @@ func TestToInputMapFromPayloadEnvelopesWithOHLCVBars(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	bars, ok := inputs[InputKeyMarketOHLCVBars].([]marketdata.OHLCV)
+	bars, ok := inputs[InputKeyMarketOHLCVBars].([]ohlc.OHLCV)
 	if !ok || len(bars) != 1 {
 		t.Fatalf("expected market ohlcv bars from payload")
 	}
@@ -188,7 +189,7 @@ func TestToInputMapBridgeFromStringMapWithTickAndH1Bars(t *testing.T) {
 	if tick.Ask.Raw() != 1002 || tick.Bid.Raw() != 1000 {
 		t.Fatalf("unexpected tick mapped: %#v", tick)
 	}
-	barsH1, ok := inputs[InputKeyMarketOHLCVBarsH1].([]marketdata.OHLCV)
+	barsH1, ok := inputs[InputKeyMarketOHLCVBarsH1].([]ohlc.OHLCV)
 	if !ok || len(barsH1) != 1 {
 		t.Fatalf("expected market h1 bars to be mapped")
 	}
@@ -204,7 +205,7 @@ func TestToInputMapBridgeFromPayloadEnvelopesWithTickAndH1Bars(t *testing.T) {
 		Bid:      marketdata.NewPriceFromRaw(2000),
 		Ask:      marketdata.NewPriceFromRaw(2003),
 	}
-	h1 := []marketdata.OHLCV{
+	h1 := []ohlc.OHLCV{
 		{
 			Opentime:  marketdata.MustParseUTCTime("2026-04-02T00:00:00Z"),
 			Closetime: marketdata.MustParseUTCTime("2026-04-02T01:00:00Z"),
@@ -235,7 +236,7 @@ func TestToInputMapBridgeFromPayloadEnvelopesWithTickAndH1Bars(t *testing.T) {
 	if gotTick.SymbolID != 2 || gotTick.Ask.Raw() != 2003 {
 		t.Fatalf("unexpected tick from payload: %#v", gotTick)
 	}
-	gotH1, ok := inputs[InputKeyMarketOHLCVBarsH1].([]marketdata.OHLCV)
+	gotH1, ok := inputs[InputKeyMarketOHLCVBarsH1].([]ohlc.OHLCV)
 	if !ok || len(gotH1) != 1 {
 		t.Fatalf("expected market h1 bars from payload")
 	}

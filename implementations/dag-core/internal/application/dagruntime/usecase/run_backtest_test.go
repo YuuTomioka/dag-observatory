@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc/timeframe"
 )
 
 type fakeBacktestSymbolGetter struct {
@@ -21,17 +23,17 @@ func (f fakeBacktestSymbolGetter) Execute(ctx context.Context, code string) (mar
 }
 
 type fakeBacktestTimeframeBarLister struct {
-	out []marketdata.TimeframeBar
+	out []timeframe.TimeframeBar
 	err error
 }
 
 func (f fakeBacktestTimeframeBarLister) Execute(
 	ctx context.Context,
 	symbolID marketdata.SymbolID,
-	timeframeCode marketdata.TimeframeCode,
+	timeframeCode timeframe.TimeframeCode,
 	from marketdata.UTCTime,
 	to marketdata.UTCTime,
-) ([]marketdata.TimeframeBar, error) {
+) ([]timeframe.TimeframeBar, error) {
 	_ = ctx
 	_ = symbolID
 	_ = timeframeCode
@@ -81,11 +83,11 @@ func TestRunBacktestExecutionAssumptionsAffectSyntheticPnL(t *testing.T) {
 			out: marketdata.Symbol{ID: 100, Code: "USDJPY"},
 		},
 		ListTimeframeBars: fakeBacktestTimeframeBarLister{
-			out: []marketdata.TimeframeBar{
+			out: []timeframe.TimeframeBar{
 				{
 					SymbolID:      100,
 					TimeframeCode: "m1",
-					OHLCV: marketdata.OHLCV{
+					OHLCV: ohlc.OHLCV{
 						Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
 						Closetime: marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
 						Open:      marketdata.NewPriceFromRaw(1000),
@@ -200,11 +202,11 @@ func TestRunBacktestRunsPeriodLoopWithSlidingWindow(t *testing.T) {
 			out: marketdata.Symbol{ID: 42, Code: "USDJPY"},
 		},
 		ListTimeframeBars: fakeBacktestTimeframeBarLister{
-			out: []marketdata.TimeframeBar{
+			out: []timeframe.TimeframeBar{
 				{
 					SymbolID:      42,
 					TimeframeCode: "m1",
-					OHLCV: marketdata.OHLCV{
+					OHLCV: ohlc.OHLCV{
 						Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
 						Closetime: marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
 						Open:      marketdata.NewPriceFromRaw(1000),
@@ -217,7 +219,7 @@ func TestRunBacktestRunsPeriodLoopWithSlidingWindow(t *testing.T) {
 				{
 					SymbolID:      42,
 					TimeframeCode: "m1",
-					OHLCV: marketdata.OHLCV{
+					OHLCV: ohlc.OHLCV{
 						Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
 						Closetime: marketdata.MustParseUTCTime("2026-04-01T00:02:00Z"),
 						Open:      marketdata.NewPriceFromRaw(1001),
@@ -230,7 +232,7 @@ func TestRunBacktestRunsPeriodLoopWithSlidingWindow(t *testing.T) {
 				{
 					SymbolID:      42,
 					TimeframeCode: "m1",
-					OHLCV: marketdata.OHLCV{
+					OHLCV: ohlc.OHLCV{
 						Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:02:00Z"),
 						Closetime: marketdata.MustParseUTCTime("2026-04-01T00:03:00Z"),
 						Open:      marketdata.NewPriceFromRaw(1003),

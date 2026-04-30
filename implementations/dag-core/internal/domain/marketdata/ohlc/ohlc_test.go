@@ -1,12 +1,16 @@
-package marketdata
+package ohlc
 
-import "testing"
+import (
+	"testing"
+
+	marketdata "dag-observatory/dag-core/internal/domain/marketdata"
+)
 
 // TestOHLCVTrendAndFlags はローソク足方向判定と補助フラグの整合性を検証する。
 func TestOHLCVTrendAndFlags(t *testing.T) {
-	bull := OHLCV{Open: NewPriceFromRaw(100), Close: NewPriceFromRaw(110)}
-	bear := OHLCV{Open: NewPriceFromRaw(110), Close: NewPriceFromRaw(100)}
-	doji := OHLCV{Open: NewPriceFromRaw(100), Close: NewPriceFromRaw(100)}
+	bull := OHLCV{Open: marketdata.NewPriceFromRaw(100), Close: marketdata.NewPriceFromRaw(110)}
+	bear := OHLCV{Open: marketdata.NewPriceFromRaw(110), Close: marketdata.NewPriceFromRaw(100)}
+	doji := OHLCV{Open: marketdata.NewPriceFromRaw(100), Close: marketdata.NewPriceFromRaw(100)}
 
 	if got := bull.Trend(); got != CandleBullish {
 		t.Fatalf("bull trend mismatch: got=%v want=%v", got, CandleBullish)
@@ -33,10 +37,10 @@ func TestOHLCVTrendAndFlags(t *testing.T) {
 // TestOHLCVDeltas はレンジ・実体・上下ヒゲの差分計算を検証する。
 func TestOHLCVDeltas(t *testing.T) {
 	b := OHLCV{
-		Open:  NewPriceFromRaw(100),
-		High:  NewPriceFromRaw(125),
-		Low:   NewPriceFromRaw(90),
-		Close: NewPriceFromRaw(115),
+		Open:  marketdata.NewPriceFromRaw(100),
+		High:  marketdata.NewPriceFromRaw(125),
+		Low:   marketdata.NewPriceFromRaw(90),
+		Close: marketdata.NewPriceFromRaw(115),
 	}
 	if got := b.CandleDelta().Raw(); got != 35 {
 		t.Fatalf("CandleDelta mismatch: got=%d want=35", got)

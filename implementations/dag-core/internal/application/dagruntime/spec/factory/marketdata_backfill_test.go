@@ -9,6 +9,7 @@ import (
 	marketdatarepository "dag-observatory/dag-core/internal/application/marketdata/repository"
 	"dag-observatory/dag-core/internal/domain/dagruntime/artifact"
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc/timeframe"
 	artifactinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/artifact"
 	stateinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/state"
 )
@@ -29,10 +30,6 @@ func (r fakeFactoryRepositories) Ticks() marketdatarepository.TickRepository {
 
 func (r fakeFactoryRepositories) TimeframeBars() marketdatarepository.TimeframeBarRepository {
 	return r.timeframeBars
-}
-
-func (r fakeFactoryRepositories) PhaseBars() marketdatarepository.PhaseBarRepository {
-	return nil
 }
 
 type fakeFactoryUnitOfWork struct {
@@ -107,17 +104,17 @@ func (r fakeFactoryTickRepo) ListByRange(ctx context.Context, from marketdata.UT
 
 type fakeFactoryTimeframeBarRepo struct {
 	deletes []backfillChunk
-	bars    []marketdata.TimeframeBar
+	bars    []timeframe.TimeframeBar
 }
 
-func (r *fakeFactoryTimeframeBarRepo) BulkUpsert(ctx context.Context, bars []marketdata.TimeframeBar) error {
+func (r *fakeFactoryTimeframeBarRepo) BulkUpsert(ctx context.Context, bars []timeframe.TimeframeBar) error {
 	r.bars = append(r.bars, bars...)
 	return nil
 }
 func (r *fakeFactoryTimeframeBarRepo) DeleteBySymbolTimeframeAndRange(
 	ctx context.Context,
 	symbolID marketdata.SymbolID,
-	timeframeCode marketdata.TimeframeCode,
+	timeframeCode timeframe.TimeframeCode,
 	from marketdata.UTCTime,
 	to marketdata.UTCTime,
 ) error {
@@ -127,17 +124,17 @@ func (r *fakeFactoryTimeframeBarRepo) DeleteBySymbolTimeframeAndRange(
 func (r *fakeFactoryTimeframeBarRepo) GetLatestBySymbolAndTimeframe(
 	ctx context.Context,
 	symbolID marketdata.SymbolID,
-	timeframeCode marketdata.TimeframeCode,
-) (marketdata.TimeframeBar, error) {
-	return marketdata.TimeframeBar{}, nil
+	timeframeCode timeframe.TimeframeCode,
+) (timeframe.TimeframeBar, error) {
+	return timeframe.TimeframeBar{}, nil
 }
 func (r *fakeFactoryTimeframeBarRepo) ListBySymbolTimeframeAndRange(
 	ctx context.Context,
 	symbolID marketdata.SymbolID,
-	timeframeCode marketdata.TimeframeCode,
+	timeframeCode timeframe.TimeframeCode,
 	from marketdata.UTCTime,
 	to marketdata.UTCTime,
-) ([]marketdata.TimeframeBar, error) {
+) ([]timeframe.TimeframeBar, error) {
 	return nil, nil
 }
 

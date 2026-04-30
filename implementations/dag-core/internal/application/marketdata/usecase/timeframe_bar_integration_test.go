@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc/timeframe"
 	"dag-observatory/dag-core/internal/infrastructure/persistence/tsdb"
 	marketdatarepo "dag-observatory/dag-core/internal/infrastructure/persistence/tsdb/repository/marketdata"
 )
@@ -56,7 +57,7 @@ func TestBackfillTimeframeBarsPersistsToTSDB(t *testing.T) {
 
 	result, err := backfill.Execute(ctx, BackfillTimeframeBarsRequest{
 		SymbolCode:    code,
-		TimeframeCode: marketdata.TimeframeM1,
+		TimeframeCode: timeframe.TimeframeM1,
 		From:          marketdata.MustParseUTCTime("2026-03-01T00:00:00Z"),
 		To:            marketdata.MustParseUTCTime("2026-03-01T00:02:00Z"),
 		ChunkSizeBars: 1,
@@ -71,7 +72,7 @@ func TestBackfillTimeframeBarsPersistsToTSDB(t *testing.T) {
 	items, err := listBars.Execute(
 		ctx,
 		symbol.ID,
-		marketdata.TimeframeM1,
+		timeframe.TimeframeM1,
 		marketdata.MustParseUTCTime("2026-03-01T00:00:00Z"),
 		marketdata.MustParseUTCTime("2026-03-01T00:03:00Z"),
 	)
@@ -102,8 +103,8 @@ func TestBackfillTimeframeBarsPersistsToTSDB(t *testing.T) {
 	if got := int64(items[0].Volume); got != 2 {
 		t.Fatalf("expected first bar volume=2, got %d", got)
 	}
-	if items[0].Source != marketdata.TimeframeBarSourceTickBidAskMid {
-		t.Fatalf("expected first bar source=%q, got %q", marketdata.TimeframeBarSourceTickBidAskMid, items[0].Source)
+	if items[0].Source != timeframe.TimeframeBarSourceTickBidAskMid {
+		t.Fatalf("expected first bar source=%q, got %q", timeframe.TimeframeBarSourceTickBidAskMid, items[0].Source)
 	}
 }
 

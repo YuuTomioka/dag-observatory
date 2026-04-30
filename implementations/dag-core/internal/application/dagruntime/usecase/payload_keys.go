@@ -4,6 +4,7 @@ import (
 	"dag-observatory/dag-core/internal/domain/dagruntime/artifact"
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc"
 )
 
 var (
@@ -48,11 +49,11 @@ var (
 		Name:     "market_bars",
 		StableID: "event:input.market.bars.v1",
 	}
-	PayloadKeyMarketOHLCVBars = events.PayloadKey[[]marketdata.OHLCV]{
+	PayloadKeyMarketOHLCVBars = events.PayloadKey[[]ohlc.OHLCV]{
 		Name:     "market_ohlcv_bars",
 		StableID: "event:input.market.ohlcv_bars.v1",
 	}
-	PayloadKeyMarketOHLCVBarsH1 = events.PayloadKey[[]marketdata.OHLCV]{
+	PayloadKeyMarketOHLCVBarsH1 = events.PayloadKey[[]ohlc.OHLCV]{
 		Name:     "market_ohlcv_bars_h1",
 		StableID: "event:input.market.ohlcv_bars.h1.v1",
 	}
@@ -104,8 +105,8 @@ var (
 	InputKeySymbol               = artifact.Key[string]{Name: "symbol", StableID: "artifact:input.symbol.v1"}
 	InputKeyMode                 = artifact.Key[string]{Name: "mode", StableID: "artifact:input.mode.v1"}
 	InputKeyMarketBars           = artifact.Key[[]float64]{Name: "market.bars", StableID: "artifact:input.market.bars.v1"}
-	InputKeyMarketOHLCVBars      = artifact.Key[[]marketdata.OHLCV]{Name: "market.ohlcv_bars", StableID: "artifact:input.market.ohlcv_bars.v1"}
-	InputKeyMarketOHLCVBarsH1    = artifact.Key[[]marketdata.OHLCV]{Name: "market.ohlcv_bars.h1", StableID: "artifact:input.market.ohlcv_bars.h1.v1"}
+	InputKeyMarketOHLCVBars      = artifact.Key[[]ohlc.OHLCV]{Name: "market.ohlcv_bars", StableID: "artifact:input.market.ohlcv_bars.v1"}
+	InputKeyMarketOHLCVBarsH1    = artifact.Key[[]ohlc.OHLCV]{Name: "market.ohlcv_bars.h1", StableID: "artifact:input.market.ohlcv_bars.h1.v1"}
 	InputKeyMarketTick           = artifact.Key[marketdata.Tick]{Name: "market.tick", StableID: "artifact:input.market.tick.v1"}
 	InputKeyMarketSpreadBps      = artifact.Key[float64]{Name: "market.spread_bps", StableID: "artifact:input.market.spread_bps.v1"}
 	InputKeyExecutionFeeBps      = artifact.Key[float64]{Name: "execution.fee_bps", StableID: "artifact:input.execution.fee_bps.v1"}

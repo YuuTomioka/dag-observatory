@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	dagruntimeusecase "dag-observatory/dag-core/internal/application/dagruntime/usecase"
-	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc"
 	"dag-observatory/dag-core/internal/interface/http/algotrade/response"
 	"dag-observatory/dag-core/internal/interface/http/dto"
 
@@ -12,13 +12,13 @@ import (
 )
 
 type resultReflectionRunRequest struct {
-	Partition      string             `json:"partition"`
-	RunID          string             `json:"run_id,omitempty"`
-	Symbol         string             `json:"symbol,omitempty"`
-	Mode           string             `json:"mode,omitempty"`
-	OHLCVBars      []marketdata.OHLCV `json:"ohlcv_bars"`
-	SpreadBps      float64            `json:"spread_bps,omitempty"`
-	AccountBalance float64            `json:"account_balance,omitempty"`
+	Partition      string       `json:"partition"`
+	RunID          string       `json:"run_id,omitempty"`
+	Symbol         string       `json:"symbol,omitempty"`
+	Mode           string       `json:"mode,omitempty"`
+	OHLCVBars      []ohlc.OHLCV `json:"ohlcv_bars"`
+	SpreadBps      float64      `json:"spread_bps,omitempty"`
+	AccountBalance float64      `json:"account_balance,omitempty"`
 }
 
 // RunResultReflection

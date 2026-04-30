@@ -1,15 +1,17 @@
-package marketdata
+package ohlc
+
+import marketdata "dag-observatory/dag-core/internal/domain/marketdata"
 
 type OHLCV struct {
-	Opentime  UTCTime
-	Closetime UTCTime
-	Open      Price
-	High      Price
-	Hightime  UTCTime `json:"high_time"`
-	Low       Price
-	Lowtime   UTCTime `json:"low_time"`
-	Close     Price
-	Volume    Volume
+	Opentime  marketdata.UTCTime
+	Closetime marketdata.UTCTime
+	Open      marketdata.Price
+	High      marketdata.Price
+	Hightime  marketdata.UTCTime `json:"high_time"`
+	Low       marketdata.Price
+	Lowtime   marketdata.UTCTime `json:"low_time"`
+	Close     marketdata.Price
+	Volume    marketdata.Volume
 }
 
 type CandleTrend int8
@@ -50,17 +52,17 @@ func (b OHLCV) IsDoji() bool {
 }
 
 // CandleDelta は高値と安値の差分（足全体のレンジ）を返す。
-func (b OHLCV) CandleDelta() Price {
+func (b OHLCV) CandleDelta() marketdata.Price {
 	return b.High.Sub(b.Low).Abs()
 }
 
 // BodyDelta は始値と終値の差分（実体サイズ）を返す。
-func (b OHLCV) BodyDelta() Price {
+func (b OHLCV) BodyDelta() marketdata.Price {
 	return b.Close.Sub(b.Open).Abs()
 }
 
 // WickDelta は実体上端から高値までの差分（上ヒゲ）を返す。
-func (b OHLCV) WickDelta() Price {
+func (b OHLCV) WickDelta() marketdata.Price {
 	bodyTop := b.Open
 	if b.Close.Raw() > b.Open.Raw() {
 		bodyTop = b.Close
@@ -69,7 +71,7 @@ func (b OHLCV) WickDelta() Price {
 }
 
 // TailDelta は安値から実体下端までの差分（下ヒゲ）を返す。
-func (b OHLCV) TailDelta() Price {
+func (b OHLCV) TailDelta() marketdata.Price {
 	bodyBottom := b.Open
 	if b.Close.Raw() < b.Open.Raw() {
 		bodyBottom = b.Close

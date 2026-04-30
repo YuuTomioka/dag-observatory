@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc/timeframe"
 
 	"github.com/google/uuid"
 )
@@ -26,10 +28,10 @@ type BacktestTimeframeBarLister interface {
 	Execute(
 		ctx context.Context,
 		symbolID marketdata.SymbolID,
-		timeframeCode marketdata.TimeframeCode,
+		timeframeCode timeframe.TimeframeCode,
 		from marketdata.UTCTime,
 		to marketdata.UTCTime,
-	) ([]marketdata.TimeframeBar, error)
+	) ([]timeframe.TimeframeBar, error)
 }
 
 type BacktestWorkflowRunner interface {
@@ -92,7 +94,7 @@ func (u *RunBacktest) Execute(ctx context.Context, req RunBacktestRequest) (RunB
 	bars, err := u.ListTimeframeBars.Execute(
 		ctx,
 		symbol.ID,
-		marketdata.TimeframeCode(req.TimeframeCode),
+		timeframe.TimeframeCode(req.TimeframeCode),
 		req.From,
 		req.To,
 	)
@@ -124,7 +126,7 @@ func (u *RunBacktest) Execute(ctx context.Context, req RunBacktestRequest) (RunB
 		if end > windowSizeBars {
 			start = end - windowSizeBars
 		}
-		cycleBars := make([]marketdata.OHLCV, 0, end-start)
+		cycleBars := make([]ohlc.OHLCV, 0, end-start)
 		for _, bar := range bars[start:end] {
 			cycleBars = append(cycleBars, bar.OHLCV)
 		}

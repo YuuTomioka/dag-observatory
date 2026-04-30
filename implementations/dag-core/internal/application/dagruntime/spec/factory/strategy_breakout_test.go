@@ -8,6 +8,7 @@ import (
 	"dag-observatory/dag-core/internal/domain/dagruntime/artifact"
 	"dag-observatory/dag-core/internal/domain/dagruntime/state"
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc"
 	artifactinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/artifact"
 	stateinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/state"
 	"testing"
@@ -54,7 +55,7 @@ func TestBreakoutFilterAndRiskRun(t *testing.T) {
 	artifacts := artifactinfra.NewMemoryStore()
 	writer := artifacts
 	artifact.Set(writer, usecase.InputKeySymbol, "USDJPY")
-	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []ohlc.OHLCV{
 		{
 			Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
 			Closetime: marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
@@ -248,7 +249,7 @@ func TestFeatureATRRangeHighAndBreakoutRun(t *testing.T) {
 
 	artifacts := artifactinfra.NewMemoryStore()
 	writer := artifacts
-	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []ohlc.OHLCV{
 		{
 			Open:  marketdata.NewPriceFromRaw(1000),
 			High:  marketdata.NewPriceFromRaw(1005),
@@ -324,7 +325,7 @@ func TestFeatureHigherTFTrendRun(t *testing.T) {
 
 	artifacts := artifactinfra.NewMemoryStore()
 	writer := artifacts
-	artifact.Set(writer, inputKeyMarketOHLCVBarsH1, []marketdata.OHLCV{
+	artifact.Set(writer, inputKeyMarketOHLCVBarsH1, []ohlc.OHLCV{
 		{
 			Open:  marketdata.NewPriceFromRaw(1000),
 			Close: marketdata.NewPriceFromRaw(1002),
@@ -389,7 +390,7 @@ func TestFeatureRangeLowAndBreakoutShortRun(t *testing.T) {
 
 	artifacts := artifactinfra.NewMemoryStore()
 	writer := artifacts
-	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []ohlc.OHLCV{
 		{
 			Open:  marketdata.NewPriceFromRaw(1000),
 			High:  marketdata.NewPriceFromRaw(1005),
@@ -474,7 +475,7 @@ func TestFeatureSpreadAndSessionStateRun(t *testing.T) {
 	artifacts := artifactinfra.NewMemoryStore()
 	writer := artifacts
 	artifact.Set(writer, usecase.InputKeyMarketSpreadBps, 1.8)
-	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []ohlc.OHLCV{
 		{
 			Opentime:  marketdata.MustParseUTCTime("2026-04-01T07:00:00Z"),
 			Closetime: marketdata.MustParseUTCTime("2026-04-01T07:01:00Z"),
@@ -688,7 +689,7 @@ func TestFilterSessionReturnsBlockReason(t *testing.T) {
 
 	artifacts := artifactinfra.NewMemoryStore()
 	writer := artifacts
-	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []ohlc.OHLCV{
 		{
 			Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
 			Closetime: marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
@@ -769,7 +770,7 @@ func TestFilterSpreadReturnsBlockReason(t *testing.T) {
 
 	artifacts := artifactinfra.NewMemoryStore()
 	writer := artifacts
-	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []ohlc.OHLCV{
 		{
 			Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
 			Closetime: marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
@@ -888,7 +889,7 @@ func TestMarketInputBridgeNodesRun(t *testing.T) {
 		Bid:      marketdata.NewPriceFromRaw(1000),
 		Ask:      marketdata.NewPriceFromRaw(1002),
 	})
-	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []ohlc.OHLCV{
 		{
 			Open:  marketdata.NewPriceFromRaw(1000),
 			High:  marketdata.NewPriceFromRaw(1005),
@@ -896,7 +897,7 @@ func TestMarketInputBridgeNodesRun(t *testing.T) {
 			Close: marketdata.NewPriceFromRaw(1004),
 		},
 	})
-	artifact.Set(writer, inputKeyMarketOHLCVBarsH1, []marketdata.OHLCV{
+	artifact.Set(writer, inputKeyMarketOHLCVBarsH1, []ohlc.OHLCV{
 		{
 			Open:  marketdata.NewPriceFromRaw(990),
 			High:  marketdata.NewPriceFromRaw(1010),
@@ -1052,7 +1053,7 @@ func TestRiskStopLossAndTakeProfitRun(t *testing.T) {
 
 	artifacts := artifactinfra.NewMemoryStore()
 	writer := artifacts
-	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []ohlc.OHLCV{
 		{
 			Open:  marketdata.NewPriceFromRaw(1000),
 			High:  marketdata.NewPriceFromRaw(1005),
@@ -1204,7 +1205,7 @@ func TestSignalExitBasicRun(t *testing.T) {
 		EntryPrice:  marketdata.NewPriceFromRaw(1000),
 	})
 	artifact.Set(writer, riskStopLossDistanceOutputKey("sizing"), marketdata.NewPriceFromRaw(50))
-	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []ohlc.OHLCV{
 		{
 			Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
 			Closetime: marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),

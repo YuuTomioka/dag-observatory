@@ -13,6 +13,7 @@ import (
 	"dag-observatory/dag-core/internal/domain/dagruntime/policy"
 	"dag-observatory/dag-core/internal/domain/dagruntime/state"
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc"
 	artifactinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/artifact"
 	stateinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/state"
 )
@@ -175,7 +176,7 @@ func TestBuildRunEventWithMarketOHLCVBars(t *testing.T) {
 		RunID:  "ohlcv-run",
 		Symbol: "USDJPY",
 		Mode:   "normal",
-		OHLCVBars: []marketdata.OHLCV{
+		OHLCVBars: []ohlc.OHLCV{
 			{
 				Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
 				Closetime: marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),

@@ -1,6 +1,9 @@
 package usecase
 
-import "dag-observatory/dag-core/internal/domain/marketdata"
+import (
+	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc"
+)
 
 type MarketdataRunInput struct {
 	SymbolID      int64
@@ -15,7 +18,7 @@ type RunWorkflowRequest struct {
 	Mode            string
 	Partition       string
 	Bars            []float64
-	OHLCVBars       []marketdata.OHLCV
+	OHLCVBars       []ohlc.OHLCV
 	SpreadBps       float64
 	FeeBps          float64
 	SlippageBps     float64

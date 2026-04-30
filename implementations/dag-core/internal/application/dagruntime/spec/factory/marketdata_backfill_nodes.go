@@ -10,6 +10,7 @@ import (
 	"dag-observatory/dag-core/internal/domain/dagruntime/node"
 	"dag-observatory/dag-core/internal/domain/dagruntime/state"
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc/timeframe"
 )
 
 type timeframeBarBackfillNode struct {
@@ -49,7 +50,7 @@ func (n *timeframeBarBackfillNode) Run(
 ) error {
 	_ = txn
 	req := marketdatausecase.BackfillTimeframeBarsRequest{
-		TimeframeCode: marketdata.TimeframeCode(artifact.MustGet(av, dagruntimeusecase.InputKeyMarketdataTimeframeCode)),
+		TimeframeCode: timeframe.TimeframeCode(artifact.MustGet(av, dagruntimeusecase.InputKeyMarketdataTimeframeCode)),
 		From:          artifact.MustGet(av, dagruntimeusecase.InputKeyMarketdataFrom),
 		To:            artifact.MustGet(av, dagruntimeusecase.InputKeyMarketdataTo),
 		Mode:          n.mode,
@@ -214,7 +215,7 @@ func (n *aggregateTimeframeBarsNode) Run(ctx context.Context, av artifact.View, 
 	for _, chunk := range loaded.Chunks {
 		aggregated.Chunks = append(aggregated.Chunks, timeframeBarAggregatedChunk{
 			backfillChunk: chunk.backfillChunk,
-			Bars: marketdata.AggregateTimeframeBars(
+			Bars: timeframe.AggregateTimeframeBars(
 				loaded.Resolved.TimeframeCode,
 				loaded.Resolved.SymbolID,
 				chunk.Ticks,
@@ -292,7 +293,7 @@ func (n *persistTimeframeBarsNode) Run(ctx context.Context, av artifact.View, aw
 type resolvedMarketdataInput struct {
 	SymbolID      marketdata.SymbolID
 	SymbolCode    string
-	TimeframeCode marketdata.TimeframeCode
+	TimeframeCode timeframe.TimeframeCode
 	From          marketdata.UTCTime
 	To            marketdata.UTCTime
 }
@@ -314,7 +315,7 @@ type timeframeBarLoadedPlan struct {
 
 type timeframeBarAggregatedChunk struct {
 	backfillChunk
-	Bars []marketdata.TimeframeBar
+	Bars []timeframe.TimeframeBar
 }
 
 type timeframeBarAggregatedPlan struct {

@@ -1,7 +1,11 @@
-package marketdata
+package timeframe
 
 import (
+	"fmt"
 	"time"
+
+	marketdata "dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc"
 )
 
 type TimeframeCode string
@@ -36,6 +40,20 @@ var TimeframeDefs = map[TimeframeCode]TimeframeDef{
 	TimeframeMN1: {Code: TimeframeMN1, Duration: 30 * 24 * time.Hour},
 }
 
+const TimeframeBarSourceTickBidAskMid = "tick_bid_ask_mid"
+
+type TimeframeBar struct {
+	SymbolID      marketdata.SymbolID
+	TimeframeCode TimeframeCode
+
+	ohlc.OHLCV
+	Source string
+}
+
+func (b TimeframeBar) IsZero() bool {
+	return b.SymbolID == 0 || b.TimeframeCode == "" || b.Opentime.IsZero() || b.Closetime.IsZero()
+}
+
 // Def は TimeframeCode に対応する定義を返す。未定義コードは panic する。
 func (c TimeframeCode) Def() TimeframeDef {
 	def, ok := TimeframeDefs[c]
@@ -64,22 +82,93 @@ var sessionOffset = 22 * time.Hour
 var jst = time.FixedZone("Asia/Tokyo", 9*60*60)
 
 // Window は指定時刻 t が属する足の [open, close) を返す。
-func (c TimeframeCode) Window(t UTCTime) (open UTCTime, close UTCTime) {
+func (c TimeframeCode) Window(t marketdata.UTCTime) (open marketdata.UTCTime, close marketdata.UTCTime) {
 	base := t.Time().UTC()
 
 	switch c {
 	case TimeframeW1:
 		openUTC, closeUTC := week1Window(base)
-		return NewUTCTime(openUTC), NewUTCTime(closeUTC)
+		return marketdata.NewUTCTime(openUTC), marketdata.NewUTCTime(closeUTC)
 
 	case TimeframeMN1:
 		openUTC, closeUTC := month1Window(base)
-		return NewUTCTime(openUTC), NewUTCTime(closeUTC)
+		return marketdata.NewUTCTime(openUTC), marketdata.NewUTCTime(closeUTC)
 
 	default:
 		openUTC, closeUTC := intradayWindow(c, base)
-		return NewUTCTime(openUTC), NewUTCTime(closeUTC)
+		return marketdata.NewUTCTime(openUTC), marketdata.NewUTCTime(closeUTC)
 	}
+}
+
+// BackfillRange expands [from, to) into the bar-open range that covers all
+// windows overlapping the requested tick range.
+func (c TimeframeCode) BackfillRange(from, to marketdata.UTCTime) (marketdata.UTCTime, marketdata.UTCTime, error) {
+	if from.IsZero() || to.IsZero() {
+		return marketdata.UTCTime{}, marketdata.UTCTime{}, fmt.Errorf("marketdata timeframe backfill range: from/to are required")
+	}
+	if !from.Before(to) {
+		return marketdata.UTCTime{}, marketdata.UTCTime{}, fmt.Errorf("marketdata timeframe backfill range: from must be before to")
+	}
+	open, _ := c.Window(from)
+	lastInstant := to.Add(-time.Nanosecond)
+	_, close := c.Window(lastInstant)
+	return open, close, nil
+}
+
+func AggregateTimeframeBars(
+	timeframeCode TimeframeCode,
+	symbolID marketdata.SymbolID,
+	ticks []marketdata.Tick,
+) []TimeframeBar {
+	if len(ticks) == 0 {
+		return nil
+	}
+
+	bars := make([]TimeframeBar, 0)
+	var current *TimeframeBar
+
+	for _, tick := range ticks {
+		openTime, closeTime := timeframeCode.Window(tick.Time)
+		mid := tick.Bid.Add(tick.Ask).DivInt(2)
+		if current == nil || !current.Opentime.Equal(openTime) {
+			if current != nil {
+				bars = append(bars, *current)
+			}
+			current = &TimeframeBar{
+				TimeframeCode: timeframeCode,
+				SymbolID:      symbolID,
+				OHLCV: ohlc.OHLCV{
+					Opentime:  openTime,
+					Closetime: closeTime,
+					Open:      mid,
+					High:      tick.Ask,
+					Hightime:  tick.Time,
+					Low:       tick.Bid,
+					Lowtime:   tick.Time,
+					Close:     mid,
+					Volume:    1,
+				},
+				Source: TimeframeBarSourceTickBidAskMid,
+			}
+			continue
+		}
+
+		if tick.Ask.Gt(current.High) || tick.Ask.Eq(current.High) {
+			current.High = tick.Ask
+			current.Hightime = tick.Time
+		}
+		if tick.Bid.Lt(current.Low) || tick.Bid.Eq(current.Low) {
+			current.Low = tick.Bid
+			current.Lowtime = tick.Time
+		}
+		current.Close = mid
+		current.Volume = current.Volume.Add(1)
+	}
+
+	if current != nil {
+		bars = append(bars, *current)
+	}
+	return bars
 }
 
 // intradayWindow は M1〜H4/D1 向けに、22:00 UTC 起点で時刻をバケット化する。

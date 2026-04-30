@@ -14,6 +14,7 @@ import (
 	marketdatausecase "dag-observatory/dag-core/internal/application/marketdata/usecase"
 	"dag-observatory/dag-core/internal/domain/dagruntime/events"
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc/timeframe"
 	"dag-observatory/dag-core/internal/infrastructure/observability/applog"
 
 	"github.com/labstack/echo/v4"
@@ -35,10 +36,6 @@ func (r e2eMarketdataRepositories) Ticks() marketdatarepo.TickRepository {
 
 func (r e2eMarketdataRepositories) TimeframeBars() marketdatarepo.TimeframeBarRepository {
 	return r.timeframeBars
-}
-
-func (r e2eMarketdataRepositories) PhaseBars() marketdatarepo.PhaseBarRepository {
-	return nil
 }
 
 type e2eMarketdataUnitOfWork struct {
@@ -115,10 +112,10 @@ func (r e2eTickRepo) ListByRange(ctx context.Context, from marketdata.UTCTime, t
 }
 
 type e2eTimeframeBarRepo struct {
-	bars []marketdata.TimeframeBar
+	bars []timeframe.TimeframeBar
 }
 
-func (r *e2eTimeframeBarRepo) BulkUpsert(ctx context.Context, bars []marketdata.TimeframeBar) error {
+func (r *e2eTimeframeBarRepo) BulkUpsert(ctx context.Context, bars []timeframe.TimeframeBar) error {
 	r.bars = append(r.bars, bars...)
 	return nil
 }
@@ -126,7 +123,7 @@ func (r *e2eTimeframeBarRepo) BulkUpsert(ctx context.Context, bars []marketdata.
 func (r *e2eTimeframeBarRepo) DeleteBySymbolTimeframeAndRange(
 	ctx context.Context,
 	symbolID marketdata.SymbolID,
-	timeframeCode marketdata.TimeframeCode,
+	timeframeCode timeframe.TimeframeCode,
 	from marketdata.UTCTime,
 	to marketdata.UTCTime,
 ) error {
@@ -136,18 +133,18 @@ func (r *e2eTimeframeBarRepo) DeleteBySymbolTimeframeAndRange(
 func (r *e2eTimeframeBarRepo) GetLatestBySymbolAndTimeframe(
 	ctx context.Context,
 	symbolID marketdata.SymbolID,
-	timeframeCode marketdata.TimeframeCode,
-) (marketdata.TimeframeBar, error) {
-	return marketdata.TimeframeBar{}, nil
+	timeframeCode timeframe.TimeframeCode,
+) (timeframe.TimeframeBar, error) {
+	return timeframe.TimeframeBar{}, nil
 }
 
 func (r *e2eTimeframeBarRepo) ListBySymbolTimeframeAndRange(
 	ctx context.Context,
 	symbolID marketdata.SymbolID,
-	timeframeCode marketdata.TimeframeCode,
+	timeframeCode timeframe.TimeframeCode,
 	from marketdata.UTCTime,
 	to marketdata.UTCTime,
-) ([]marketdata.TimeframeBar, error) {
+) ([]timeframe.TimeframeBar, error) {
 	return nil, nil
 }
 

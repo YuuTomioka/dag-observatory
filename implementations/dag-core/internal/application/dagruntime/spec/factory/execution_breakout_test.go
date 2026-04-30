@@ -8,6 +8,7 @@ import (
 	"dag-observatory/dag-core/internal/domain/dagruntime/artifact"
 	"dag-observatory/dag-core/internal/domain/dagruntime/state"
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc"
 	artifactinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/artifact"
 	stateinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/state"
 	"testing"
@@ -38,7 +39,7 @@ func TestDecisionOrderPositionArtifactTraceRegression(t *testing.T) {
 	artifacts := artifactinfra.NewMemoryStore()
 	writer := artifacts
 	artifact.Set(writer, usecase.InputKeySymbol, "USDJPY")
-	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []ohlc.OHLCV{
 		{
 			Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
 			Closetime: marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),
@@ -154,7 +155,7 @@ func TestExecutionConfirmFillRunMovesPendingToOpenPosition(t *testing.T) {
 		Reason:    "submitted",
 		SourceID:  "buy:entry_allowed:0.70000000:20",
 	})
-	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []ohlc.OHLCV{
 		{
 			Open:  marketdata.NewPriceFromRaw(1000),
 			High:  marketdata.NewPriceFromRaw(1008),
@@ -255,7 +256,7 @@ func TestExecutionConfirmFillRerunDoesNotDuplicateOpenPosition(t *testing.T) {
 		Reason:    "submitted",
 		SourceID:  "intent:intent:decision:USDJPY:buy:2026-04-01T00:04:00Z",
 	})
-	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []ohlc.OHLCV{
 		{
 			Open:  marketdata.NewPriceFromRaw(1000),
 			High:  marketdata.NewPriceFromRaw(1008),

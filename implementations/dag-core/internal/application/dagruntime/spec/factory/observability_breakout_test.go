@@ -7,6 +7,7 @@ import (
 	"dag-observatory/dag-core/internal/domain/algotrade"
 	"dag-observatory/dag-core/internal/domain/dagruntime/artifact"
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc"
 	artifactinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/artifact"
 	stateinfra "dag-observatory/dag-core/internal/infrastructure/dagruntime/state"
 	"testing"
@@ -132,7 +133,7 @@ func TestSignalDecisionAndObservabilityWithoutExecutionNodes(t *testing.T) {
 
 	artifacts := artifactinfra.NewMemoryStore()
 	writer := artifacts
-	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []marketdata.OHLCV{
+	artifact.Set(writer, usecase.InputKeyMarketOHLCVBars, []ohlc.OHLCV{
 		{
 			Opentime:  marketdata.MustParseUTCTime("2026-04-01T00:00:00Z"),
 			Closetime: marketdata.MustParseUTCTime("2026-04-01T00:01:00Z"),

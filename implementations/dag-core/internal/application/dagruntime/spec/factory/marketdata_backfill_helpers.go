@@ -10,10 +10,11 @@ import (
 	marketdatausecase "dag-observatory/dag-core/internal/application/marketdata/usecase"
 	"dag-observatory/dag-core/internal/domain/dagruntime/artifact"
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc/timeframe"
 )
 
 func normalizeResolvedMarketdataInput(av artifact.View) (resolvedMarketdataInput, error) {
-	timeframeCode := marketdata.TimeframeCode(artifact.MustGet(av, dagruntimeusecase.InputKeyMarketdataTimeframeCode))
+	timeframeCode := timeframe.TimeframeCode(artifact.MustGet(av, dagruntimeusecase.InputKeyMarketdataTimeframeCode))
 	from := artifact.MustGet(av, dagruntimeusecase.InputKeyMarketdataFrom)
 	to := artifact.MustGet(av, dagruntimeusecase.InputKeyMarketdataTo)
 
@@ -25,7 +26,7 @@ func normalizeResolvedMarketdataInput(av artifact.View) (resolvedMarketdataInput
 		symbolID = marketdata.SymbolID(rawID)
 	}
 
-	if _, ok := marketdata.TimeframeDefs[timeframeCode]; !ok {
+	if _, ok := timeframe.TimeframeDefs[timeframeCode]; !ok {
 		return resolvedMarketdataInput{}, fmt.Errorf("%w: timeframe_code %q is not supported", marketdatarepository.ErrInvalidArgument, timeframeCode)
 	}
 	if from.IsZero() || to.IsZero() {
@@ -76,7 +77,7 @@ func resolveMarketdataSymbolID(
 }
 
 func buildBackfillPlanChunks(
-	timeframeCode marketdata.TimeframeCode,
+	timeframeCode timeframe.TimeframeCode,
 	from marketdata.UTCTime,
 	to marketdata.UTCTime,
 	chunkSizeBars int,

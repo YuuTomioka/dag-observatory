@@ -6,6 +6,7 @@ import (
 	dagruntimeusecase "dag-observatory/dag-core/internal/application/dagruntime/usecase"
 	marketdatausecase "dag-observatory/dag-core/internal/application/marketdata/usecase"
 	"dag-observatory/dag-core/internal/domain/marketdata"
+	"dag-observatory/dag-core/internal/domain/marketdata/ohlc/timeframe"
 	"dag-observatory/dag-core/internal/interface/http/dto"
 	"dag-observatory/dag-core/internal/interface/http/marketdata/request"
 	"dag-observatory/dag-core/internal/interface/http/marketdata/response"
@@ -46,7 +47,7 @@ func (h *Handlers) BackfillTimeframeBars(c echo.Context) error {
 	result, err := h.backfillTimeframeBars.Execute(c.Request().Context(), marketdatausecase.BackfillTimeframeBarsRequest{
 		SymbolID:      marketdata.SymbolID(req.SymbolID),
 		SymbolCode:    req.SymbolCode,
-		TimeframeCode: marketdata.TimeframeCode(req.TimeframeCode),
+		TimeframeCode: timeframe.TimeframeCode(req.TimeframeCode),
 		From:          req.From,
 		To:            req.To,
 		Mode:          marketdatausecase.BackfillMode(req.Mode),
